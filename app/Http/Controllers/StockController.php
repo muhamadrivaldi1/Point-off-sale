@@ -8,25 +8,56 @@ use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
+    /* ===============================
+       LIST STOK
+    =============================== */
     public function index()
     {
-        return view('stocks.index', [
-            'stocks' => Stock::with('unit.product')->get()
-        ]);
+        $stocks = Stock::with('unit.product')
+        ->whereHas('unit')
+        ->get();
+        return view('stocks.index', compact('stocks'));
     }
 
+    /* ===============================
+       TRANSFER GUDANG → TOKO
+    =============================== */
     public function transfer(Request $r)
     {
-        if ($r->qty <= 0) abort(400);
+        $r->validate([
+            'unit_id' => 'required|exists:product_units,id',
+            'qty'     => 'required|numeric|min:1'
+        ]);
 
-        Stock::where([
-            'product_unit_id' => $r->unit_id,
-            'location' => 'gudang'
-        ])->decrement('qty', $r->qty);
+        DB::transaction(function () use ($r) {
 
-        Stock::updateOrCreate(
-            ['product_unit_id'=>$r->unit_id,'location'=>'toko'],
-            ['qty'=>DB::raw("qty+$r->qty")]
-        );
+            $gudang = Stock::where([
+                'product_unit_id' => $r->unit_id,
+                'location' => 'gudang'
+            ])->lockForUpdate()->first();
+
+            if (!$gudang || $gudang->qty < $r->qty) {
+                abort(400, 'Stok gudang tidak mencukupi');
+            }
+
+            // kurangi gudang
+            $gudang->decrement('qty', $r->qty);
+
+            // tambah / buat stok toko
+            Stock::updateOrCreate(
+                [
+                    'product_unit_id' => $r->unit_id,
+                    'location' => 'toko'
+                ],
+                [
+                    'qty' => DB::raw('qty + '.$r->qty)
+                ]
+            );
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Transfer stok berhasil'
+        ]);
     }
 }

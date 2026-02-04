@@ -6,12 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
-    protected $fillable = [
+     protected $fillable = [
         'trx_number',
         'user_id',
         'total',
+        'discount',
         'paid',
         'change',
+        'payment_method',
         'status'
     ];
 
@@ -23,5 +25,10 @@ class Transaction extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function requests()
+    {
+        return $this->hasMany(TransactionRequest::class);
     }
 }

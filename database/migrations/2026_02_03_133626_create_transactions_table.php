@@ -14,11 +14,15 @@ return new class extends Migration
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->string('trx_number')->unique();
-            $table->foreignId('user_id')->constrained();
-            $table->decimal('total', 15, 2);
+            $table->foreignId('user_id')
+                  ->constrained()
+                  ->cascadeOnDelete();
+            $table->decimal('total', 15, 2)->default(0);
+            $table->decimal('discount', 15, 2)->default(0);
             $table->decimal('paid', 15, 2)->nullable();
             $table->decimal('change', 15, 2)->nullable();
-            $table->enum('status', ['pending', 'paid', 'cancelled']);
+            $table->string('payment_method')->nullable();
+            $table->enum('status', ['pending','paid','cancelled'])->default('pending');
             $table->timestamps();
         });
     }

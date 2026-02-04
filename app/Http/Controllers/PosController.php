@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
-
 class PosController extends Controller
 {
     /* ===============================
@@ -18,22 +17,22 @@ class PosController extends Controller
     =============================== */
     public function index()
     {
-        return view('pos.index');
-    }
+        $trx = Transaction::firstOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'status'  => 'pending'
+            ],
+            [
+                'trx_number' => 'TRX-' . now()->format('YmdHis'),
+                'total'  => 0,
+                'paid'   => 0,
+                'change' => 0
+            ]
+        );
 
-    /* ===============================
-       MULAI TRANSAKSI BARU
-    =============================== */
-    public function start()
-    {
-        $trx = Transaction::create([
-            'trx_number' => 'TRX-' . now()->format('YmdHis'),
-            'user_id' => Auth::id(),
-            'total' => 0,
-            'status' => 'pending'
-        ]);
+        $trx->load('items.unit.product');
 
-        return response()->json($trx);
+        return view('pos.index', compact('trx'));
     }
 
     /* ===============================
@@ -41,91 +40,157 @@ class PosController extends Controller
     =============================== */
     public function scan(Request $request)
     {
-        $unit = ProductUnit::with(['product','priceRules','stock'])
+        $request->validate(['barcode' => 'required']);
+
+        $unit = ProductUnit::with('product', 'stock')
             ->where('barcode', $request->barcode)
-            ->first();
-
-        if (!$unit) {
-            return response()->json(['error' => 'Produk tidak ditemukan'], 404);
-        }
-
-        $stokToko = $unit->stock
-            ->where('location', 'toko')
-            ->sum('qty');
+            ->firstOrFail();
 
         return response()->json([
-            'unit' => $unit,
-            'stok' => $stokToko
+            'id'     => $unit->id,
+            'name'   => $unit->product->name,
+            'price'  => $unit->price,
+            'stocks' => $unit->stock->map(fn($s) => [
+                'location' => $s->location,
+                'qty' => $s->qty
+            ])
         ]);
     }
 
     /* ===============================
-       HITUNG HARGA BERTINGKAT
+       SEARCH MANUAL
     =============================== */
-    private function getPriceByQty(ProductUnit $unit, int $qty)
+    public function search(Request $request)
     {
-        return $unit->priceRules()
-            ->where('min_qty', '<=', $qty)
-            ->orderBy('min_qty', 'desc')
-            ->value('price') ?? $unit->price;
+        return ProductUnit::with('product', 'stock')
+            ->whereHas(
+                'product',
+                fn($q) =>
+                $q->where('name', 'like', '%' . $request->q . '%')
+            )
+            ->limit(5)
+            ->get()
+            ->map(fn($u) => [
+                'id' => $u->id,
+                'name' => $u->product->name,
+                'price' => $u->price,
+                'stocks' => $u->stock->map(fn($s) => [
+                    'location' => $s->location,
+                    'qty' => $s->qty
+                ])
+            ]);
     }
 
     /* ===============================
-       TAMBAH ITEM KE TRANSAKSI
+       ADD ITEM
     =============================== */
     public function addItem(Request $request)
     {
-        $trx = Transaction::findOrFail($request->transaction_id);
-        $unit = ProductUnit::with('stock','priceRules')->findOrFail($request->product_unit_id);
+        $request->validate([
+            'product_unit_id' => 'required|exists:product_units,id'
+        ]);
 
-        $stokToko = $unit->stock
-            ->where('location','toko')
+        $trx = Transaction::where('user_id', Auth::id())
+            ->where('status', 'pending')
+            ->firstOrFail();
+
+        $unit = ProductUnit::with('stock')->findOrFail($request->product_unit_id);
+
+        $stokToko = $unit->stock()
+            ->where('location', 'toko')
             ->sum('qty');
 
-        // stok habis → perlu ACC
-        if ($stokToko < $request->qty && !session('stock_override')) {
-            return response()->json([
-                'need_approval' => true,
-                'message' => 'Stok tidak cukup, perlu ACC supervisor'
-            ], 403);
+        $item = TransactionItem::firstOrCreate(
+            [
+                'transaction_id' => $trx->id,
+                'product_unit_id' => $unit->id
+            ],
+            [
+                'qty' => 0,
+                'price' => $unit->price,
+                'subtotal' => 0
+            ]
+        );
+
+        if ($item->qty + 1 > $stokToko) {
+            abort(422, 'Stok tidak cukup');
         }
 
-        $price = $this->getPriceByQty($unit, $request->qty);
+        $item->qty++;
+        $item->subtotal = $item->qty * $item->price;
+        $item->save();
 
-        $item = TransactionItem::create([
-            'transaction_id' => $trx->id,
-            'product_unit_id' => $unit->id,
-            'qty' => $request->qty,
-            'price' => $price,
-            'subtotal' => $price * $request->qty,
-            'verified' => false
+        $trx->update([
+            'total' => $trx->items()->sum('subtotal')
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /* ===============================
+       UPDATE QTY (+ / -)
+    =============================== */
+    public function updateQty(Request $request)
+    {
+        $request->validate([
+            'item_id' => 'required|exists:transaction_items,id',
+            'type' => 'required|in:plus,minus'
+        ]);
+
+        $item = TransactionItem::with('unit.stock')->findOrFail($request->item_id);
+        $trx  = Transaction::where('id', $item->transaction_id)
+            ->where('status', 'pending')
+            ->firstOrFail();
+
+        $stokToko = $item->unit->stock()
+            ->where('location', 'toko')
+            ->sum('qty');
+
+        if ($request->type === 'plus') {
+            if ($item->qty + 1 > $stokToko) {
+                abort(422, 'Stok tidak cukup');
+            }
+            $item->qty++;
+        } else {
+            $item->qty--;
+            if ($item->qty <= 0) {
+                $item->delete();
+                $trx->update(['total' => $trx->items()->sum('subtotal')]);
+                return response()->json(['success' => true]);
+            }
+        }
+
+        $item->update([
+            'subtotal' => $item->qty * $item->price
         ]);
 
         $trx->update([
             'total' => $trx->items()->sum('subtotal')
         ]);
 
-        return response()->json($item);
-    }
-
-    /* ===============================
-       VERIFIKASI BARANG
-    =============================== */
-    public function verify(Request $request)
-    {
-        TransactionItem::whereIn('id', $request->items)
-            ->update(['verified' => true]);
-
         return response()->json(['success' => true]);
     }
 
     /* ===============================
-       PEMBAYARAN
+       PAY
     =============================== */
     public function pay(Request $request)
     {
-        DB::transaction(function () use ($request) {
-            $trx = Transaction::with('items')->findOrFail($request->transaction_id);
+        $request->validate([
+            'paid' => 'required|numeric|min:0'
+        ]);
+
+        $invoice = null;
+
+        DB::transaction(function () use ($request, &$invoice) {
+
+            $trx = Transaction::with('items')
+                ->where('user_id', Auth::id())
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_if($trx->items->isEmpty(), 422, 'Keranjang kosong');
 
             foreach ($trx->items as $item) {
                 Stock::where('product_unit_id', $item->product_unit_id)
@@ -133,15 +198,27 @@ class PosController extends Controller
                     ->decrement('qty', $item->qty);
             }
 
+            // generate invoice
+            $invoice = 'INV-' . now()->format('YmdHis');
+
             $trx->update([
-                'paid' => $request->paid,
+                'paid'   => $request->paid,
                 'change' => $request->paid - $trx->total,
-                'status' => 'paid'
+                'status' => 'paid',
+                'invoice' => $invoice
             ]);
+
+            if ($request->member_id) {
+                $member = \App\Models\Member::find($request->member_id);
+                if ($member) {
+                    $earnedPoints = floor($trx->total / 1000);
+                    $member->increment('points', $earnedPoints);
+                }
+            }
         });
-
-        session()->forget('stock_override');
-
-        return response()->json(['success' => true]);
+        return redirect()
+            ->route('pos')
+            ->with('success', true)
+            ->with('invoice', $invoice);
     }
 }

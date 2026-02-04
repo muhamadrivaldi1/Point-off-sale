@@ -13,9 +13,16 @@ class MemberController extends Controller
     =============================== */
     public function index()
     {
-        return view('members.index', [
-            'members' => Member::latest()->get()
-        ]);
+        $members = Member::latest()->get();
+        return view('members.index', compact('members'));
+    }
+
+    /* ===============================
+       FORM CREATE MEMBER
+    =============================== */
+    public function create()
+    {
+        return view('members.create');
     }
 
     /* ===============================
@@ -24,8 +31,8 @@ class MemberController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required',
-            'phone' => 'required|unique:members'
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20|unique:members'
         ]);
 
         Member::create([
@@ -34,7 +41,17 @@ class MemberController extends Controller
             'points' => 0
         ]);
 
-        return back()->with('success', 'Member ditambahkan');
+        return redirect()->route('members.index')
+            ->with('success', 'Member berhasil ditambahkan');
+    }
+
+    /* ===============================
+       FORM EDIT MEMBER
+    =============================== */
+    public function edit($id)
+    {
+        $member = Member::findOrFail($id);
+        return view('members.edit', compact('member'));
     }
 
     /* ===============================
@@ -44,9 +61,15 @@ class MemberController extends Controller
     {
         $member = Member::findOrFail($id);
 
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20|unique:members,phone,' . $member->id
+        ]);
+
         $member->update($request->only('name','phone'));
 
-        return back()->with('success', 'Member diupdate');
+        return redirect()->route('members.index')
+            ->with('success', 'Member berhasil diperbarui');
     }
 
     /* ===============================
@@ -55,7 +78,8 @@ class MemberController extends Controller
     public function destroy($id)
     {
         Member::findOrFail($id)->delete();
-        return back()->with('success', 'Member dihapus');
+        return redirect()->route('members.index')
+            ->with('success', 'Member berhasil dihapus');
     }
 
     /* ===============================

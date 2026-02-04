@@ -21,11 +21,18 @@ class ProductUnit extends Model
 
     public function stock()
     {
-        return $this->hasMany(Stock::class);
+        return $this->hasMany(Stock::class, 'product_unit_id');
     }
 
     public function priceRules()
     {
         return $this->hasMany(PriceRule::class);
+    }
+
+    public function stokToko()
+    {
+        return $this->stock()
+            ->where('location','toko')
+            ->sum('qty');
     }
 }

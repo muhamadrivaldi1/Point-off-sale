@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
+use App\Models\TransactionItem;
 use App\Models\Stock;
+use App\Models\ProductUnit;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -36,17 +38,25 @@ class DashboardController extends Controller
         // ===============================
         // PRODUK TERLARIS HARI INI
         // ===============================
-        $bestProducts = DB::table('transaction_items')
-            ->join('product_units', 'transaction_items.product_unit_id', '=', 'product_units.id')
-            ->join('products', 'product_units.product_id', '=', 'products.id')
-            ->select(
-                'products.name',
-                DB::raw('SUM(transaction_items.qty) as total_qty')
-            )
-            ->whereDate('transaction_items.created_at', $today)
-            ->groupBy('products.id', 'products.name')
-            ->orderByDesc('total_qty')
-            ->limit(5)
+        // Menggunakan Eloquent agar bisa akses relasi di Blade
+        $bestProducts = TransactionItem::with('unit.product')
+            ->whereDate('created_at', $today)
+            ->get()
+            ->groupBy('product_unit_id')
+            ->map(function ($items) {
+                return (object) [
+                    'unit' => $items->first()->unit,        // relasi ProductUnit
+                    'total_qty' => $items->sum('qty'),     // total qty terjual
+                ];
+            })
+            ->sortByDesc('total_qty')
+            ->take(5);
+
+        $lowStockProducts = ProductUnit::with('product')
+            ->whereHas('stock', function ($q) {
+                $q->where('location', 'toko')
+                    ->where('qty', '<=', 5);
+            })
             ->get();
 
         return view('dashboard.index', compact(
@@ -54,7 +64,8 @@ class DashboardController extends Controller
             'todayTransactions',
             'monthSales',
             'lowStock',
-            'bestProducts'
+            'bestProducts',
+            'lowStockProducts'
         ));
     }
 }

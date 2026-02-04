@@ -5,6 +5,7 @@
 <h4 class="mb-4">Dashboard</h4>
 
 <div class="row g-3">
+    {{-- Penjualan Hari Ini --}}
     <div class="col-md-3">
         <div class="card text-white bg-primary shadow">
             <div class="card-body">
@@ -15,6 +16,7 @@
         </div>
     </div>
 
+    {{-- Transaksi Hari Ini --}}
     <div class="col-md-3">
         <div class="card text-white bg-success shadow">
             <div class="card-body">
@@ -25,6 +27,7 @@
         </div>
     </div>
 
+    {{-- Penjualan Bulan Ini --}}
     <div class="col-md-3">
         <div class="card text-white bg-info shadow">
             <div class="card-body">
@@ -35,6 +38,7 @@
         </div>
     </div>
 
+    {{-- Stok Menipis --}}
     <div class="col-md-3">
         <div class="card text-white bg-warning shadow">
             <div class="card-body">
@@ -60,6 +64,31 @@
         @empty
             <p class="text-muted text-center">Belum ada transaksi hari ini</p>
         @endforelse
+    </div>
+</div>
+
+{{-- Stok Menipis Detail --}}
+<div class="card mt-4 shadow-sm">
+    <div class="card-header">
+        <strong>⚠️ Produk Stok Menipis</strong>
+    </div>
+    <div class="card-body">
+        @if($lowStockProducts->isEmpty())
+            <p class="text-muted text-center">Semua stok aman</p>
+        @else
+            <ul class="list-group">
+                @foreach($lowStockProducts as $unit)
+                    @php
+                        $stokToko = $unit->stock->where('location','toko')->first()->qty ?? 0;
+                    @endphp
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ $unit->product->name }} 
+                        @if($unit->name) ({{ $unit->name }}) @endif
+                        <span class="badge bg-danger">{{ $stokToko }} pcs</span>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
     </div>
 </div>
 
