@@ -83,9 +83,23 @@ class ReportController extends Controller
     /* ===============================
        LAPORAN STOK
     =============================== */
-    public function stock()
+    public function stock(Request $request)
     {
-        $data = Stock::with('unit.product')->get();
+        $query = Stock::with('unit.product');
+
+        // optional: filter lokasi
+        if ($request->filled('location')) {
+            $query->where('location', $request->location);
+        }
+
+        // optional: search produk
+        if ($request->filled('q')) {
+            $query->whereHas('unit.product', function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->q . '%');
+            });
+        }
+
+        $data = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         return view('reports.stock', compact('data'));
     }
