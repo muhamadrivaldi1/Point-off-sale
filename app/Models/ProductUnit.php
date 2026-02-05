@@ -29,10 +29,20 @@ class ProductUnit extends Model
         return $this->hasMany(PriceRule::class);
     }
 
+    public function getPriceByQty($qty)
+    {
+        $rule = $this->priceRules()
+            ->where('min_qty', '<=', $qty)
+            ->orderBy('min_qty', 'desc')
+            ->first();
+
+        return $rule ? $rule->price : $this->price;
+    }
+
     public function stokToko()
     {
         return $this->stock()
-            ->where('location','toko')
+            ->where('location', 'toko')
             ->sum('qty');
     }
 }

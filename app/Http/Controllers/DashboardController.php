@@ -14,6 +14,7 @@ class DashboardController extends Controller
     public function index()
     {
         $today = Carbon::today();
+        $now = Carbon::now();
 
         // ===============================
         // RINGKASAN
@@ -26,8 +27,8 @@ class DashboardController extends Controller
             ->where('status', 'paid')
             ->count();
 
-        $monthSales = Transaction::whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
+        $monthSales = Transaction::whereMonth('created_at', $now->month)
+            ->whereYear('created_at', $now->year)
             ->where('status', 'paid')
             ->sum('total');
 
@@ -38,26 +39,46 @@ class DashboardController extends Controller
         // ===============================
         // PRODUK TERLARIS HARI INI
         // ===============================
-        // Menggunakan Eloquent agar bisa akses relasi di Blade
         $bestProducts = TransactionItem::with('unit.product')
             ->whereDate('created_at', $today)
             ->get()
             ->groupBy('product_unit_id')
             ->map(function ($items) {
                 return (object) [
-                    'unit' => $items->first()->unit,        // relasi ProductUnit
-                    'total_qty' => $items->sum('qty'),     // total qty terjual
+                    'unit' => $items->first()->unit,
+                    'total_qty' => $items->sum('qty'),
                 ];
             })
             ->sortByDesc('total_qty')
             ->take(5);
 
-        $lowStockProducts = ProductUnit::with('product')
+        // ===============================
+        // STOK RENDAH
+        // ===============================
+        $lowStockProducts = ProductUnit::with('product', 'stock')
             ->whereHas('stock', function ($q) {
                 $q->where('location', 'toko')
-                    ->where('qty', '<=', 5);
+                  ->where('qty', '<=', 5);
             })
             ->get();
+
+        // ===============================
+        // DATA REVENUE GRAFIK 6 BULAN TERAKHIR
+        // ===============================
+        $revenueLabels = [];
+        $revenueData = [];
+
+        for ($i = 5; $i >= 0; $i--) {
+            $month = $now->copy()->subMonths($i);
+            $label = $month->format('M'); // Jan, Feb, Mar
+            $total = Transaction::where('status', 'paid')
+                        ->whereYear('created_at', $month->year)
+                        ->whereMonth('created_at', $month->month)
+                        ->sum('total');
+
+            $revenueLabels[] = $label;
+            $revenueData[] = $total;
+        }
 
         return view('dashboard.index', compact(
             'todaySales',
@@ -65,7 +86,9 @@ class DashboardController extends Controller
             'monthSales',
             'lowStock',
             'bestProducts',
-            'lowStockProducts'
+            'lowStockProducts',
+            'revenueLabels',
+            'revenueData'
         ));
     }
 }

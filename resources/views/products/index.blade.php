@@ -73,4 +73,8 @@
     </tbody>
 </table>
 </div>
+
+<div class="mt-3 d-flex justify-content-center">
+    {{ $products->links('pagination::bootstrap-5') }}
+</div>
 @endsection

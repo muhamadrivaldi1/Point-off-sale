@@ -15,7 +15,7 @@ class StockController extends Controller
     {
         $stocks = Stock::with('unit.product')
         ->whereHas('unit')
-        ->get();
+        ->paginate(10);
         return view('stocks.index', compact('stocks'));
     }
 

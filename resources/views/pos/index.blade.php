@@ -5,7 +5,7 @@
 @section('content')
 <div class="row">
 
-    <!-- LEFT: Scan / Cari Produk -->
+    {{-- ================= LEFT ================= --}}
     <div class="col-md-7">
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-primary text-white">
@@ -13,7 +13,6 @@
             </div>
             <div class="card-body">
 
-                {{-- Scan Barcode --}}
                 <div class="mb-3">
                     <label class="form-label">Scan Barcode</label>
                     <input type="text"
@@ -23,22 +22,20 @@
                            autofocus>
                 </div>
 
-                {{-- Cari Produk --}}
                 <div class="mb-3">
-                    <label class="form-label">Cari Manual</label>
+                    <label class="form-label">Cari Produk</label>
                     <input type="text"
                            id="search"
                            class="form-control"
                            placeholder="Ketik nama produk">
                 </div>
 
-                {{-- Hasil Search --}}
                 <div id="searchResult" class="list-group small"></div>
             </div>
         </div>
     </div>
 
-    <!-- RIGHT: Keranjang & Bayar -->
+    {{-- ================= RIGHT ================= --}}
     <div class="col-md-5">
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white">
@@ -46,11 +43,11 @@
             </div>
             <div class="card-body">
 
-                {{-- Daftar Member --}}
-                <div class="mb-2">
+                {{-- MEMBER --}}
+                <div class="mb-3">
                     <label class="form-label">Member</label>
                     <select id="member_id" class="form-select">
-                        <option value="">-- Tidak Ada --</option>
+                        <option value="">-- Non Member --</option>
                         @foreach(App\Models\Member::all() as $member)
                             <option value="{{ $member->id }}">
                                 {{ $member->name }} ({{ $member->points }} pts)
@@ -59,12 +56,12 @@
                     </select>
                 </div>
 
-                {{-- Tabel Keranjang --}}
+                {{-- CART --}}
                 <table class="table table-sm align-middle">
                     <thead>
                         <tr>
                             <th>Produk</th>
-                            <th width="110">Qty</th>
+                            <th width="120">Qty</th>
                             <th>Harga</th>
                             <th>Subtotal</th>
                         </tr>
@@ -72,7 +69,12 @@
                     <tbody>
                         @forelse($trx->items as $item)
                         <tr>
-                            <td>{{ $item->unit->product->name }}</td>
+                            <td>
+                                {{ $item->unit->product->name }}<br>
+                                <small class="text-muted">
+                                    {{ $item->unit->unit_name }}
+                                </small>
+                            </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-danger"
@@ -87,8 +89,9 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted">
-                                Belum ada barang
+                            <td colspan="4"
+                                class="text-center text-muted">
+                                Belum ada item
                             </td>
                         </tr>
                         @endforelse
@@ -97,146 +100,184 @@
 
                 <hr>
 
-                {{-- Voucher Demo --}}
-                <div class="mb-2">
-                    <label class="form-label">Voucher Diskon</label>
-                    <input type="text"
-                           id="voucher"
-                           class="form-control"
-                           placeholder="Contoh: DISKON10">
-                    <small class="text-muted">
-                        * Demo: DISKON10 = potong 10%
-                    </small>
+                <div class="d-flex justify-content-between mb-2">
+                    <strong>Total</strong>
+                    <strong>Rp {{ number_format($trx->total) }}</strong>
                 </div>
 
-                {{-- Total --}}
-                <div class="d-flex justify-content-between mb-1">
-                    <span>Total</span>
-                    <strong id="totalText">Rp {{ number_format($trx->total) }}</strong>
-                </div>
+                {{-- BAYAR --}}
+                <input type="number"
+                       id="paid"
+                       class="form-control mb-2"
+                       placeholder="Jumlah bayar"
+                       {{ $trx->items->isEmpty() ? 'disabled' : '' }}>
 
-                <div class="d-flex justify-content-between mb-3">
-                    <span>Setelah Diskon</span>
-                    <strong id="finalTotal">Rp {{ number_format($trx->total) }}</strong>
-                </div>
+                <form method="POST" action="{{ route('pos.pay') }}">
+                    @csrf
+                    <input type="hidden" name="paid" id="paidHidden">
+                    <input type="hidden" name="member_id" id="memberHidden">
 
-                {{-- Bayar --}}
-                <div>
-                    <label class="form-label">Jumlah Bayar</label>
-                    <input type="number"
-                           id="paid"
-                           class="form-control mb-2"
-                           min="0"
-                           {{ $trx->items->isEmpty() ? 'disabled' : '' }}>
-
-                    <form method="POST" action="{{ route('pos.pay') }}">
-                        @csrf
-                        <input type="hidden" name="paid" id="paidHidden">
-                        <input type="hidden" name="member_id" id="memberHidden">
-
-                        <button type="submit"
-                                class="btn btn-primary w-100"
-                                {{ $trx->items->isEmpty() ? 'disabled' : '' }}>
-                            Bayar
-                        </button>
-                    </form>
-                </div>
+                    <button class="btn btn-primary w-100"
+                        {{ $trx->items->isEmpty() ? 'disabled' : '' }}>
+                        Bayar
+                    </button>
+                </form>
 
             </div>
         </div>
     </div>
 </div>
 
+{{-- ================= MODAL SUCCESS ================= --}}
+@if(session()->has('success'))
+<div class="modal fade"
+     id="successModal"
+     tabindex="-1"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    Transaksi Berhasil
+                </h5>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">
+                    Transaksi berhasil disimpan.
+                </p>
+                <p class="mb-0">
+                    <strong>Invoice:</strong>
+                    {{ session('invoice') ?? '-' }}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button"
+                        class="btn btn-success"
+                        id="btnOk">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ================= SCRIPT ================= --}}
 <script>
 const csrf = '{{ csrf_token() }}'
-const resultBox = document.getElementById('searchResult')
-const baseTotal = {{ $trx->total }}
+const box  = document.getElementById('searchResult')
 
 // SCAN BARCODE
-document.getElementById('barcode').addEventListener('keypress', e => {
-    if(e.key==='Enter'){
-        resultBox.innerHTML=''
-        fetch("{{ route('pos.scan') }}", {
+document.getElementById('barcode').addEventListener('keypress', e=>{
+    if(e.key === 'Enter'){
+        fetch("{{ route('pos.scan') }}",{
             method:'POST',
-            headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf},
-            body: JSON.stringify({ barcode:e.target.value })
+            headers:{
+                'Content-Type':'application/json',
+                'X-CSRF-TOKEN':csrf
+            },
+            body:JSON.stringify({ barcode:e.target.value })
         })
         .then(r=>r.json())
-        .then(showResult)
+        .then(show)
         .catch(()=>alert('Produk tidak ditemukan'))
+
         e.target.value=''
     }
 })
 
 // SEARCH
-document.getElementById('search').addEventListener('keyup', e => {
-    const q = e.target.value
-    if(q.length<2) return
-    fetch(`{{ route('pos.search') }}?q=${q}`)
+document.getElementById('search').addEventListener('keyup', e=>{
+    if(e.target.value.length < 2) return
+
+    fetch(`{{ route('pos.search') }}?q=${e.target.value}`)
         .then(r=>r.json())
         .then(list=>{
-            resultBox.innerHTML=''
-            list.forEach(showResult)
+            box.innerHTML=''
+            list.forEach(show)
         })
 })
 
 // SHOW RESULT
-function showResult(data){
-    let stok = data.stocks.map(s=>
-        `<span class="badge bg-secondary me-1">${s.location}: ${s.qty}</span>`
-    ).join('')
-    resultBox.innerHTML += `
-        <button type="button" class="list-group-item list-group-item-action"
-            onclick="addItem(${data.id})">
-            <div class="fw-bold">${data.name}</div>
-            <small>Rp ${Number(data.price).toLocaleString()}</small>
-            <div class="mt-1">${stok}</div>
+function show(d){
+    box.innerHTML += `
+        <button type="button"
+            class="list-group-item list-group-item-action"
+            onclick="addItem(${d.id})">
+            <strong>${d.name}</strong><br>
+            Rp ${Number(d.price).toLocaleString()}
         </button>
     `
 }
 
 // ADD ITEM
 function addItem(id){
-    fetch("{{ route('pos.addItem') }}", {
+    fetch("{{ route('pos.addItem') }}",{
         method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf},
-        body: JSON.stringify({ product_unit_id:id })
+        headers:{
+            'Content-Type':'application/json',
+            'X-CSRF-TOKEN':csrf
+        },
+        body:JSON.stringify({ product_unit_id:id })
     }).then(()=>location.reload())
 }
 
 // UPDATE QTY
-function updateQty(itemId,type){
-    fetch("{{ route('pos.updateQty') }}", {
+function updateQty(id,type){
+    fetch("{{ route('pos.updateQty') }}",{
         method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf},
-        body: JSON.stringify({ item_id:itemId, type:type })
+        headers:{
+            'Content-Type':'application/json',
+            'X-CSRF-TOKEN':csrf
+        },
+        body:JSON.stringify({ item_id:id, type:type })
     }).then(()=>location.reload())
 }
 
-// VOUCHER DEMO
-document.getElementById('voucher').addEventListener('keyup', e=>{
-    let total = baseTotal
-    if(e.target.value.toUpperCase() === 'DISKON10'){
-        total = total - (total*0.1)
-    }
-    document.getElementById('finalTotal').innerText =
-        'Rp ' + Math.round(total).toLocaleString()
-})
-
-// SYNC PAID
+// SYNC INPUT
 document.getElementById('paid')?.addEventListener('input', e=>{
     document.getElementById('paidHidden').value = e.target.value
 })
 
-// SYNC MEMBER
 document.getElementById('member_id')?.addEventListener('change', e=>{
     document.getElementById('memberHidden').value = e.target.value
 })
 
-// SUCCESS ALERT
-@if(session('success'))
-alert("Transaksi berhasil!\nNo Invoice: {{ session('invoice') }}")
-window.location.href = "{{ route('transactions.index') }}"
+// SHOW MODAL SUCCESS
+@if(session()->has('success'))
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Transaksi Berhasil</h5>
+            </div>
+            <div class="modal-body">
+                <p><strong>No Invoice:</strong> {{ session('invoice') }}</p>
+                <p><strong>Total:</strong> Rp {{ number_format(session('total')) }}</p>
+                <p><strong>Bayar:</strong> Rp {{ number_format(session('paid')) }}</p>
+                <p><strong>Kembalian:</strong> Rp {{ number_format(session('change')) }}</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="btnOk">
+                    OK & Cetak Struk
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+@if(session()->has('success'))
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = new bootstrap.Modal(document.getElementById('successModal'))
+    modal.show()
+
+    document.getElementById('btnOk').onclick = function () {
+        window.open("{{ route('transactions.struk', session('trx_id')) }}", "_blank")
+        window.location.href = "{{ route('pos') }}"
+    }
+})
+</script>
 @endif
 </script>
 @endsection

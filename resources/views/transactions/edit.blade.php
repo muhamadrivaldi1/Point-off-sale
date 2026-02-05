@@ -27,9 +27,9 @@
 <div class="mb-3">
     <label>No Invoice</label>
     <input type="text"
-           class="form-control"
-           value="{{ $trx->invoice }}"
-           disabled>
+       class="form-control"
+       value="{{ $trx->trx_number ?? '-' }}"
+       disabled>
 </div>
 
 <div class="mb-3">
@@ -56,7 +56,13 @@
     <tbody>
         @foreach($trx->items as $item)
         <tr>
-            <td>{{ $item->product_name }}</td>
+            <td>
+    {{ $item->unit->product->name ?? '-' }}
+    <br>
+    <small class="text-muted">
+        {{ $item->unit->unit_name ?? '' }}
+    </small>
+</td>
             <td>{{ $item->qty }}</td>
             <td>Rp {{ number_format($item->price) }}</td>
             <td>Rp {{ number_format($item->subtotal) }}</td>

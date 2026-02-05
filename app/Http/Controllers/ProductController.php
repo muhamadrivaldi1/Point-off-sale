@@ -13,7 +13,7 @@ class ProductController extends Controller
     =============================== */
     public function index()
     {
-        $products = Product::with('units')->get();
+        $products = Product::with('units')->paginate(10);
         return view('products.index', compact('products'));
     }
 

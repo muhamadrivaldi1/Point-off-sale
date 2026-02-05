@@ -82,24 +82,30 @@ Route::middleware('auth')->group(function () {
     Route::get('/po', [PurchaseOrderController::class, 'index'])->name('po.index');
     Route::get('/po/create', [PurchaseOrderController::class, 'create'])->name('po.create');
     Route::post('/po', [PurchaseOrderController::class, 'store'])->name('po.store');
+    Route::delete('/po/{id}', [PurchaseOrderController::class, 'destroy'])->name('po.destroy');
     Route::get('/po/{id}/edit', [PurchaseOrderController::class, 'edit'])->name('po.edit');
-
-    Route::post('/po/{id}/item', [PurchaseOrderController::class, 'addItem']);
-    Route::put('/po/item/{id}', [PurchaseOrderController::class, 'updateItem']);
-    Route::delete('/po/item/{id}', [PurchaseOrderController::class, 'deleteItem']);
-
-    Route::post('/po/{id}/approve', [PurchaseOrderController::class, 'approve']);
+    Route::put('/po/{id}', [PurchaseOrderController::class, 'update'])->name('po.update'); 
+    Route::post('/po/{id}/item', [PurchaseOrderController::class, 'addItem'])->name('po.addItem');
+    Route::put('/po/item/{id}', [PurchaseOrderController::class, 'updateItem'])->name('po.updateItem');
+    Route::delete('/po/item/{id}', [PurchaseOrderController::class, 'deleteItem'])->name('po.deleteItem');
+    Route::post('/po/{id}/approve', [PurchaseOrderController::class, 'approve'])->name('po.approve');
     Route::post('/po/{id}/receive', [PurchaseOrderController::class, 'receive']);
 
     Route::get('/closing', [CashierClosingController::class, 'close'])
         ->middleware('role:kasir');
-
+    
     Route::get('/reports/sales', [ReportController::class, 'sales'])
-        ->middleware('role:owner,supervisor');
+        ->name('reports.sales');
+
+    Route::get('/reports/sales/{id}', [ReportController::class, 'salesDetail'])
+        ->name('reports.sales.detail');
 
     Route::get('/reports/stock', [ReportController::class, 'stock'])
-        ->middleware('role:owner,supervisor');
+        ->name('reports.stock');
+
+    Route::get('/reports/sales-csv', [ReportController::class, 'salesCsv'])
+    ->name('reports.sales.csv');
 
     Route::post('/approval/stock', [ApprovalController::class, 'stockOverride'])
-        ->middleware('role:owner,supervisor');
+        ->name('approval.stock');
 });

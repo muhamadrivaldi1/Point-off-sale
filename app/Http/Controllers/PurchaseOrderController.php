@@ -10,58 +10,57 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
-
 class PurchaseOrderController extends Controller
 {
-    /* ===============================
-       LIST PO
-    =============================== */
     public function index()
     {
-        return view('po.index', [
-            'pos' => PurchaseOrder::with('user')->latest()->get()
-        ]);
+        $pos = PurchaseOrder::latest()->paginate(10);
+        return view('po.index', compact('pos'));
     }
 
-    /* ===============================
-       BUAT PO BARU (DRAFT)
-    =============================== */
     public function create()
     {
-        return view('po.create', [
-            'units' => ProductUnit::with('product')->get()
-        ]);
-    }
-
-    public function store()
-    {
-        $po = PurchaseOrder::create([
-            'po_number' => 'PO-' . now()->format('YmdHis'),
-            'user_id' => Auth::id(),
-            'status' => 'draft'
-        ]);
+        $po = PurchaseOrder::firstOrCreate(
+            ['user_id' => Auth::id(), 'status' => 'draft'],
+            ['po_number' => 'PO-' . now()->format('YmdHis')]
+        );
 
         return redirect()->route('po.edit', $po->id);
     }
 
-    /* ===============================
-       EDIT PO
-    =============================== */
     public function edit($id)
     {
         $po = PurchaseOrder::with('items.unit.product')->findOrFail($id);
-        return view('po.edit', compact('po'));
+        $units = ProductUnit::with('product')->get();
+        return view('po.edit', compact('po', 'units'));
     }
 
-    /* ===============================
-       TAMBAH ITEM PO
-    =============================== */
+    public function destroy($id)
+    {
+        $po = PurchaseOrder::findOrFail($id);
+
+        if ($po->status !== 'draft') {
+            return back()->with('error', 'PO tidak bisa dihapus');
+        }
+
+        $po->items()->delete();
+        $po->delete();
+
+        return back()->with('success', 'PO berhasil dihapus');
+    }
+
     public function addItem(Request $request, $poId)
     {
+        $request->validate([
+            'product_unit_id' => 'required|exists:product_units,id',
+            'qty' => 'required|integer|min:1',
+            'price' => 'required|numeric|min:0'
+        ]);
+
         $po = PurchaseOrder::findOrFail($poId);
 
         if ($po->status !== 'draft') {
-            abort(403, 'PO sudah dikunci');
+            return back()->with('error', 'PO sudah dikunci');
         }
 
         PurchaseOrderItem::create([
@@ -71,87 +70,39 @@ class PurchaseOrderController extends Controller
             'price' => $request->price
         ]);
 
-        return back();
+        return back()->with('success', 'Item berhasil ditambahkan');
     }
 
-    /* ===============================
-       UPDATE ITEM PO
-    =============================== */
-    public function updateItem(Request $request, $id)
-    {
-        $item = PurchaseOrderItem::findOrFail($id);
-
-        if ($item->purchaseOrder->status !== 'draft') {
-            abort(403);
-        }
-
-        $item->update([
-            'qty' => $request->qty,
-            'price' => $request->price
-        ]);
-
-        return back();
-    }
-
-    /* ===============================
-       HAPUS ITEM PO
-    =============================== */
     public function deleteItem($id)
     {
         $item = PurchaseOrderItem::findOrFail($id);
 
         if ($item->purchaseOrder->status !== 'draft') {
-            abort(403);
+            return back()->with('error', 'PO sudah dikunci');
         }
 
         $item->delete();
-        return back();
+        return back()->with('success', 'Item dihapus');
     }
 
-    /* ===============================
-       APPROVE PO
-    =============================== */
     public function approve($id)
     {
         $po = PurchaseOrder::findOrFail($id);
 
-        if (!in_array(Auth::user()->role, ['owner'])) {
-            abort(403);
+        if ($po->status !== 'draft') {
+            return back()->with('error', 'PO sudah diproses');
         }
 
-        $po->update(['status' => 'approved']);
-
-        return back()->with('success', 'PO disetujui');
-    }
-
-
-    /* ===============================
-       TERIMA BARANG → STOK MASUK
-    =============================== */
-    public function receive($id)
-    {
-        $po = PurchaseOrder::with('items')->findOrFail($id);
-
-        if ($po->status !== 'approved') {
-            abort(403);
+        if ($po->items()->count() === 0) {
+            return back()->with('error', 'PO belum memiliki item');
         }
 
-        DB::transaction(function () use ($po) {
-            foreach ($po->items as $item) {
-                Stock::updateOrCreate(
-                    [
-                        'product_unit_id' => $item->product_unit_id,
-                        'location' => 'gudang'
-                    ],
-                    [
-                        'qty' => DB::raw('qty + ' . $item->qty)
-                    ]
-                );
-            }
+        $po->update([
+            'status' => 'approved'
+        ]);
 
-            $po->update(['status' => 'received']);
-        });
-
-        return back()->with('success', 'Barang masuk gudang');
+        return redirect()
+            ->route('po.index')
+            ->with('success', 'PO berhasil di-approve');
     }
 }

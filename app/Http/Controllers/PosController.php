@@ -6,6 +6,7 @@ use App\Models\ProductUnit;
 use App\Models\Transaction;
 use App\Models\TransactionItem;
 use App\Models\Stock;
+use App\Models\PriceRule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -36,6 +37,19 @@ class PosController extends Controller
     }
 
     /* ===============================
+       HITUNG HARGA (PRICERULE)
+    =============================== */
+    private function resolvePrice(ProductUnit $unit, int $qty): int
+    {
+        $rule = PriceRule::where('product_unit_id', $unit->id)
+            ->where('min_qty', '<=', $qty)
+            ->orderByDesc('min_qty')
+            ->first();
+
+        return $rule ? $rule->price : $unit->price;
+    }
+
+    /* ===============================
        SCAN BARCODE
     =============================== */
     public function scan(Request $request)
@@ -47,42 +61,32 @@ class PosController extends Controller
             ->firstOrFail();
 
         return response()->json([
-            'id'     => $unit->id,
-            'name'   => $unit->product->name,
-            'price'  => $unit->price,
-            'stocks' => $unit->stock->map(fn($s) => [
-                'location' => $s->location,
-                'qty' => $s->qty
-            ])
+            'id'    => $unit->id,
+            'name'  => $unit->product->name,
+            'price' => $unit->price
         ]);
     }
 
     /* ===============================
-       SEARCH MANUAL
+       SEARCH
     =============================== */
     public function search(Request $request)
     {
-        return ProductUnit::with('product', 'stock')
-            ->whereHas(
-                'product',
-                fn($q) =>
-                $q->where('name', 'like', '%' . $request->q . '%')
+        return ProductUnit::with('product')
+            ->whereHas('product', fn ($q) =>
+                $q->where('name', 'like', "%{$request->q}%")
             )
             ->limit(5)
             ->get()
-            ->map(fn($u) => [
-                'id' => $u->id,
-                'name' => $u->product->name,
-                'price' => $u->price,
-                'stocks' => $u->stock->map(fn($s) => [
-                    'location' => $s->location,
-                    'qty' => $s->qty
-                ])
+            ->map(fn ($u) => [
+                'id'    => $u->id,
+                'name'  => $u->product->name,
+                'price' => $u->price
             ]);
     }
 
     /* ===============================
-       ADD ITEM
+       TAMBAH ITEM
     =============================== */
     public function addItem(Request $request)
     {
@@ -96,14 +100,14 @@ class PosController extends Controller
 
         $unit = ProductUnit::with('stock')->findOrFail($request->product_unit_id);
 
-        $stokToko = $unit->stock()
+        $stok = $unit->stock()
             ->where('location', 'toko')
             ->sum('qty');
 
         $item = TransactionItem::firstOrCreate(
             [
                 'transaction_id' => $trx->id,
-                'product_unit_id' => $unit->id
+                'product_unit_id'=> $unit->id
             ],
             [
                 'qty' => 0,
@@ -112,11 +116,14 @@ class PosController extends Controller
             ]
         );
 
-        if ($item->qty + 1 > $stokToko) {
+        if ($item->qty + 1 > $stok) {
             abort(422, 'Stok tidak cukup');
         }
 
         $item->qty++;
+
+        // PRICE RULE AKTIF
+        $item->price = $this->resolvePrice($unit, $item->qty);
         $item->subtotal = $item->qty * $item->price;
         $item->save();
 
@@ -128,7 +135,7 @@ class PosController extends Controller
     }
 
     /* ===============================
-       UPDATE QTY (+ / -)
+       UPDATE QTY
     =============================== */
     public function updateQty(Request $request)
     {
@@ -138,16 +145,16 @@ class PosController extends Controller
         ]);
 
         $item = TransactionItem::with('unit.stock')->findOrFail($request->item_id);
-        $trx  = Transaction::where('id', $item->transaction_id)
+        $trx = Transaction::where('id', $item->transaction_id)
             ->where('status', 'pending')
             ->firstOrFail();
 
-        $stokToko = $item->unit->stock()
+        $stok = $item->unit->stock()
             ->where('location', 'toko')
             ->sum('qty');
 
         if ($request->type === 'plus') {
-            if ($item->qty + 1 > $stokToko) {
+            if ($item->qty + 1 > $stok) {
                 abort(422, 'Stok tidak cukup');
             }
             $item->qty++;
@@ -160,9 +167,10 @@ class PosController extends Controller
             }
         }
 
-        $item->update([
-            'subtotal' => $item->qty * $item->price
-        ]);
+        // UPDATE PRICERULE
+        $item->price = $this->resolvePrice($item->unit, $item->qty);
+        $item->subtotal = $item->qty * $item->price;
+        $item->save();
 
         $trx->update([
             'total' => $trx->items()->sum('subtotal')
@@ -172,7 +180,7 @@ class PosController extends Controller
     }
 
     /* ===============================
-       PAY
+       BAYAR
     =============================== */
     public function pay(Request $request)
     {
@@ -180,9 +188,7 @@ class PosController extends Controller
             'paid' => 'required|numeric|min:0'
         ]);
 
-        $invoice = null;
-
-        DB::transaction(function () use ($request, &$invoice) {
+        DB::transaction(function () use ($request) {
 
             $trx = Transaction::with('items')
                 ->where('user_id', Auth::id())
@@ -198,27 +204,16 @@ class PosController extends Controller
                     ->decrement('qty', $item->qty);
             }
 
-            // generate invoice
-            $invoice = 'INV-' . now()->format('YmdHis');
-
             $trx->update([
-                'paid'   => $request->paid,
-                'change' => $request->paid - $trx->total,
-                'status' => 'paid',
-                'invoice' => $invoice
+                'paid'    => $request->paid,
+                'change'  => $request->paid - $trx->total,
+                'status'  => 'paid',
+                'invoice' => 'INV-' . now()->format('YmdHis')
             ]);
-
-            if ($request->member_id) {
-                $member = \App\Models\Member::find($request->member_id);
-                if ($member) {
-                    $earnedPoints = floor($trx->total / 1000);
-                    $member->increment('points', $earnedPoints);
-                }
-            }
         });
+
         return redirect()
-            ->route('pos')
-            ->with('success', true)
-            ->with('invoice', $invoice);
+            ->route('transactions.index')
+            ->with('success', 'Transaksi berhasil');
     }
 }

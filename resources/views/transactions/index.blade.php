@@ -42,4 +42,8 @@
         @endforelse
     </tbody>
 </table>
+
+<div class="mt-3">
+    {{ $data->links('pagination::bootstrap-5') }}
+</div>
 @endsection
