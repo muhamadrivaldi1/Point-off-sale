@@ -45,4 +45,9 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+     public function cashierSessions()
+    {
+        return $this->hasMany(\App\Models\CashierSession::class, 'user_id');
+    }
 }

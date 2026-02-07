@@ -35,6 +35,20 @@ class PurchaseOrderController extends Controller
         return view('po.edit', compact('po', 'units'));
     }
 
+    public function cancel($id)
+    {
+        $po = PurchaseOrder::findOrFail($id);
+
+        if ($po->status !== 'draft') {
+            return back()->with('error', 'PO tidak bisa dibatalkan');
+        }
+
+        $po->update(['status' => 'canceled']);
+
+        return redirect()->route('po.index')->with('success', 'PO berhasil dibatalkan');
+    }
+
+
     public function destroy($id)
     {
         $po = PurchaseOrder::findOrFail($id);
@@ -104,5 +118,18 @@ class PurchaseOrderController extends Controller
         return redirect()
             ->route('po.index')
             ->with('success', 'PO berhasil di-approve');
+    }
+
+    public function receive($id)
+    {
+        $po = PurchaseOrder::findOrFail($id);
+
+        if ($po->status !== 'approved') {
+            return back()->with('error', 'PO hanya bisa diterima jika status sudah approved');
+        }
+
+        $po->update(['status' => 'received']);
+
+        return redirect()->route('po.index')->with('success', 'PO berhasil diterima');
     }
 }

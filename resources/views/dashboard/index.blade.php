@@ -1,6 +1,18 @@
 @extends('layouts.app')
 @section('title','Dashboard')
 
+@php
+    $openSession = false;
+
+    if(auth()->check() && auth()->user()->role === 'kasir') {
+        $openSession = \App\Models\CashierSession::where('user_id', auth()->id())
+            ->where('status', 'open')
+            ->exists();
+    }
+
+    
+@endphp
+
 @section('content')
 <h4 class="mb-4">Dashboard</h4>
 
@@ -98,10 +110,56 @@
         <strong>⚡ Aksi Cepat</strong>
     </div>
     <div class="card-body d-flex gap-2 flex-wrap">
-        <a href="{{ route('pos') }}" class="btn btn-primary">🛒 Buka POS</a>
-        <a href="{{ route('transactions.index') }}" class="btn btn-info text-white">📄 Lihat Transaksi</a>
-        <a href="{{ route('products.index') }}" class="btn btn-success">📦 Kelola Produk</a>
-        <a href="/reports/sales" class="btn btn-warning">📊 Laporan</a>
+
+        {{-- ================= KASIR ================= --}}
+        @if(auth()->user()->role === 'kasir')
+
+            <a href="{{ route('pos') }}" class="btn btn-primary">
+                🛒 Buka POS
+            </a>
+
+            <a href="{{ route('transactions.index') }}" class="btn btn-info text-white">
+                📄 Transaksi
+            </a>
+
+            <a href="{{ route('members.index') }}" class="btn btn-success">
+                👥 Member
+            </a>
+
+            <a href="{{ route('returns.index') }}" class="btn btn-success">
+                <i class="bi bi-arrow-counterclockwise"></i> Retur Barang
+            </a>
+            @if(!$openSession)
+                <a href="{{ route('cashier.open.form') }}" class="btn btn-warning">
+                    🔓 Buka Sesi Kasir
+                </a>
+            @endif
+
+        {{-- ================= OWNER ================= --}}
+        @elseif(auth()->user()->role === 'owner')
+
+            <a href="{{ route('pos') }}" class="btn btn-primary">
+                🛒 POS
+            </a>
+
+            <a href="{{ route('transactions.index') }}" class="btn btn-info text-white">
+                📄 Transaksi
+            </a>
+
+            <a href="{{ route('products.index') }}" class="btn btn-success">
+                📦 Produk
+            </a>
+
+            <a href="{{ route('stocks.index') }}" class="btn btn-secondary">
+                🗃️ Stok
+            </a>
+
+            <a href="{{ route('reports.sales') }}" class="btn btn-warning">
+                📊 Laporan
+            </a>
+
+        @endif
+
     </div>
 </div>
 @endsection

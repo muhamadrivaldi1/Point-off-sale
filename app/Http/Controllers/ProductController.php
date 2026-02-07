@@ -6,80 +6,74 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductUnit;
 
+
 class ProductController extends Controller
 {
-    /* ===============================
-       TAMPILAN LIST PRODUK
-    =============================== */
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::with('units')->paginate(10);
+        $query = Product::with('units');
+
+        if ($request->filled('q')) {
+            $query->where('name', 'like', "%{$request->q}%")
+                  ->orWhere('sku', 'like', "%{$request->q}%");
+        }
+
+        $products = $query->paginate(10);
+
         return view('products.index', compact('products'));
     }
 
-    /* ===============================
-       FORM TAMBAH PRODUK
-    =============================== */
     public function create()
     {
         return view('products.create');
     }
 
-    /* ===============================
-       SIMPAN PRODUK BARU
-    =============================== */
-    public function store(Request $r)
+    public function store(Request $request)
     {
-        $this->validateProduct($r);
+        $this->validateProduct($request);
 
         $product = Product::create([
-            'name'   => $r->name,
-            'sku'    => $r->sku,
-            'is_bkp' => $r->is_bkp ?? 0
+            'name'   => $request->name,
+            'sku'    => $request->sku,
+            'is_bkp' => $request->is_bkp ?? 0
         ]);
 
-        $this->saveUnits($product, $r->units);
+        if (!empty($request->units)) {
+            $this->saveUnits($product, $request->units);
+        }
 
         return redirect()
             ->route('products.index')
             ->with('success', 'Produk berhasil disimpan');
     }
 
-    /* ===============================
-       FORM EDIT PRODUK
-    =============================== */
     public function edit(Product $product)
     {
         $product->load('units');
         return view('products.edit', compact('product'));
     }
 
-    /* ===============================
-       UPDATE PRODUK
-    =============================== */
-    public function update(Request $r, Product $product)
+    public function update(Request $request, Product $product)
     {
-        $this->validateProduct($r);
+        $this->validateProduct($request);
 
         $product->update([
-            'name'   => $r->name,
-            'sku'    => $r->sku,
-            'is_bkp' => $r->is_bkp ?? 0
+            'name'   => $request->name,
+            'sku'    => $request->sku,
+            'is_bkp' => $request->is_bkp ?? 0
         ]);
 
-        // reset unit
         $product->units()->delete();
 
-        $this->saveUnits($product, $r->units);
+        if (!empty($request->units)) {
+            $this->saveUnits($product, $request->units);
+        }
 
         return redirect()
             ->route('products.index')
             ->with('success', 'Produk berhasil diperbarui');
     }
 
-    /* ===============================
-       HAPUS PRODUK
-    =============================== */
     public function destroy(Product $product)
     {
         $product->units()->delete();
@@ -90,24 +84,19 @@ class ProductController extends Controller
             ->with('success', 'Produk berhasil dihapus');
     }
 
-    /* ===============================
-       VALIDASI
-    =============================== */
-    private function validateProduct(Request $r)
+    private function validateProduct(Request $request)
     {
-        $r->validate([
-            'name' => 'required|string',
-            'sku'  => 'nullable|string',
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'sku'  => 'nullable|string|max:100',
             'units' => 'required|array|min:1',
-            'units.*.name'       => 'required|string',
+            'units.*.name'       => 'required|string|max:50',
             'units.*.conversion' => 'required|numeric|min:1',
-            'units.*.price'      => 'required|numeric|min:0'
+            'units.*.price'      => 'required|numeric|min:0',
+            'units.*.barcode'    => 'nullable|string|max:50',
         ]);
     }
 
-    /* ===============================
-       SIMPAN UNIT
-    =============================== */
     private function saveUnits(Product $product, array $units)
     {
         foreach ($units as $unit) {

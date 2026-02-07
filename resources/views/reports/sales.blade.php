@@ -45,7 +45,7 @@
         <tbody>
             @forelse($data as $trx)
             <tr>
-                <td>{{ $trx->created_at->format('d/m/Y H:i') }}</td>
+                <td>{{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
                 <td>{{ $trx->trx_number ?? '-' }}</td>
                 <td>Rp {{ number_format($trx->total, 0, ',', '.') }}</td>
                 <td>

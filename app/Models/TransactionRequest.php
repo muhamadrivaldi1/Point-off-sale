@@ -10,7 +10,11 @@ class TransactionRequest extends Model
         'transaction_id',
         'user_id',
         'message',
-        'status'
+        'status',
+        'approved_by',
+        'approved_at',
+        'message',
+        'transaction_id'
     ];
 
     public function transaction()
@@ -22,6 +26,4 @@ class TransactionRequest extends Model
     {
         return $this->belongsTo(User::class);
     }
-
-    
 }

@@ -11,11 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('purchase_orders', function (Blueprint $table) {
+        Schema::create('cashier_sessions', function (Blueprint $table) {
             $table->id();
-            $table->string('po_number')->unique();
             $table->foreignId('user_id')->constrained();
-            $table->enum('status', ['draft', 'approved', 'received','canceled']);
+            $table->decimal('opening_balance', 15, 2)->default(0);
+            $table->decimal('closing_balance', 15, 2)->nullable();
+            $table->enum('status', ['open', 'closed'])->default('open');
+            $table->timestamp('opened_at')->useCurrent();
+            $table->timestamp('closed_at')->nullable();
             $table->timestamps();
         });
     }
@@ -25,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('purchase_orders');
+        Schema::dropIfExists('cashier_sessions');
     }
 };
