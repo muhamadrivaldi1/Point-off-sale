@@ -14,9 +14,7 @@ return new class extends Migration
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->string('trx_number')->unique();
-            $table->foreignId('user_id')
-                  ->constrained()
-                  ->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->decimal('total', 15, 2)->default(0);
             $table->decimal('discount', 15, 2)->default(0);
             $table->decimal('paid', 15, 2)->nullable();

@@ -7,10 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class Member extends Model
 {
     protected $fillable = [
-        'name',
-        'phone',
-        'points'
-    ];
+    'name', 'phone', 'address', 'level', 'discount', 'total_spent', 'points', 'status'
+];
+
 
     public function transactions()
     {

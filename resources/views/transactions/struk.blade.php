@@ -1,157 +1,179 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<title>Struk {{ $trx->trx_number }}</title>
+@extends('layouts.app')
+
+@section('title', 'Struk ' . $trx->trx_number)
+
+@section('content')
 
 <style>
-/* === SET UKURAN KERTAS STRUK === */
+/* ================= TAMPILAN DI LAYAR ================= */
+.struk {
+    max-width: 220px;          /* kecil seperti struk */
+    margin: auto;
+    padding: 8px;
+    background: #fff;
+    font-family: monospace;
+    font-size: 11px;
+    box-shadow: 0 0 8px rgba(0,0,0,.15);
+}
+
+/* ================= PRINT ================= */
 @page {
     size: 58mm auto;
     margin: 0;
 }
 
-/* === RESET === */
-* {
-    box-sizing: border-box;
-}
+@media print {
 
-body {
-    font-family: monospace;
-    font-size: 10px;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-}
+    body * {
+        visibility: hidden;
+    }
 
-/* === STRUK CONTAINER === */
-.struk {
-    width: 58mm;
-    padding: 6px 4px;
-}
-
-/* === ALIGN === */
-.center {
-    text-align: center;
-}
-
-.right {
-    text-align: right;
-}
-
-/* === LINE === */
-.line {
-    border-top: 1px dashed #000;
-    margin: 5px 0;
-}
-
-/* === TABLE === */
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-td {
-    padding: 1px 0;
-    vertical-align: top;
-    word-break: break-word;
-}
-
-/* === PRINT ONLY === */
-@media screen {
-    body {
-        background: #f2f2f2;
+    .struk, .struk * {
+        visibility: visible;
     }
 
     .struk {
-        background: #fff;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 58mm;
+        max-width: 58mm;
+        padding: 6px;
+        font-size: 10px;
+        box-shadow: none;
+    }
+
+    .d-print-none {
+        display: none !important;
     }
 }
 </style>
-</head>
 
-<body onload="autoPrint()">
-
+{{-- ================= STRUK ================= --}}
 <div class="struk">
 
-    <!-- HEADER TOKO -->
-    <div class="center">
+    {{-- HEADER --}}
+    <div class="text-center">
         <strong>MINIMARKET MAJU JAYA</strong><br>
         Jl. Contoh No. 123<br>
         Telp: 0851-8322-7741
     </div>
 
-    <div class="line"></div>
+    <hr style="border-top:1px dashed #000">
 
-    <!-- INFO TRANSAKSI -->
+    {{-- INFO --}}
     <div>
-        No  : {{ $trx->trx_number }}<br>
-        Tgl : {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
-        Kasir : {{ auth()->user()->name }}
+        No : {{ $trx->trx_number }}<br>
+        Tgl: {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
+        Kasir: {{ auth()->user()->name }}<br>
+        @if($trx->member)
+            Member: {{ $trx->member->name }}<br>
+            Poin Digunakan: {{ $trx->used_points ?? 0 }}
+        @endif
     </div>
 
-    <div class="line"></div>
+    <hr style="border-top:1px dashed #000">
 
-    <!-- ITEM -->
-    <table>
+    {{-- ITEM --}}
+    <table style="width:100%">
+        @php 
+            $totalDiskon = 0; 
+        @endphp
+
         @foreach($trx->items as $item)
-        <tr>
-            <td colspan="3">
-                {{ $item->unit->product->name }}
-            </td>
-        </tr>
-        <tr>
-            <td>{{ $item->qty }} x</td>
-            <td class="right">{{ number_format($item->price) }}</td>
-            <td class="right">{{ number_format($item->subtotal) }}</td>
-        </tr>
+            @php
+                $diskonItem = ($item->discount ?? 0) * $item->qty;
+                $totalDiskon += $diskonItem;
+            @endphp
+
+            <tr>
+                <td colspan="3">{{ $item->unit->product->name }}</td>
+            </tr>
+
+            <tr>
+                <td>{{ $item->qty }} x</td>
+                <td class="text-end">{{ number_format($item->price) }}</td>
+                <td class="text-end">{{ number_format($item->price * $item->qty) }}</td>
+            </tr>
+
+            @if(($item->discount ?? 0) > 0)
+            <tr>
+                <td colspan="2">Diskon Item</td>
+                <td class="text-end">-{{ number_format($diskonItem) }}</td>
+            </tr>
+            @endif
+
+            <tr>
+                <td colspan="2"><strong>Subtotal</strong></td>
+                <td class="text-end"><strong>{{ number_format($item->subtotal) }}</strong></td>
+            </tr>
         @endforeach
     </table>
 
-    <div class="line"></div>
+    <hr style="border-top:1px dashed #000">
 
-    <!-- TOTAL -->
-    <table>
+    {{-- POIN MEMBER --}}
+    @if($trx->member && ($trx->used_points ?? 0) > 0)
+        @php
+            $pointDiscount = ($trx->used_points ?? 0) * 1000; // 1 poin = Rp 1000
+        @endphp
+        <table style="width:100%">
+            <tr>
+                <td>Diskon Poin ({{ $trx->used_points }} pts)</td>
+                <td class="text-end">-{{ number_format($pointDiscount) }}</td>
+            </tr>
+        </table>
+    @endif
+
+    {{-- TOTAL --}}
+    <table style="width:100%">
         <tr>
-            <td>Total</td>
-            <td class="right">{{ number_format($trx->total) }}</td>
+            <td>Total Sebelum Diskon</td>
+            <td class="text-end">{{ number_format($trx->total + $totalDiskon + ($pointDiscount ?? 0)) }}</td>
         </tr>
+
+        @if($totalDiskon > 0)
+        <tr>
+            <td>Diskon Item</td>
+            <td class="text-end">-{{ number_format($totalDiskon) }}</td>
+        </tr>
+        @endif
+
+        @if(isset($pointDiscount) && $pointDiscount > 0)
+        <tr>
+            <td>Diskon Poin</td>
+            <td class="text-end">-{{ number_format($pointDiscount) }}</td>
+        </tr>
+        @endif
+
+        <tr>
+            <td><strong>Total Bayar</strong></td>
+            <td class="text-end"><strong>{{ number_format($trx->total) }}</strong></td>
+        </tr>
+
         <tr>
             <td>Bayar</td>
-            <td class="right">{{ number_format($trx->paid) }}</td>
+            <td class="text-end">{{ number_format($trx->paid) }}</td>
         </tr>
+
         <tr>
             <td>Kembali</td>
-            <td class="right">{{ number_format($trx->change) }}</td>
+            <td class="text-end">{{ number_format($trx->change) }}</td>
         </tr>
     </table>
 
-    <div class="line"></div>
+    <hr style="border-top:1px dashed #000">
 
-    <!-- FOOTER -->
-    <div class="center">
+    {{-- FOOTER --}}
+    <div class="text-center">
         TERIMA KASIH 🙏<br>
-        ATAS KUNJUNGAN ANDA<br><br>
+        ATAS KUNJUNGAN ANDA<br>
         <small>
             BARANG YANG SUDAH DIBELI<br>
-            TIDAK DAPAT DITUKAR / DIKEMBALIKAN<br>
+            TIDAK DAPAT DITUKAR / DIKEMBALIKAN
         </small>
     </div>
 
 </div>
 
-<script>
-function autoPrint(){
-    window.print();
-
-    setTimeout(() => {
-        window.close();
-        // atau redirect otomatis:
-        // window.location.href = "/pos";
-    }, 500);
-}
-</script>
-
-</body>
-</html>
+@endsection

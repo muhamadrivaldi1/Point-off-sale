@@ -6,9 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
-     protected $fillable = [
+    protected $fillable = [
         'trx_number',
         'user_id',
+        'member_id',
+        'used_points',
+        'point_value',
         'total',
         'discount',
         'paid',
@@ -31,4 +34,18 @@ class Transaction extends Model
     {
         return $this->hasMany(TransactionRequest::class);
     }
+
+    public function member()
+    {
+        return $this->belongsTo(Member::class);
+    }
+
+    protected $casts = [
+        'total'        => 'float',
+        'discount'     => 'float',
+        'paid'         => 'float',
+        'change'       => 'float',
+        'point_value'  => 'float',
+        'used_points'  => 'integer',
+    ];
 }

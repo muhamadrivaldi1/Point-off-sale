@@ -13,19 +13,18 @@ class TransactionItem extends Model
         'qty',
         'price',
         'subtotal',
-        'verified'
+        'verified',
+        'location' 
     ];
 
     public function unit()
     {
         return $this->belongsTo(ProductUnit::class, 'product_unit_id');
     }
-
     public function transaction()
     {
         return $this->belongsTo(Transaction::class, 'transaction_id');
     }
-
     public function returns(): HasMany
     {
         return $this->hasMany(\App\Models\ReturnItem::class, 'transaction_item_id');
@@ -33,5 +32,9 @@ class TransactionItem extends Model
     public function hasPendingReturn(): bool
     {
         return $this->returns()->where('status', 'pending')->exists();
+    }
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
     }
 }

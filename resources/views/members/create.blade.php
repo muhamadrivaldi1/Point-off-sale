@@ -1,37 +1,58 @@
 @extends('layouts.app')
-@section('title','Tambah Member')
 
 @section('content')
-<div class="card shadow-sm">
-    <div class="card-header">
-        <h3 class="mb-0">Tambah Member</h3>
-    </div>
-    <div class="card-body">
-        <form action="{{ route('members.store') }}" method="POST">
-            @csrf
-            <div class="mb-3">
-                <label for="name" class="form-label">Nama</label>
-                <input type="text" id="name" name="name" class="form-control" 
-                       value="{{ old('name') }}" required>
-                @error('name')
-                    <small class="text-danger">{{ $message }}</small>
-                @enderror
-            </div>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Tambah Member</h4>
+                </div>
+                <div class="card-body">
 
-            <div class="mb-3">
-                <label for="phone" class="form-label">Telepon</label>
-                <input type="text" id="phone" name="phone" class="form-control" 
-                       value="{{ old('phone') }}" required>
-                @error('phone')
-                    <small class="text-danger">{{ $message }}</small>
-                @enderror
-            </div>
+                    @if ($errors->any())
+                        <div class="alert alert-danger">
+                            <ul class="mb-0">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
 
-            <div class="d-flex justify-content-end gap-2">
-                <a href="{{ route('members.index') }}" class="btn btn-secondary">Kembali</a>
-                <button type="submit" class="btn btn-primary">Simpan</button>
+                    <form action="{{ route('members.store') }}" method="POST">
+                        @csrf
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label fw-bold">Nama</label>
+                            <input type="text" class="form-control form-control-lg" id="name" name="name" 
+                                value="{{ old('name') }}" placeholder="Masukkan nama lengkap" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="phone" class="form-label fw-bold">Telepon</label>
+                            <input type="text" class="form-control form-control-lg" id="phone" name="phone" 
+                                value="{{ old('phone') }}" placeholder="0812xxxxxxx" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="address" class="form-label fw-bold">Alamat</label>
+                            <textarea class="form-control" id="address" name="address" rows="3" 
+                                placeholder="Masukkan alamat lengkap">{{ old('address') }}</textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-2">
+                            <i class="bi bi-check-circle me-2"></i> Simpan
+                        </button>
+
+                        <a href="{{ route('members.index') }}" class="btn btn-secondary btn-lg w-100">
+                            &larr; Kembali
+                        </a>
+                    </form>
+
+                </div>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 @endsection

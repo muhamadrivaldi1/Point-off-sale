@@ -2,51 +2,81 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PriceRule;
+use App\Models\ProductPrice;
 use App\Models\ProductUnit;
 use Illuminate\Http\Request;
 
 class PriceRuleController extends Controller
 {
+    /**
+     * Tampilkan halaman harga bertingkat
+     */
     public function index()
     {
-        return view('price_rules.index', [
-            'units' => ProductUnit::with('priceRules', 'product')->get()
-        ]);
+        $units = ProductUnit::with([
+            'product',
+            'priceRules' => function ($q) {
+                $q->orderBy('min_qty');
+            }
+        ])->get();
+
+        return view('master.price_rules.index', compact('units'));
     }
 
+    /**
+     * Simpan harga bertingkat baru
+     */
     public function store(Request $request)
     {
         $request->validate([
-            'product_unit_id' => 'required|exists:product_units,id',
-            'min_qty' => 'required|integer|min:1',
-            'price' => 'required|numeric|min:0'
+            'unit_id'    => 'required|exists:product_units,id',
+            'price_type' => 'required|in:retail,wholesale,member',
+            'min_qty'    => 'required|integer|min:1',
+            'price'      => 'required|numeric|min:0',
         ]);
 
-        PriceRule::create([
-            'product_unit_id' => $request->product_unit_id,
-            'min_qty' => $request->min_qty,
-            'price' => $request->price
+        $unit = ProductUnit::findOrFail($request->unit_id);
+
+        ProductPrice::create([
+            'unit_id'    => $unit->id,
+            'product_id' => $unit->product_id,
+            'price_type' => $request->price_type,
+            'min_qty'    => $request->min_qty,
+            'price'      => $request->price,
         ]);
 
-        return back()->with('success', 'Harga bertingkat ditambahkan');
+        return back()->with('success', 'Harga bertingkat berhasil ditambahkan');
     }
 
+    /**
+     * Update harga bertingkat
+     */
     public function update(Request $request, $id)
     {
-        $rule = PriceRule::findOrFail($id);
+        $rule = ProductPrice::findOrFail($id);
 
-        $rule->update([
-            'min_qty' => $request->min_qty,
-            'price' => $request->price
+        $request->validate([
+            'price_type' => 'required|in:retail,wholesale,member',
+            'min_qty'    => 'required|integer|min:1',
+            'price'      => 'required|numeric|min:0',
         ]);
 
-        return back()->with('success', 'Harga bertingkat diupdate');
+        $rule->update([
+            'price_type' => $request->price_type,
+            'min_qty'    => $request->min_qty,
+            'price'      => $request->price,
+        ]);
+
+        return back()->with('success', 'Harga bertingkat berhasil diperbarui');
     }
 
+    /**
+     * Hapus harga bertingkat
+     */
     public function destroy($id)
     {
-        PriceRule::findOrFail($id)->delete();
-        return back()->with('success', 'Harga bertingkat dihapus');
+        ProductPrice::findOrFail($id)->delete();
+
+        return back()->with('success', 'Harga bertingkat berhasil dihapus');
     }
 }

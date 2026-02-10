@@ -6,34 +6,43 @@ use Illuminate\Http\Request;
 use App\Models\Transaction;
 use App\Models\TransactionRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TransactionController extends Controller
 {
-    /* ===============================
-       LIST TRANSAKSI (PAID)
-    =============================== */
-    public function index()
+    /**
+     * LIST TRANSAKSI
+     */
+    public function index(Request $request)
     {
-        $data = Transaction::with([
-            'requests.user' // load semua request untuk cek status pending/approved
-        ])
-            ->where('status', 'paid')
-            ->latest()
-            ->paginate(10);
+        $query = Transaction::with('requests.user')->latest();
+
+        if ($request->filled('q')) {
+            $query->where('trx_number', 'like', '%' . $request->q . '%');
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+
+        $query->whereIn('status', ['paid', 'pending']);
+
+        $data = $query->paginate(10)->withQueryString();
 
         return view('transactions.index', compact('data'));
     }
 
-    /* ===============================
-       FORM EDIT (OWNER SAJA)
-    =============================== */
+    /**
+     * FORM EDIT (OWNER)
+     */
     public function edit($id)
     {
         $this->onlyOwner();
 
         $trx = Transaction::with([
             'items.unit.product',
-            'requests.user'
+            'requests.user',
+            'member'
         ])
             ->where('status', 'paid')
             ->findOrFail($id);
@@ -41,9 +50,9 @@ class TransactionController extends Controller
         return view('transactions.edit', compact('trx'));
     }
 
-    /* ===============================
-       UPDATE TRANSAKSI (OWNER)
-    =============================== */
+    /**
+     * UPDATE TRANSAKSI (OWNER)
+     */
     public function update(Request $request, $id)
     {
         $this->onlyOwner();
@@ -52,29 +61,69 @@ class TransactionController extends Controller
             'total' => 'required|numeric|min:0'
         ]);
 
-        $trx = Transaction::where('status', 'paid')->findOrFail($id);
+        DB::transaction(function () use ($request, $id) {
 
-        $trx->update([
-            'total' => $request->total
-        ]);
+            $trx = Transaction::with('member')
+                ->where('status', 'paid')
+                ->lockForUpdate()
+                ->findOrFail($id);
 
-        // Approve semua request pending
-        TransactionRequest::where('transaction_id', $trx->id)
-            ->where('status', 'pending')
-            ->update([
-                'status' => 'approved',
-                'approved_by' => Auth::id(),
-                'approved_at' => now()
+            $oldTotal = $trx->total;
+            $newTotal = $request->total;
+
+            // update transaksi
+            $trx->update([
+                'total' => $newTotal
             ]);
+
+            /* ===============================
+               UPDATE MEMBER (JIKA ADA)
+            =============================== */
+            if ($trx->member) {
+                $member = $trx->member;
+
+                // koreksi total_spent
+                $member->total_spent = max(
+                    0,
+                    $member->total_spent - $oldTotal + $newTotal
+                );
+
+                // hitung ulang poin
+                $member->points = floor($member->total_spent / 1000);
+
+                // update level & diskon
+                if ($member->total_spent >= 5000000) {
+                    $member->level = 'Gold';
+                    $member->discount = 5;
+                } elseif ($member->total_spent >= 1000000) {
+                    $member->level = 'Silver';
+                    $member->discount = 2;
+                } else {
+                    $member->level = 'Basic';
+                    $member->discount = 0;
+                }
+
+                $member->save();
+            }
+
+            // approve semua request edit
+            TransactionRequest::where('transaction_id', $id)
+                ->where('status', 'pending')
+                ->update([
+                    'status' => 'approved',
+                    'approved_by' => Auth::id(),
+                    'approved_at' => now()
+                ]);
+        });
 
         return redirect()
             ->route('transactions.index')
-            ->with('success', 'Transaksi berhasil diperbarui');
+            ->with('success', 'Transaksi berhasil diperbarui & member disesuaikan');
     }
 
-    /* ===============================
-       KASIR REQUEST EDIT
-    =============================== */
+    /**
+     * KASIR REQUEST EDIT
+     */
     public function requestEdit(Request $request, $id)
     {
         $request->validate([
@@ -83,11 +132,11 @@ class TransactionController extends Controller
 
         $trx = Transaction::where('status', 'paid')->findOrFail($id);
 
-        // Cegah double request
         if ($trx->requests()->where('status', 'pending')->exists()) {
             return response()->json([
-                'message' => 'Request sudah pernah dikirim'
-            ], 422);
+                'success' => false,
+                'message' => 'Request edit sudah dikirim'
+            ], 400);
         }
 
         TransactionRequest::create([
@@ -98,46 +147,93 @@ class TransactionController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Permintaan perbaikan berhasil dikirim'
+            'success' => true,
+            'message' => 'Permintaan edit dikirim ke owner'
         ]);
     }
 
-    /* ===============================
-       OWNER APPROVE EDIT
-    =============================== */
-    public function approveEdit($id)
+    /**
+     * HAPUS TRANSAKSI PENDING
+     */
+    public function destroy($id)
+    {
+        $trx = Transaction::findOrFail($id);
+
+        if ($trx->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya transaksi pending yang bisa dihapus'
+            ], 403);
+        }
+
+        if (!in_array(Auth::user()->role, ['kasir', 'owner'])) {
+            abort(403);
+        }
+
+        $trx->items()->delete();
+        $trx->requests()->delete();
+        $trx->delete();
+
+        return response()->json([
+            'success' => true
+        ]);
+    }
+
+    /**
+     * APPROVE REQUEST (OWNER)
+     */
+    public function approve($id)
     {
         $this->onlyOwner();
 
-        $trx = Transaction::where('status', 'paid')->findOrFail($id);
+        $trx = Transaction::findOrFail($id);
 
-        // Approve request pending
-        TransactionRequest::where('transaction_id', $trx->id)
-            ->where('status', 'pending')
-            ->update([
-                'status' => 'approved',
-                'approved_by' => Auth::id(),
-                'approved_at' => now()
-            ]);
+        $req = $trx->requests()->where('status', 'pending')->first();
+        if (!$req) {
+            return back()->with('error', 'Tidak ada request pending');
+        }
 
-        return back()->with('success', 'Permintaan edit disetujui');
+        $req->update([
+            'status' => 'approved',
+            'approved_by' => Auth::id(),
+            'approved_at' => now()
+        ]);
+
+        return back()->with('success', 'Request berhasil diapprove');
     }
 
-    /* ===============================
-       STRUK TRANSAKSI
-    =============================== */
+    /**
+     * CETAK STRUK
+     */
     public function struk($id)
     {
-        $trx = Transaction::with('items.unit.product')
-            ->where('status', 'paid')
+        $trx = Transaction::with([
+                'items.unit.product',
+                'user',
+                'member'
+            ])
             ->findOrFail($id);
 
-        return view('transactions.struk', compact('trx'));
+        if (
+            Auth::user()->role === 'kasir' &&
+            $trx->user_id !== Auth::id()
+        ) {
+            abort(403);
+        }
+
+        foreach ($trx->items as $item) {
+            $item->subtotal =
+                ($item->price - ($item->discount ?? 0)) * $item->qty;
+        }
+
+        $total = $trx->items->sum('subtotal');
+
+        return view('transactions.struk', compact('trx', 'total'));
     }
 
-    /* ===============================
-       HELPER ROLE
-    =============================== */
+    /**
+     * HELPER ROLE
+     */
     private function onlyOwner()
     {
         abort_if(Auth::user()->role !== 'owner', 403, 'Akses ditolak');

@@ -84,10 +84,11 @@
             <a href="/returns">
                 <i class="bi bi-arrow-counterclockwise"></i> Retur Barang
             </a>
-
-            <a href="/members">
+           <hr class="text-white" style="border-width: 3px; border-color: white;">
+           
+            {{-- <a href="/members">
                 <i class="bi bi-people"></i> Member
-            </a>
+            </a> --}}
 
           @if($openSession)
             <form action="{{ route('cashier.close') }}" method="POST" class="px-3">
@@ -108,6 +109,10 @@
 
             <a href="/pos">
                 <i class="bi bi-cash-stack"></i> POS / Kasir
+            </a>
+
+             <a href="/master/harga">
+                <i class="bi bi-tags"></i> Data Master
             </a>
 
             <a href="/products">

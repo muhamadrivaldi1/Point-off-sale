@@ -3,45 +3,65 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductUnit extends Model
 {
+    protected $table = 'product_units'; // opsional, default Laravel sudah sesuai
+
     protected $fillable = [
         'product_id',
         'unit_name',
         'conversion',
         'barcode',
-        'price'
+        'price',
     ];
 
-    public function product()
+    /**
+     * Relasi ke Product
+     */
+    public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
-    public function stock()
+    /**
+     * Relasi ke Stock
+     */
+    public function stock(): HasMany
     {
         return $this->hasMany(Stock::class, 'product_unit_id');
     }
 
-    public function priceRules()
+    /**
+     * Relasi ke harga bertingkat
+     */
+    public function priceRules(): HasMany
     {
-        return $this->hasMany(PriceRule::class);
+        return $this->hasMany(ProductPrice::class, 'unit_id');
     }
 
-    public function getPriceByQty($qty)
+    /**
+     * Ambil harga berdasarkan qty dan type (retail, wholesale, member)
+     */
+    public function getPriceByQty(int $qty, string $price_type = 'retail'): float
     {
         $rule = $this->priceRules()
             ->where('min_qty', '<=', $qty)
+            ->where('price_type', $price_type)
             ->orderBy('min_qty', 'desc')
             ->first();
 
-        return $rule ? $rule->price : $this->price;
+        return $rule ? (float) $rule->price : (float) $this->price;
     }
 
-    public function stokToko()
+    /**
+     * Jumlah stok di toko
+     */
+    public function stokToko(): int
     {
-        return $this->stock()
+        return (int) $this->stock()
             ->where('location', 'toko')
             ->sum('qty');
     }

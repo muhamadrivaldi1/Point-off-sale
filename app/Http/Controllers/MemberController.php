@@ -32,13 +32,19 @@ class MemberController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20|unique:members'
+            'phone' => 'required|string|max:20|unique:members',
+            'address' => 'nullable|string|max:255'
         ]);
 
         Member::create([
             'name' => $request->name,
             'phone' => $request->phone,
-            'points' => 0
+            'address' => $request->address,
+            'points' => 0,
+            'total_spent' => 0,
+            'level' => 'Basic',
+            'discount' => 0,
+            'status' => 'aktif'
         ]);
 
         return redirect()->route('members.index')
@@ -63,10 +69,12 @@ class MemberController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20|unique:members,phone,' . $member->id
+            'phone' => 'required|string|max:20|unique:members,phone,' . $member->id,
+            'address' => 'nullable|string|max:255',
+            'status' => 'required|in:aktif,nonaktif'
         ]);
 
-        $member->update($request->only('name','phone'));
+        $member->update($request->only('name','phone','address','status'));
 
         return redirect()->route('members.index')
             ->with('success', 'Member berhasil diperbarui');
@@ -89,7 +97,27 @@ class MemberController extends Controller
     {
         if (!$trx->member_id) return;
 
-        $trx->member->increment('points', floor($trx->total / 1000));
+        $member = $trx->member;
+
+        // Tambah total_spent
+        $member->total_spent += $trx->total;
+
+        // Hitung poin (1 point per 1000 rupiah)
+        $member->points += floor($trx->total / 1000);
+
+        // Update level & diskon otomatis
+        if ($member->total_spent > 5000000) {
+            $member->level = 'Gold';
+            $member->discount = 5;
+        } elseif ($member->total_spent >= 1000000) {
+            $member->level = 'Silver';
+            $member->discount = 2;
+        } else {
+            $member->level = 'Basic';
+            $member->discount = 0;
+        }
+
+        $member->save();
     }
 
     /* ===============================
@@ -108,3 +136,4 @@ class MemberController extends Controller
         return response()->json(['success' => true]);
     }
 }
+    
