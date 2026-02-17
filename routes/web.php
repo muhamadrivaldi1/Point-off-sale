@@ -78,11 +78,21 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos/scan', [PosController::class, 'scan'])->name('pos.scan');
     Route::get('/pos/search', [PosController::class, 'search'])->name('pos.search');
     Route::post('/pos/add-item', [PosController::class, 'addItem'])->name('pos.addItem');
+    Route::post('/pos/update-unit', [PosController::class, 'updateUnit'])->name('pos.updateUnit');
+    Route::post('/pos/update-qty-manual', [PosController::class, 'updateQtyManual'])->name('pos.updateQtyManual');
     Route::post('/pos/update-qty', [PosController::class, 'updateQty'])->name('pos.updateQty');
     Route::post('/pos/update-discount', [PosController::class, 'updateDiscount'])->name('pos.updateDiscount');
     Route::post('/pos/pay', [PosController::class, 'pay'])->name('pos.pay');
     Route::post('/pos/override-stock', [PosController::class, 'overrideStock'])->name('pos.overrideStock');
+    Route::post('/pos/remove-item', [PosController::class, 'removeItem']);
     Route::post('/pos/cancel', [PosController::class, 'cancel'])->name('pos.cancel');
+    Route::post('/pos/override-owner', [PosController::class, 'overrideOwner']);
+    Route::post('/pos/set-member', [PosController::class, 'setMember']);
+    Route::post('/pos/set-discount', [PosController::class, 'setDiscount']);
+    Route::post('/pos/remove-item', [PosController::class, 'removeItem']);
+    Route::get('/pos/search-member', [PosController::class,'searchMember']);
+    Route::get('/pos/get-member', [PosController::class,'getMember']);
+    Route::post('/pos/cleanup-empty', [PosController::class, 'cleanupEmptyPending']);
 
 
     /*

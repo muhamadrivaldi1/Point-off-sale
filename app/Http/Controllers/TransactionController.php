@@ -14,23 +14,30 @@ class TransactionController extends Controller
      * LIST TRANSAKSI
      */
     public function index(Request $request)
-    {
-        $query = Transaction::with('requests.user')->latest();
+{
+    $query = Transaction::with('requests.user')->latest();
 
-        if ($request->filled('q')) {
-            $query->where('trx_number', 'like', '%' . $request->q . '%');
-        }
-
-        if ($request->filled('date')) {
-            $query->whereDate('created_at', $request->date);
-        }
-
-        $query->whereIn('status', ['paid', 'pending']);
-
-        $data = $query->paginate(10)->withQueryString();
-
-        return view('transactions.index', compact('data'));
+    if ($request->filled('q')) {
+        $query->where('trx_number', 'like', '%' . $request->q . '%');
     }
+
+    if ($request->filled('date')) {
+        $query->whereDate('created_at', $request->date);
+    }
+
+    // ✅ PERBAIKAN: Hanya tampilkan transaksi yang PAID atau pending dengan item
+    $query->where(function($q) {
+        $q->where('status', 'paid')
+          ->orWhere(function($subQuery) {
+              $subQuery->where('status', 'pending')
+                       ->whereHas('items'); // ✅ pending HARUS punya item
+          });
+    });
+
+    $data = $query->paginate(10)->withQueryString();
+
+    return view('transactions.index', compact('data'));
+}
 
     /**
      * FORM EDIT (OWNER)

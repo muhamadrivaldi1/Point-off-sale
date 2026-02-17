@@ -7,7 +7,7 @@
 <style>
 /* ================= TAMPILAN DI LAYAR ================= */
 .struk {
-    max-width: 220px;          /* kecil seperti struk */
+    max-width: 220px;          
     margin: auto;
     padding: 8px;
     background: #fff;
@@ -23,15 +23,8 @@
 }
 
 @media print {
-
-    body * {
-        visibility: hidden;
-    }
-
-    .struk, .struk * {
-        visibility: visible;
-    }
-
+    body * { visibility: hidden; }
+    .struk, .struk * { visibility: visible; }
     .struk {
         position: absolute;
         left: 0;
@@ -42,14 +35,13 @@
         font-size: 10px;
         box-shadow: none;
     }
-
-    .d-print-none {
-        display: none !important;
-    }
+    .d-print-none { display: none !important; }
 }
+.text-center { text-align: center; }
+.text-end { text-align: right; }
+hr { border-top:1px dashed #000; }
 </style>
 
-{{-- ================= STRUK ================= --}}
 <div class="struk">
 
     {{-- HEADER --}}
@@ -59,11 +51,11 @@
         Telp: 0851-8322-7741
     </div>
 
-    <hr style="border-top:1px dashed #000">
+    <hr>
 
-    {{-- INFO --}}
+    {{-- INFO TRANSAKSI --}}
     <div>
-        No : {{ $trx->trx_number }}<br>
+        No: {{ $trx->trx_number }}<br>
         Tgl: {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
         Kasir: {{ auth()->user()->name }}<br>
         @if($trx->member)
@@ -72,51 +64,42 @@
         @endif
     </div>
 
-    <hr style="border-top:1px dashed #000">
+    <hr>
 
     {{-- ITEM --}}
     <table style="width:100%">
         @php 
-            $totalDiskon = 0; 
+            $totalDiskonItem = 0;
         @endphp
 
         @foreach($trx->items as $item)
             @php
                 $diskonItem = ($item->discount ?? 0) * $item->qty;
-                $totalDiskon += $diskonItem;
+                $totalDiskonItem += $diskonItem;
             @endphp
 
             <tr>
                 <td colspan="3">{{ $item->unit->product->name }}</td>
             </tr>
-
             <tr>
                 <td>{{ $item->qty }} x</td>
                 <td class="text-end">{{ number_format($item->price) }}</td>
                 <td class="text-end">{{ number_format($item->price * $item->qty) }}</td>
             </tr>
 
-            @if(($item->discount ?? 0) > 0)
+            @if($diskonItem > 0)
             <tr>
                 <td colspan="2">Diskon Item</td>
                 <td class="text-end">-{{ number_format($diskonItem) }}</td>
             </tr>
             @endif
-
-            <tr>
-                <td colspan="2"><strong>Subtotal</strong></td>
-                <td class="text-end"><strong>{{ number_format($item->subtotal) }}</strong></td>
-            </tr>
         @endforeach
     </table>
 
-    <hr style="border-top:1px dashed #000">
-
-    {{-- POIN MEMBER --}}
+    {{-- DISKON POIN MEMBER --}}
+    @php $pointDiscount = 0; @endphp
     @if($trx->member && ($trx->used_points ?? 0) > 0)
-        @php
-            $pointDiscount = ($trx->used_points ?? 0) * 1000; // 1 poin = Rp 1000
-        @endphp
+        @php $pointDiscount = ($trx->used_points ?? 0) * 1000; @endphp
         <table style="width:100%">
             <tr>
                 <td>Diskon Poin ({{ $trx->used_points }} pts)</td>
@@ -125,21 +108,28 @@
         </table>
     @endif
 
-    {{-- TOTAL --}}
+    <hr>
+
+    {{-- TOTAL BAYAR --}}
+    @php
+        $totalSebelumDiskon = $trx->total + $totalDiskonItem + $pointDiscount;
+        $totalBayar = $totalSebelumDiskon - $totalDiskonItem - $pointDiscount;
+    @endphp
+
     <table style="width:100%">
         <tr>
             <td>Total Sebelum Diskon</td>
-            <td class="text-end">{{ number_format($trx->total + $totalDiskon + ($pointDiscount ?? 0)) }}</td>
+            <td class="text-end">{{ number_format($totalSebelumDiskon) }}</td>
         </tr>
 
-        @if($totalDiskon > 0)
+        @if($totalDiskonItem > 0)
         <tr>
             <td>Diskon Item</td>
-            <td class="text-end">-{{ number_format($totalDiskon) }}</td>
+            <td class="text-end">-{{ number_format($totalDiskonItem) }}</td>
         </tr>
         @endif
 
-        @if(isset($pointDiscount) && $pointDiscount > 0)
+        @if($pointDiscount > 0)
         <tr>
             <td>Diskon Poin</td>
             <td class="text-end">-{{ number_format($pointDiscount) }}</td>
@@ -148,7 +138,7 @@
 
         <tr>
             <td><strong>Total Bayar</strong></td>
-            <td class="text-end"><strong>{{ number_format($trx->total) }}</strong></td>
+            <td class="text-end"><strong>{{ number_format($totalBayar) }}</strong></td>
         </tr>
 
         <tr>
@@ -162,7 +152,7 @@
         </tr>
     </table>
 
-    <hr style="border-top:1px dashed #000">
+    <hr>
 
     {{-- FOOTER --}}
     <div class="text-center">
