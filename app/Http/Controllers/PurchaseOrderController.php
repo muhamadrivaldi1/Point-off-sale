@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\ProductUnit;
+use App\Models\Supplier;
 use App\Models\Stock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,124 +13,257 @@ use Illuminate\Support\Facades\Auth;
 
 class PurchaseOrderController extends Controller
 {
-    public function index()
+    // -------------------------------------------------------
+    // INDEX
+    // -------------------------------------------------------
+    public function index(Request $request)
     {
-        $pos = PurchaseOrder::latest()->paginate(10);
-        return view('po.index', compact('pos'));
+        $query = PurchaseOrder::with('supplier');
+
+        if ($request->supplier_id) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+        if ($request->status) {
+            $query->where('status', $request->status);
+        }
+        if ($request->cari) {
+            $query->where('po_number', 'like', '%' . $request->cari . '%');
+        }
+        if ($request->dari) {
+            $query->whereDate('tanggal', '>=', $request->dari);
+        }
+        if ($request->sampai) {
+            $query->whereDate('tanggal', '<=', $request->sampai);
+        }
+
+        $pos       = $query->latest()->paginate(10)->withQueryString();
+        $suppliers = Supplier::orderBy('nama_supplier')->get();
+
+        return view('po.index', compact('pos', 'suppliers'));
     }
 
+    // -------------------------------------------------------
+    // CREATE
+    // -------------------------------------------------------
     public function create()
     {
-        $po = PurchaseOrder::firstOrCreate(
-            ['user_id' => Auth::id(), 'status' => 'draft'],
-            ['po_number' => 'PO-' . now()->format('YmdHis')]
-        );
+        $po = PurchaseOrder::create([
+            'user_id'   => Auth::id(),
+            'status'    => 'draft',
+            'po_number' => 'PO-' . now()->format('YmdHis'),
+        ]);
 
         return redirect()->route('po.edit', $po->id);
     }
 
+    // -------------------------------------------------------
+    // EDIT
+    // -------------------------------------------------------
     public function edit($id)
     {
-        $po = PurchaseOrder::with('items.unit.product')->findOrFail($id);
-        $units = ProductUnit::with('product')->get();
-        return view('po.edit', compact('po', 'units'));
+        $po        = PurchaseOrder::with('items.unit.product')->findOrFail($id);
+        $units     = ProductUnit::with('product')->get();
+        $suppliers = Supplier::orderBy('nama_supplier')->get();
+
+        return view('po.edit', compact('po', 'units', 'suppliers'));
     }
 
-    public function cancel($id)
-    {
-        $po = PurchaseOrder::findOrFail($id);
-
-        if ($po->status !== 'draft') {
-            return back()->with('error', 'PO tidak bisa dibatalkan');
-        }
-
-        $po->update(['status' => 'canceled']);
-
-        return redirect()->route('po.index')->with('success', 'PO berhasil dibatalkan');
-    }
-
-
-    public function destroy($id)
-    {
-        $po = PurchaseOrder::findOrFail($id);
-
-        if ($po->status !== 'draft') {
-            return back()->with('error', 'PO tidak bisa dihapus');
-        }
-
-        $po->items()->delete();
-        $po->delete();
-
-        return back()->with('success', 'PO berhasil dihapus');
-    }
-
-    public function addItem(Request $request, $poId)
+    // -------------------------------------------------------
+    // UPDATE HEADER
+    // -------------------------------------------------------
+    public function updateHeader(Request $request, $id)
     {
         $request->validate([
-            'product_unit_id' => 'required|exists:product_units,id',
-            'qty' => 'required|integer|min:1',
-            'price' => 'required|numeric|min:0'
+            'supplier_id'         => 'required|exists:suppliers,id',
+            'tanggal'             => 'required|date',
+            'jenis_pembayaran'    => 'required|in:Cash,Kredit,Transfer',
+            'nomor_faktur'        => 'nullable|string|max:100',
+            'tanggal_faktur'      => 'nullable|date',
+            'jk_waktu'            => 'nullable|integer|min:0',
+            'tanggal_jatuh_tempo' => 'nullable|date',
+            'ppn'                 => 'nullable|numeric|min:0|max:100',
+            'disc_nota_persen'    => 'nullable|numeric|min:0|max:100',
+            'disc_nota_rupiah'    => 'nullable|numeric|min:0',
+            'keterangan'          => 'nullable|string',
+            'gudang'              => 'nullable|string|max:100',
+            'bulan_lapor'         => 'nullable|string|max:7',
+            'jenis_transaksi'     => 'nullable|in:Pembelian,Retur',
         ]);
 
-        $po = PurchaseOrder::findOrFail($poId);
+        $po = PurchaseOrder::findOrFail($id);
 
         if ($po->status !== 'draft') {
-            return back()->with('error', 'PO sudah dikunci');
+            return back()->with('error', 'PO sudah dikunci, header tidak bisa diubah.');
         }
 
-        PurchaseOrderItem::create([
-            'purchase_order_id' => $po->id,
-            'product_unit_id' => $request->product_unit_id,
-            'qty' => $request->qty,
-            'price' => $request->price
+        $po->update([
+            'supplier_id'         => $request->supplier_id,
+            'tanggal'             => $request->tanggal,
+            'gudang'              => $request->gudang,
+            'jenis_transaksi'     => $request->jenis_transaksi ?? 'Pembelian',
+            'nomor_faktur'        => $request->nomor_faktur,
+            'tanggal_faktur'      => $request->tanggal_faktur,
+            'jenis_pembayaran'    => $request->jenis_pembayaran,
+            'jk_waktu'            => $request->jk_waktu,
+            'tanggal_jatuh_tempo' => $request->tanggal_jatuh_tempo,
+            'ppn'                 => $request->ppn ?? 0,
+            'disc_nota_persen'    => $request->disc_nota_persen ?? 0,
+            'disc_nota_rupiah'    => $request->disc_nota_rupiah ?? 0,
+            'keterangan'          => $request->keterangan,
+            'bulan_lapor'         => $request->bulan_lapor,
         ]);
 
-        return back()->with('success', 'Item berhasil ditambahkan');
+        return back()->with('success', 'Header PO berhasil disimpan.');
     }
 
+// ============================================================
+// Ganti method addItem() di PurchaseOrderController.php
+// ============================================================
+
+public function addItem(Request $request, $poId)
+{
+    $request->validate([
+        'product_unit_id' => 'required|exists:product_units,id',
+        'qty'             => 'required|numeric|min:1',
+        'price'           => 'required|numeric|min:0',
+        'bonus_nama'      => 'nullable|string|max:100',
+        'bonus_qty'       => 'nullable|numeric|min:0',
+    ]);
+
+    $po = PurchaseOrder::findOrFail($poId);
+
+    if ($po->status !== 'draft') {
+        return back()->with('error', 'PO sudah dikunci, tidak bisa menambah item.');
+    }
+
+    $qty      = $request->qty;
+    $price    = $request->price;
+    $subtotal = $qty * $price;
+
+    PurchaseOrderItem::create([
+        'purchase_order_id' => $po->id,
+        'product_unit_id'   => $request->product_unit_id,
+        'qty'               => $qty,
+        'price'             => $price,
+        'bonus_nama'        => $request->filled('bonus_nama') ? trim($request->bonus_nama) : null,
+        'bonus_qty'         => $request->bonus_qty ?? 0,
+    ]);
+
+    // Update total di header PO
+    $this->recalculateTotal($po);
+
+    return back()->with('success', 'Item berhasil ditambahkan.');
+}
+
+// ============================================================
+// Ganti method recalculateTotal() di PurchaseOrderController.php
+// ============================================================
+
+private function recalculateTotal(PurchaseOrder $po): void
+{
+    $po->refresh();
+
+    $grandTotal = $po->items->sum(fn($i) => $i->qty * $i->price);
+    $ppnRp      = $grandTotal * ($po->ppn ?? 0) / 100;
+    $total      = $grandTotal + $ppnRp;
+
+    $po->update(['total' => $total]);
+}
+
+    // -------------------------------------------------------
+    // DELETE ITEM
+    // -------------------------------------------------------
     public function deleteItem($id)
     {
         $item = PurchaseOrderItem::findOrFail($id);
+        $po   = $item->purchaseOrder;
 
-        if ($item->purchaseOrder->status !== 'draft') {
-            return back()->with('error', 'PO sudah dikunci');
+        if ($po->status !== 'draft') {
+            return back()->with('error', 'PO sudah dikunci, item tidak bisa dihapus.');
         }
 
         $item->delete();
-        return back()->with('success', 'Item dihapus');
+
+        return back()->with('success', 'Item berhasil dihapus.');
     }
 
+    // -------------------------------------------------------
+    // APPROVE
+    // -------------------------------------------------------
     public function approve($id)
     {
         $po = PurchaseOrder::findOrFail($id);
 
         if ($po->status !== 'draft') {
-            return back()->with('error', 'PO sudah diproses');
+            return back()->with('error', 'PO sudah diproses sebelumnya.');
         }
-
         if ($po->items()->count() === 0) {
-            return back()->with('error', 'PO belum memiliki item');
+            return back()->with('error', 'PO belum memiliki item.');
+        }
+        if (empty($po->supplier_id)) {
+            return back()->with('error', 'Supplier belum dipilih, isi header PO terlebih dahulu.');
         }
 
-        $po->update([
-            'status' => 'approved'
-        ]);
+        $po->update(['status' => 'approved']);
 
-        return redirect()
-            ->route('po.index')
-            ->with('success', 'PO berhasil di-approve');
+        return redirect()->route('po.index')->with('success', 'PO berhasil di-approve.');
     }
 
+    // -------------------------------------------------------
+    // RECEIVE — Terima barang + update stok
+    // -------------------------------------------------------
     public function receive($id)
+    {
+        DB::transaction(function () use ($id) {
+
+            $po = PurchaseOrder::with('items')->findOrFail($id);
+
+            if ($po->status !== 'approved') {
+                throw new \Exception('PO belum approved.');
+            }
+
+            foreach ($po->items as $item) {
+                $stock = Stock::firstOrCreate([
+                    'product_unit_id' => $item->product_unit_id,
+                ]);
+                $stock->increment('qty', $item->qty);
+            }
+
+            $po->update(['status' => 'received']);
+        });
+
+        return redirect()->route('po.index')->with('success', 'Barang berhasil diterima & stok diperbarui.');
+    }
+
+    // -------------------------------------------------------
+    // CANCEL
+    // -------------------------------------------------------
+    public function cancel($id)
     {
         $po = PurchaseOrder::findOrFail($id);
 
-        if ($po->status !== 'approved') {
-            return back()->with('error', 'PO hanya bisa diterima jika status sudah approved');
+        if ($po->status !== 'draft') {
+            return back()->with('error', 'PO tidak bisa dibatalkan karena sudah diproses.');
         }
 
-        $po->update(['status' => 'received']);
+        $po->update(['status' => 'canceled']);
 
-        return redirect()->route('po.index')->with('success', 'PO berhasil diterima');
+        return redirect()->route('po.index')->with('success', 'PO berhasil dibatalkan.');
     }
+
+    // -------------------------------------------------------
+    // DESTROY
+    // -------------------------------------------------------
+public function destroy($id)
+{
+    $po = PurchaseOrder::findOrFail($id);
+
+    // Hapus semua item terlebih dahulu
+    $po->items()->delete();
+
+    // Hapus PO
+    $po->delete();
+
+    return back()->with('success', 'PO ' . $po->po_number . ' berhasil dihapus.');
+}
 }

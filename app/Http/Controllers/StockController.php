@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Stock;
 use App\Models\ProductUnit;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
@@ -14,19 +15,21 @@ class StockController extends Controller
     =============================== */
     public function index(Request $request)
     {
-        $stocks = Stock::with('unit.product')
+        $stocks = Stock::with(['unit.product', 'warehouse'])
             ->when($request->q, function ($q) use ($request) {
                 $q->whereHas('unit.product', function ($p) use ($request) {
                     $p->where('name', 'like', '%' . $request->q . '%');
                 });
             })
-            ->when($request->location, function ($q) use ($request) {
-                $q->where('location', $request->location);
+            ->when($request->warehouse_id, function ($q) use ($request) {
+                $q->where('warehouse_id', $request->warehouse_id);
             })
-            ->orderBy('location')
+            ->latest()
             ->paginate(10);
 
-        return view('stocks.index', compact('stocks'));
+        $warehouses = Warehouse::orderBy('name')->get();
+
+        return view('stocks.index', compact('stocks', 'warehouses'));
     }
 
     /* ===============================
@@ -38,36 +41,35 @@ class StockController extends Controller
             ->orderBy('product_id')
             ->get();
 
-        return view('stocks.create', compact('units'));
+        $warehouses = Warehouse::orderBy('name')->get();
+
+        return view('stocks.create', compact('units', 'warehouses'));
     }
 
     /* ===============================
        SIMPAN / TAMBAH STOK
-       (AUTO UPDATE JIKA SUDAH ADA)
     =============================== */
     public function store(Request $request)
     {
         $request->validate([
             'product_unit_id' => 'required|exists:product_units,id',
-            'location'        => 'required|in:gudang,toko',
+            'warehouse_id'    => 'required|exists:warehouses,id',
             'qty'             => 'required|integer|min:1',
         ]);
 
         DB::transaction(function () use ($request) {
 
             $stock = Stock::where('product_unit_id', $request->product_unit_id)
-                ->where('location', $request->location)
+                ->where('warehouse_id', $request->warehouse_id)
                 ->lockForUpdate()
                 ->first();
 
             if ($stock) {
-                // ➕ kalau sudah ada → tambah qty
                 $stock->increment('qty', $request->qty);
             } else {
-                // ➕ kalau belum ada → buat baru
                 Stock::create([
                     'product_unit_id' => $request->product_unit_id,
-                    'location'        => $request->location,
+                    'warehouse_id'    => $request->warehouse_id,
                     'qty'             => $request->qty,
                 ]);
             }
@@ -79,43 +81,93 @@ class StockController extends Controller
     }
 
     /* ===============================
+       FORM EDIT
+    =============================== */
+    public function edit($id)
+    {
+        $stock = Stock::findOrFail($id);
+
+        $units = ProductUnit::with('product')->get();
+        $warehouses = Warehouse::orderBy('name')->get();
+
+        return view('stocks.edit', compact('stock', 'units', 'warehouses'));
+    }
+
+    /* ===============================
+       UPDATE STOK
+    =============================== */
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'product_unit_id' => 'required|exists:product_units,id',
+            'warehouse_id'    => 'required|exists:warehouses,id',
+            'qty'             => 'required|integer|min:0',
+        ]);
+
+        $stock = Stock::findOrFail($id);
+
+        $stock->update([
+            'product_unit_id' => $request->product_unit_id,
+            'warehouse_id'    => $request->warehouse_id,
+            'qty'             => $request->qty,
+        ]);
+
+        return redirect()
+            ->route('stocks.index')
+            ->with('success', 'Stok berhasil diupdate');
+    }
+
+    /* ===============================
+       DELETE STOK
+    =============================== */
+    public function destroy($id)
+    {
+        $stock = Stock::findOrFail($id);
+        $stock->delete();
+
+        return redirect()
+            ->route('stocks.index')
+            ->with('success', 'Stok berhasil dihapus');
+    }
+
+    /* ===============================
        TRANSFER GUDANG → TOKO
+       (Optional jika masih dipakai)
     =============================== */
     public function transfer(Request $request)
     {
         $request->validate([
             'product_unit_id' => 'required|exists:product_units,id',
+            'from_warehouse'  => 'required|exists:warehouses,id',
+            'to_warehouse'    => 'required|exists:warehouses,id',
             'qty'             => 'required|integer|min:1',
         ]);
 
         DB::transaction(function () use ($request) {
 
-            // 🔒 Ambil stok gudang
-            $gudang = Stock::where('product_unit_id', $request->product_unit_id)
-                ->where('location', 'gudang')
+            $from = Stock::where('product_unit_id', $request->product_unit_id)
+                ->where('warehouse_id', $request->from_warehouse)
                 ->lockForUpdate()
                 ->first();
 
-            if (!$gudang || $gudang->qty < $request->qty) {
-                abort(400, 'Stok gudang tidak mencukupi');
+            if (!$from || $from->qty < $request->qty) {
+                abort(400, 'Stok tidak mencukupi');
             }
 
-            // ➖ kurangi gudang
-            $gudang->decrement('qty', $request->qty);
+            $from->decrement('qty', $request->qty);
 
-            // ➕ tambah stok toko
-            $toko = Stock::where('product_unit_id', $request->product_unit_id)
-                ->where('location', 'toko')
+            $to = Stock::where('product_unit_id', $request->product_unit_id)
+                ->where('warehouse_id', $request->to_warehouse)
                 ->lockForUpdate()
                 ->first();
 
-            if ($toko) {
-                $toko->increment('qty', $request->qty);
+            if ($to) {
+                $to->increment('qty', $request->qty);
             } else {
                 Stock::create([
                     'product_unit_id' => $request->product_unit_id,
-                    'location' => 'toko',
-                    'qty' => $request->qty,
+                    'warehouse_id'    => $request->to_warehouse,
+                    'qty'             => $request->qty,
                 ]);
             }
         });

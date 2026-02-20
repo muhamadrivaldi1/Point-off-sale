@@ -45,7 +45,9 @@ class PriceRuleController extends Controller
             'price'      => $request->price,
         ]);
 
-        return back()->with('success', 'Harga bertingkat berhasil ditambahkan');
+        return back()
+            ->with('success', 'Harga bertingkat berhasil ditambahkan')
+            ->with('openAccordion', 'collapse'.$request->unit_id);
     }
 
     /**
@@ -67,16 +69,23 @@ class PriceRuleController extends Controller
             'price'      => $request->price,
         ]);
 
-        return back()->with('success', 'Harga bertingkat berhasil diperbarui');
+        return back()
+        ->with('success', 'Harga bertingkat berhasil diperbarui')
+        ->with('openAccordion', 'collapse'.$rule->unit_id);
     }
 
     /**
      * Hapus harga bertingkat
      */
-    public function destroy($id)
+   public function destroy($id)
     {
-        ProductPrice::findOrFail($id)->delete();
+        $rule = ProductPrice::findOrFail($id);
+        $unitId = $rule->unit_id; // simpan dulu sebelum dihapus
 
-        return back()->with('success', 'Harga bertingkat berhasil dihapus');
+        $rule->delete();
+
+        return back()
+        ->with('success', 'Harga bertingkat berhasil dihapus')
+        ->with('openAccordion', 'collapse'.$unitId);
     }
 }

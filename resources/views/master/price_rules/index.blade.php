@@ -146,6 +146,7 @@
                             <form method="POST" action="{{ route('price-rules.store') }}" class="row g-2 mt-3">
                                 @csrf
                                 <input type="hidden" name="unit_id" value="{{ $unit->id }}">
+                                <input type="hidden" name="open_after" value="collapse{{ $unit->id }}">
                                 <div class="col-md-3">
                                     <input type="number" name="min_qty" class="form-control" placeholder="Min Qty" required>
                                 </div>
@@ -195,5 +196,33 @@
         }, 3000);
     }
 </script>
+
+@if(session('openAccordion'))
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    let id = "{{ session('openAccordion') }}";
+
+    if(id){
+        let el = document.getElementById(id);
+
+        if(el){
+            let collapse = new bootstrap.Collapse(el, {
+                toggle: true
+            });
+
+            el.classList.add('show');
+
+            let btn = document.querySelector('[data-bs-target="#'+id+'"]');
+            if(btn){
+                btn.classList.remove('collapsed');
+                btn.setAttribute('aria-expanded','true');
+            }
+        }
+    }
+
+});
+</script>
+@endif
 @endpush
 @endsection

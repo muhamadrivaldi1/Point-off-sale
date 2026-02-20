@@ -5,7 +5,7 @@
 @section('content')
 <h4 class="mb-4">Tambah Stok</h4>
 
-{{-- ALERT --}}
+{{-- ALERT SUCCESS --}}
 @if(session('success'))
 <div class="alert alert-success alert-dismissible fade show" role="alert">
     {{ session('success') }}
@@ -13,6 +13,7 @@
 </div>
 @endif
 
+{{-- ALERT ERROR --}}
 @if($errors->any())
 <div class="alert alert-danger alert-dismissible fade show" role="alert">
     <ul class="mb-0">
@@ -30,9 +31,10 @@
             @csrf
 
             <div class="row g-3">
-                {{-- Produk / Unit --}}
+
+                {{-- PRODUK --}}
                 <div class="col-md-6">
-                    <label class="form-label">Produk</label>
+                    <label class="form-label fw-semibold">Produk</label>
                     <select name="product_unit_id" class="form-select" required>
                         <option value="">-- Pilih Produk --</option>
                         @foreach($units as $unit)
@@ -43,31 +45,46 @@
                     </select>
                 </div>
 
-                {{-- Lokasi --}}
+                {{-- GUDANG --}}
                 <div class="col-md-3">
-                    <label class="form-label">Lokasi</label>
-                    <select name="location" class="form-select" required>
-                        <option value="">-- Pilih Lokasi --</option>
-                        <option value="gudang">Gudang</option>
-                        <option value="toko">Toko</option>
+                    <label class="form-label fw-semibold">Gudang</label>
+                    <select name="warehouse_id" class="form-select" required>
+                        <option value="">-- Pilih Gudang --</option>
+                        @foreach($warehouses as $warehouse)
+                            <option value="{{ $warehouse->id }}">
+                                {{ $warehouse->name }}
+                            </option>
+                        @endforeach
                     </select>
                 </div>
 
-                {{-- Qty --}}
+                {{-- QTY --}}
                 <div class="col-md-3">
-                    <label class="form-label">Qty</label>
-                    <input type="number" name="qty" class="form-control" min="1" required>
+                    <label class="form-label fw-semibold">Qty</label>
+                    <input 
+                        type="number"
+                        name="qty"
+                        class="form-control"
+                        min="1"
+                        placeholder="Masukkan jumlah"
+                        required
+                    >
                 </div>
+
             </div>
 
-            <div class="mt-4 d-flex justify-content-end gap-2">
+            <hr class="my-4">
+
+            <div class="d-flex justify-content-end gap-2">
                 <a href="{{ route('stocks.index') }}" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Kembali
                 </a>
-                <button class="btn btn-primary">
+
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save"></i> Simpan Stok
                 </button>
             </div>
+
         </form>
     </div>
 </div>

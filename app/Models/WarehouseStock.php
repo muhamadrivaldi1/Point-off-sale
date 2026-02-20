@@ -1,24 +1,23 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Warehouse;
 
-class Stock extends Model
+class WarehouseStock extends Model
 {
     protected $fillable = [
+        'warehouse_id',
         'product_unit_id',
-        'qty',
-        'warehouse_id'
+        'stock'
     ];
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
 
     public function unit()
     {
         return $this->belongsTo(ProductUnit::class, 'product_unit_id');
     }
-    public function warehouse()
-{
-    return $this->belongsTo(Warehouse::class);
-}
 }

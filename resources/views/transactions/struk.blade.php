@@ -7,7 +7,7 @@
 <style>
 /* ================= TAMPILAN DI LAYAR ================= */
 .struk {
-    max-width: 220px;          
+    max-width: 220px;
     margin: auto;
     padding: 8px;
     background: #fff;
@@ -39,7 +39,7 @@
 }
 .text-center { text-align: center; }
 .text-end { text-align: right; }
-hr { border-top:1px dashed #000; }
+hr { border-top: 1px dashed #000; margin: 4px 0; }
 </style>
 
 <div class="struk">
@@ -55,84 +55,87 @@ hr { border-top:1px dashed #000; }
 
     {{-- INFO TRANSAKSI --}}
     <div>
-        No: {{ $trx->trx_number }}<br>
-        Tgl: {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
-        Kasir: {{ auth()->user()->name }}<br>
+        No&nbsp;&nbsp;: {{ $trx->trx_number }}<br>
+        Tgl&nbsp;&nbsp;: {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
+        Kasir: {{ $trx->user->name ?? auth()->user()->name }}<br>
         @if($trx->member)
             Member: {{ $trx->member->name }}<br>
-            Poin Digunakan: {{ $trx->used_points ?? 0 }}
+            Level : {{ $trx->member->level }}<br>
+        @endif
+        @if(!empty($trx->payment_method))
+            Bayar : {{ $trx->payment_method === 'transfer' ? 'Transfer' : 'Cash' }}<br>
         @endif
     </div>
 
     <hr>
 
     {{-- ITEM --}}
-    <table style="width:100%">
-        @php 
-            $totalDiskonItem = 0;
-        @endphp
+    @php
+        $subtotalBersih = 0;
+    @endphp
 
+    <table style="width:100%">
         @foreach($trx->items as $item)
             @php
-                $diskonItem = ($item->discount ?? 0) * $item->qty;
-                $totalDiskonItem += $diskonItem;
+                $hargaSatuan = $item->price;
+                $qty         = $item->qty;
+                $subtotalItem = $hargaSatuan * $qty;
+                $subtotalBersih += $subtotalItem;
             @endphp
-
             <tr>
-                <td colspan="3">{{ $item->unit->product->name }}</td>
+                <td colspan="3">{{ $item->unit->product->name }}
+                    <small>({{ $item->unit->unit_name }})</small>
+                </td>
             </tr>
             <tr>
-                <td>{{ $item->qty }} x</td>
-                <td class="text-end">{{ number_format($item->price) }}</td>
-                <td class="text-end">{{ number_format($item->price * $item->qty) }}</td>
+                <td>{{ $qty }} x</td>
+                <td class="text-end">{{ number_format($hargaSatuan) }}</td>
+                <td class="text-end">{{ number_format($subtotalItem) }}</td>
             </tr>
-
-            @if($diskonItem > 0)
-            <tr>
-                <td colspan="2">Diskon Item</td>
-                <td class="text-end">-{{ number_format($diskonItem) }}</td>
-            </tr>
-            @endif
         @endforeach
     </table>
 
-    {{-- DISKON POIN MEMBER --}}
-    @php $pointDiscount = 0; @endphp
-    @if($trx->member && ($trx->used_points ?? 0) > 0)
-        @php $pointDiscount = ($trx->used_points ?? 0) * 1000; @endphp
-        <table style="width:100%">
-            <tr>
-                <td>Diskon Poin ({{ $trx->used_points }} pts)</td>
-                <td class="text-end">-{{ number_format($pointDiscount) }}</td>
-            </tr>
-        </table>
-    @endif
-
     <hr>
 
-    {{-- TOTAL BAYAR --}}
+    {{-- RINGKASAN PEMBAYARAN --}}
     @php
-        $totalSebelumDiskon = $trx->total + $totalDiskonItem + $pointDiscount;
-        $totalBayar = $totalSebelumDiskon - $totalDiskonItem - $pointDiscount;
+        // Hitung diskon persen dari data transaksi
+        // $trx->discount = nilai rupiah diskon yang disimpan di DB
+        $diskonRupiah = $trx->discount ?? 0;
+
+        // Hitung % diskon dari subtotal
+        $diskonPersen = 0;
+        if($subtotalBersih > 0 && $diskonRupiah > 0){
+            $diskonPersen = round(($diskonRupiah / $subtotalBersih) * 100, 2);
+        }
+
+        // Jika ada member dengan diskon, pakai diskon member sebagai acuan %
+        if($trx->member && $trx->member->discount > 0 && $diskonRupiah > 0){
+            $diskonPersen = $trx->member->discount;
+        }
+
+        $totalBayar = $subtotalBersih - $diskonRupiah;
+        if($totalBayar < 0) $totalBayar = 0;
     @endphp
 
     <table style="width:100%">
         <tr>
-            <td>Total Sebelum Diskon</td>
-            <td class="text-end">{{ number_format($totalSebelumDiskon) }}</td>
+            <td>Subtotal</td>
+            <td class="text-end">{{ number_format($subtotalBersih) }}</td>
         </tr>
 
-        @if($totalDiskonItem > 0)
+        @if($diskonRupiah > 0)
         <tr>
-            <td>Diskon Item</td>
-            <td class="text-end">-{{ number_format($totalDiskonItem) }}</td>
-        </tr>
-        @endif
-
-        @if($pointDiscount > 0)
-        <tr>
-            <td>Diskon Poin</td>
-            <td class="text-end">-{{ number_format($pointDiscount) }}</td>
+            <td>
+                Diskon
+                @if($diskonPersen > 0)
+                    ({{ $diskonPersen }}%)
+                @endif
+                @if($trx->member && $trx->member->discount > 0)
+                    <small>[Member {{ $trx->member->level }}]</small>
+                @endif
+            </td>
+            <td class="text-end">-{{ number_format($diskonRupiah) }}</td>
         </tr>
         @endif
 
@@ -148,9 +151,17 @@ hr { border-top:1px dashed #000; }
 
         <tr>
             <td>Kembali</td>
-            <td class="text-end">{{ number_format($trx->change) }}</td>
+            <td class="text-end">{{ number_format(max($trx->change, 0)) }}</td>
         </tr>
     </table>
+
+    @if($trx->member)
+    <hr>
+    <div>
+        Poin Didapat : +{{ floor($subtotalBersih / 10000) }} pts<br>
+        Total Poin&nbsp;&nbsp;&nbsp;: {{ $trx->member->points }} pts
+    </div>
+    @endif
 
     <hr>
 
@@ -165,5 +176,16 @@ hr { border-top:1px dashed #000; }
     </div>
 
 </div>
+
+{{-- TOMBOL PRINT --}}
+<div class="text-center mt-3 d-print-none">
+    <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Print Struk</button>
+    <button onclick="window.close()" class="btn btn-secondary btn-sm ms-2">✕ Tutup</button>
+</div>
+
+<script>
+    // Auto print saat halaman dibuka
+    window.onload = function(){ window.print(); }
+</script>
 
 @endsection

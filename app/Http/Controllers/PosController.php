@@ -9,6 +9,7 @@ use App\Models\Stock;
 use App\Models\ProductPrice;
 use App\Models\CashierSession;
 use App\Models\Member;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -24,34 +25,38 @@ class PosController extends Controller
             ->firstOrFail();
     }
 
-    // ================= GENERATE TRX NUMBER UNIQUELY =================
+    // ================= GENERATE TRX NUMBER =================
     private function generateTrxNumber(): string
     {
-        $date = now()->format('Ymd');
-        $micro = microtime(true);
-        $microSeconds = sprintf('%06d', ($micro - floor($micro)) * 1000000);
-        $random = mt_rand(100, 999);
-
-        return "TRX-{$date}-{$microSeconds}{$random}";
+        $date       = now()->format('Ymd');
+        $micro      = microtime(true);
+        $microSec   = sprintf('%06d', ($micro - floor($micro)) * 1000000);
+        $random     = mt_rand(100, 999);
+        return "TRX-{$date}-{$microSec}{$random}";
     }
 
     // ================= INDEX =================
     public function index(Request $request)
     {
-        $user = Auth::user();
+        $user            = Auth::user();
+        $activeWarehouse = Warehouse::where('is_active', true)->first();
 
-        // Cek session kasir
+        if (!$activeWarehouse) {
+            return redirect()->route('warehouses.index')
+                ->with('error', 'Aktifkan gudang terlebih dahulu sebelum menggunakan POS');
+        }
+
+        // Cek sesi kasir
         if ($user->role === 'kasir') {
             $session = CashierSession::where('user_id', $user->id)
                 ->where('status', 'open')
                 ->first();
-
             if (!$session) {
                 return view('pos.open_session');
             }
         }
 
-        // Ambil transaksi aktif jika ada
+        // Ambil transaksi aktif
         $trx = null;
         if ($request->filled('trx_id')) {
             $trx = Transaction::where('id', $request->trx_id)
@@ -60,40 +65,38 @@ class PosController extends Controller
                 ->first();
         }
 
-        // Jika tidak ada trx_id, atau trx tidak ditemukan, buat transaksi baru
+        // Buat baru jika tidak ada
         if (!$trx) {
             $trx = DB::transaction(function () use ($user) {
                 return Transaction::create([
-                    'user_id' => $user->id,
-                    'status' => 'pending',
+                    'user_id'    => $user->id,
+                    'status'     => 'pending',
                     'trx_number' => $this->generateTrxNumber(),
-                    'total' => 0,
-                    'paid' => 0,
-                    'change' => 0,
-                    'discount' => 0
+                    'total'      => 0,
+                    'paid'       => 0,
+                    'change'     => 0,
+                    'discount'   => 0,
                 ]);
             });
         }
 
         $trx->load('items.unit.product', 'member');
 
-        // Hitung subtotal tiap item
         foreach ($trx->items as $item) {
             $item->subtotal = ($item->price - ($item->discount ?? 0)) * $item->qty;
         }
 
-        // Hitung total transaksi
         $subtotal = $trx->items->sum('subtotal');
-        $discountValue = 0;
 
-        if ($trx->member_id) {
-            $member = Member::find($trx->member_id);
-            if ($member) {
-                $discountValue = ($subtotal * $member->discount) / 100;
+        if ($trx->total <= 0) {
+            if ($trx->member_id) {
+                $member = Member::find($trx->member_id);
+                if ($member) {
+                    $trx->discount = round(($subtotal * $member->discount) / 100, 0);
+                }
             }
+            $trx->total = max($subtotal - ($trx->discount ?? 0), 0);
         }
-
-        $trx->total = max($subtotal - $discountValue, 0);
 
         $members = Member::where('status', 'aktif')->get();
 
@@ -103,46 +106,70 @@ class PosController extends Controller
             ->latest()
             ->get()
             ->map(function ($t) {
-                $itemCount = $t->items->count();
-                $totalAmount = $t->items->sum(fn($item) => ($item->price - ($item->discount ?? 0)) * $item->qty);
                 return [
-                    'id' => $t->id,
+                    'id'         => $t->id,
                     'trx_number' => $t->trx_number,
-                    'item_count' => $itemCount,
-                    'total' => $totalAmount,
-                    'created_at' => $t->created_at
+                    'item_count' => $t->items->count(),
+                    'total'      => $t->items->sum(fn($i) => ($i->price - ($i->discount ?? 0)) * $i->qty),
+                    'created_at' => $t->created_at,
                 ];
             });
 
-        return view('pos.index', compact('trx', 'members', 'pendingTransactions'));
+        $todayTransactions = Transaction::where('user_id', $user->id)
+            ->whereDate('created_at', today())
+            ->where(function ($q) {
+                $q->where('status', 'paid')->orWhereHas('items');
+            })
+            ->latest()
+            ->take(10)
+            ->get();
+
+        return view('pos.index', compact(
+            'trx',
+            'members',
+            'pendingTransactions',
+            'todayTransactions',
+            'activeWarehouse'
+        ));
     }
 
     // ================= SEARCH PRODUK =================
+    // Menerima warehouse_id, bukan location
     public function search(Request $request)
     {
         $request->validate([
-            'q' => 'required|string|min:2',
-            'location' => 'required|in:toko,gudang'
+            'q'            => 'required|string|min:1',
+            'warehouse_id' => 'required|exists:warehouses,id',
         ]);
 
-        $location = strtolower(trim($request->location));
+        $keyword     = trim($request->q);
+        $warehouseId = $request->warehouse_id;
 
         $units = ProductUnit::with('product')
-            ->whereHas('product', fn($q) => $q->where('name', 'like', '%' . $request->q . '%'))
-            ->limit(10)
+            ->where(function ($query) use ($keyword) {
+                $query->where('barcode', 'like', "%{$keyword}%")
+                      ->orWhereHas('product', function ($q) use ($keyword) {
+                          $q->where('name', 'like', "%{$keyword}%");
+                      });
+            })
+            ->limit(20)
             ->get();
 
         return response()->json(
-            $units->map(fn($unit) => [
-                'id' => $unit->id,
-                'barcode' => $unit->barcode,
-                'name' => $unit->product->name,
-                'unit' => $unit->unit_name,
-                'price' => $unit->price,
-                'stock' => Stock::where('product_unit_id', $unit->id)
-                                ->where('location', $location)
-                                ->value('qty') ?? 0
-            ])
+            $units->map(function ($unit) use ($warehouseId) {
+                $stock = Stock::where('product_unit_id', $unit->id)
+                    ->where('warehouse_id', $warehouseId)
+                    ->value('qty') ?? 0;
+
+                return [
+                    'id'      => $unit->id,
+                    'barcode' => $unit->barcode,
+                    'name'    => $unit->product->name,
+                    'unit'    => $unit->unit_name,
+                    'price'   => $unit->price,
+                    'stock'   => $stock,
+                ];
+            })
         );
     }
 
@@ -150,11 +177,10 @@ class PosController extends Controller
     public function scan(Request $request)
     {
         $request->validate([
-            'code' => 'required|string',
-            'location' => 'required|in:toko,gudang'
+            'code'         => 'required|string',
+            'warehouse_id' => 'required|exists:warehouses,id',
         ]);
 
-        $location = strtolower(trim($request->location));
         $unit = ProductUnit::with('product')
             ->where('barcode', $request->code)
             ->first();
@@ -164,17 +190,17 @@ class PosController extends Controller
         }
 
         $stock = Stock::where('product_unit_id', $unit->id)
-            ->where('location', $location)
+            ->where('warehouse_id', $request->warehouse_id)
             ->value('qty') ?? 0;
 
         return response()->json([
-            'success' => true,
-            'id' => $unit->id,
-            'name' => $unit->product->name,
-            'unit' => $unit->unit_name,
-            'price' => $unit->price,
-            'stock' => $stock,
-            'location' => $location
+            'success'      => true,
+            'id'           => $unit->id,
+            'name'         => $unit->product->name,
+            'unit'         => $unit->unit_name,
+            'price'        => $unit->price,
+            'stock'        => $stock,
+            'warehouse_id' => $request->warehouse_id,
         ]);
     }
 
@@ -193,110 +219,146 @@ class PosController extends Controller
     public function addItem(Request $request)
     {
         $request->validate([
-            'trx_id' => 'required|exists:transactions,id',
-            'product_unit_id' => 'required|exists:product_units,id',
-            'location' => 'required|in:gudang,toko',
-            'override_password' => 'nullable|string'
+            'trx_id'            => 'required|exists:transactions,id',
+            'product_unit_id'   => 'required|exists:product_units,id',
+            'warehouse_id'      => 'required|exists:warehouses,id',
+            'override_password' => 'nullable|string',
         ]);
 
-        $trx = $this->getActiveTransaction($request);
-        $unit = ProductUnit::findOrFail($request->product_unit_id);
-        $location = strtolower(trim($request->location));
+        $trx         = $this->getActiveTransaction($request);
+        $unit        = ProductUnit::findOrFail($request->product_unit_id);
+        $warehouseId = $request->warehouse_id;
+
         $stok = Stock::where('product_unit_id', $unit->id)
-            ->where('location', $location)
+            ->where('warehouse_id', $warehouseId)
             ->value('qty') ?? 0;
 
         $item = TransactionItem::updateOrCreate(
-            ['transaction_id' => $trx->id, 'product_unit_id' => $unit->id, 'location' => $location],
+            [
+                'transaction_id'  => $trx->id,
+                'product_unit_id' => $unit->id,
+                'warehouse_id'    => $warehouseId,
+            ],
             ['qty' => 0, 'price' => $unit->price, 'discount' => 0, 'subtotal' => 0]
         );
 
-        $needOverride = ($item->qty + 1 > $stok);
-        if ($needOverride) {
-            $overridePassword = $request->override_password ?? '';
-            $validOverride = $overridePassword === env('POS_OVERRIDE_PASSWORD');
-            if (!$validOverride) {
+        if ($item->qty + 1 > $stok) {
+            $valid = ($request->override_password ?? '') === env('POS_OVERRIDE_PASSWORD');
+            if (!$valid) {
                 return response()->json([
-                    'success' => false,
+                    'success'       => false,
                     'need_override' => true,
-                    'message' => 'Stok kurang, butuh password override'
+                    'message'       => 'Stok tidak cukup, butuh password override',
                 ]);
             }
         }
 
         $item->qty++;
-        $item->price = $this->resolvePrice($unit, $item->qty);
+        $item->price    = $this->resolvePrice($unit, $item->qty);
         $item->subtotal = ($item->price - $item->discount) * $item->qty;
         $item->save();
 
         return response()->json([
             'success' => true,
-            'item' => [
-                'id' => $item->id,
-                'name' => $unit->product->name,
-                'unit' => $unit->unit_name,
-                'qty' => $item->qty,
-                'price' => $item->price,
-                'subtotal' => $item->subtotal,
-                'location' => $item->location
-            ]
+            'item'    => [
+                'id'           => $item->id,
+                'name'         => $unit->product->name,
+                'unit'         => $unit->unit_name,
+                'qty'          => $item->qty,
+                'price'        => $item->price,
+                'subtotal'     => $item->subtotal,
+                'warehouse_id' => $warehouseId,
+            ],
         ]);
     }
 
-    // ================= UPDATE QTY =================
-    public function updateQty(Request $request)
+    // ================= UPDATE QTY MANUAL =================
+    public function updateQtyManual(Request $request)
     {
         $request->validate([
-            'trx_id' => 'required|exists:transactions,id',
-            'item_id' => 'required|exists:transaction_items,id',
-            'type' => 'required|in:plus,minus,delete',
-            'location' => 'required|in:gudang,toko',
-            'override_password' => 'nullable|string'
+            'trx_id'            => 'required|exists:transactions,id',
+            'item_id'           => 'required|exists:transaction_items,id',
+            'qty'               => 'required|integer|min:1',
+            'warehouse_id'      => 'required|exists:warehouses,id',
+            'override_password' => 'nullable|string',
         ]);
 
-        $trx = $this->getActiveTransaction($request);
+        $trx  = $this->getActiveTransaction($request);
         $item = TransactionItem::with('unit')->findOrFail($request->item_id);
         abort_if($item->transaction_id !== $trx->id, 403);
 
-        $location = strtolower(trim($request->location));
-
-        if ($request->type === 'delete') {
-            $item->delete();
-            return response()->json(['success' => true]);
-        }
-
-        $stock = Stock::where('product_unit_id', $item->product_unit_id)
-            ->where('location', $location)
+        $warehouseId = $request->warehouse_id;
+        $stock       = Stock::where('product_unit_id', $item->product_unit_id)
+            ->where('warehouse_id', $warehouseId)
             ->first();
 
-        if ($request->type === 'plus') {
-            $needOverride = !$stock || ($item->qty + 1 > $stock->qty);
-            if ($needOverride) {
-                $overridePassword = $request->override_password ?? '';
-                $validOverride = $overridePassword === env('POS_OVERRIDE_PASSWORD');
-                if (!$validOverride) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Stok tidak mencukupi, butuh password override'
-                    ]);
-                }
-            }
-            $item->qty++;
-        }
-
-        if ($request->type === 'minus') {
-            $item->qty--;
-            if ($item->qty <= 0) {
-                $item->delete();
-                return response()->json(['success' => true]);
+        if (!$stock || $request->qty > $stock->qty) {
+            $valid = ($request->override_password ?? '') === env('POS_OVERRIDE_PASSWORD');
+            if (!$valid) {
+                return response()->json([
+                    'success'       => false,
+                    'need_override' => true,
+                    'message'       => 'Stok tidak cukup, butuh password override',
+                ]);
             }
         }
 
-        $item->price = $this->resolvePrice($item->unit, $item->qty);
-        $item->subtotal = ($item->price - $item->discount) * $item->qty;
-        $item->location = $location;
+        $item->qty          = $request->qty;
+        $item->price        = $this->resolvePrice($item->unit, $item->qty);
+        $item->subtotal     = ($item->price - $item->discount) * $item->qty;
+        $item->warehouse_id = $warehouseId;
         $item->save();
 
+        return response()->json(['success' => true]);
+    }
+
+    // ================= UPDATE UNIT =================
+    public function updateUnit(Request $request)
+    {
+        $request->validate([
+            'trx_id'            => 'required|exists:transactions,id',
+            'item_id'           => 'required|exists:transaction_items,id',
+            'product_unit_id'   => 'required|exists:product_units,id',
+            'warehouse_id'      => 'required|exists:warehouses,id',
+            'override_password' => 'nullable|string',
+        ]);
+
+        $trx  = $this->getActiveTransaction($request);
+        $item = TransactionItem::findOrFail($request->item_id);
+        abort_if($item->transaction_id !== $trx->id, 403);
+
+        $unit        = ProductUnit::with('product')->findOrFail($request->product_unit_id);
+        $warehouseId = $request->warehouse_id;
+
+        $stock = Stock::where('product_unit_id', $unit->id)
+            ->where('warehouse_id', $warehouseId)
+            ->first();
+
+        if (!$stock || $item->qty > $stock->qty) {
+            $valid = ($request->override_password ?? '') === env('POS_OVERRIDE_PASSWORD');
+            if (!$valid) {
+                return response()->json([
+                    'success'       => false,
+                    'need_override' => true,
+                    'message'       => 'Stok tidak cukup, butuh password override',
+                ]);
+            }
+        }
+
+        $item->product_unit_id = $unit->id;
+        $item->price           = $unit->price;
+        $item->subtotal        = ($unit->price - $item->discount) * $item->qty;
+        $item->warehouse_id    = $warehouseId;
+        $item->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    // ================= REMOVE ITEM =================
+    public function removeItem(Request $request)
+    {
+        $item = TransactionItem::find($request->item_id);
+        if ($item) $item->delete();
         return response()->json(['success' => true]);
     }
 
@@ -304,9 +366,11 @@ class PosController extends Controller
     public function pay(Request $request)
     {
         $request->validate([
-            'trx_id' => 'required|exists:transactions,id',
-            'paid' => 'nullable|numeric|min:0',
-            'member_id' => 'nullable|exists:members,id'
+            'trx_id'         => 'required|exists:transactions,id',
+            'paid'           => 'nullable|numeric|min:0',
+            'member_id'      => 'nullable|exists:members,id',
+            'payment_method' => 'nullable|in:cash,transfer',
+            'frontend_total' => 'nullable|numeric|min:0',
         ]);
 
         DB::beginTransaction();
@@ -319,82 +383,108 @@ class PosController extends Controller
                 return response()->json(['success' => false, 'message' => 'Transaksi sudah selesai'], 400);
             }
 
-            $subtotal = 0;
+            // Ambil warehouse aktif sebagai fallback
+            $activeWarehouseId = Warehouse::where('is_active', true)->value('id') ?? 1;
+
+            $subtotal   = 0;
             $validItems = [];
 
             foreach ($trx->items as $item) {
+
+                // ✅ FIX: Gunakan warehouse_id item, fallback ke warehouse aktif jika NULL atau 0
+                $warehouseId = ($item->warehouse_id && $item->warehouse_id > 0)
+                    ? $item->warehouse_id
+                    : $activeWarehouseId;
+
                 $stock = Stock::where('product_unit_id', $item->product_unit_id)
-                    ->where('location', $item->location)
+                    ->where('warehouse_id', $warehouseId)
                     ->lockForUpdate()
                     ->first();
+
+                // Jika masih tidak ketemu, coba cari stok manapun untuk produk ini
+                if (!$stock) {
+                    $stock = Stock::where('product_unit_id', $item->product_unit_id)
+                        ->where('qty', '>', 0)
+                        ->lockForUpdate()
+                        ->first();
+                }
 
                 if (!$stock || $stock->qty < $item->qty) {
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => "Stok {$item->unit->product->name} di {$item->location} hanya tersedia " . ($stock?->qty ?? 0)
+                        'message' => "Stok {$item->unit->product->name} hanya tersedia " . ($stock?->qty ?? 0),
                     ], 400);
                 }
 
-                $itemSubtotal = ($item->price - ($item->discount ?? 0)) * $item->qty;
-                $subtotal += $itemSubtotal;
+                $subtotal    += ($item->price - ($item->discount ?? 0)) * $item->qty;
                 $validItems[] = ['item' => $item, 'stock' => $stock];
             }
 
+            // Hitung diskon
             $discountAmount = 0;
-            $member = null;
+            $member         = null;
+
             if ($request->member_id) {
                 $member = Member::find($request->member_id);
                 if ($member && $member->discount > 0) {
-                    $discountAmount = ($subtotal * $member->discount) / 100;
+                    $discountAmount = round(($subtotal * $member->discount) / 100, 0);
                 }
             }
 
-            $total = $subtotal - $discountAmount;
-            $paid = (float) ($request->paid ?? 0);
+            $savedDiscount = round((float)($trx->discount ?? 0), 0);
+            if ($savedDiscount > $discountAmount) {
+                $discountAmount = $savedDiscount;
+            }
 
-            if (round($paid, 0) < round($total, 0)) {
+            if ($request->filled('frontend_total')) {
+                $total          = (int) round((float) $request->frontend_total, 0);
+                $discountAmount = (int) max(round($subtotal - $total, 0), 0);
+            } else {
+                $total = (int) round($subtotal - $discountAmount, 0);
+            }
+
+            $paid = (int) round((float)($request->paid ?? 0), 0);
+
+            // Pending jika belum lunas
+            if ($paid < $total) {
                 $trx->update([
-                    'member_id' => $request->member_id,
-                    'total' => $total,
-                    'paid' => $paid,
-                    'change' => 0,
-                    'status' => 'pending',
-                    'discount' => $discountAmount
+                    'member_id'      => $request->member_id,
+                    'total'          => $total,
+                    'paid'           => $paid,
+                    'change'         => 0,
+                    'status'         => 'pending',
+                    'discount'       => $discountAmount,
+                    'payment_method' => $request->payment_method ?? 'cash',
                 ]);
-
                 DB::commit();
                 return response()->json(['success' => true, 'paid_off' => false, 'trx_id' => $trx->id]);
             }
 
+            // Lunas: kurangi stok
             foreach ($validItems as $row) {
                 $row['stock']->decrement('qty', $row['item']->qty);
             }
 
             $trx->update([
-                'member_id' => $request->member_id,
-                'total' => $total,
-                'paid' => $paid,
-                'change' => $paid - $total,
-                'status' => 'paid',
-                'discount' => $discountAmount
+                'member_id'      => $request->member_id,
+                'total'          => $total,
+                'paid'           => $paid,
+                'change'         => $paid - $total,
+                'status'         => 'paid',
+                'discount'       => $discountAmount,
+                'payment_method' => $request->payment_method ?? 'cash',
             ]);
 
+            // Update poin & level member
             if ($member) {
                 $earnedPoints = floor($subtotal / 10000);
                 if ($earnedPoints > 0) $member->increment('points', $earnedPoints);
-
                 $member->increment('total_spent', $total);
 
-                if ($member->discount == 0) {
-                    if ($member->total_spent >= 5000000) $member->update(['level' => 'Gold', 'discount' => 5]);
-                    elseif ($member->total_spent >= 1000000) $member->update(['level' => 'Silver', 'discount' => 2]);
-                    else $member->update(['level' => 'Basic', 'discount' => 0]);
-                } else {
-                    if ($member->total_spent >= 5000000) $member->update(['level' => 'Gold']);
-                    elseif ($member->total_spent >= 1000000) $member->update(['level' => 'Silver']);
-                    else $member->update(['level' => 'Basic']);
-                }
+                if ($member->total_spent >= 5000000)     $member->update(['level' => 'Gold',   'discount' => 5]);
+                elseif ($member->total_spent >= 1000000) $member->update(['level' => 'Silver', 'discount' => 2]);
+                else                                      $member->update(['level' => 'Basic',  'discount' => 0]);
             }
 
             DB::commit();
@@ -409,114 +499,20 @@ class PosController extends Controller
     // ================= CART =================
     public function cart(Request $request)
     {
-        $trx = $this->getActiveTransaction($request);
+        $trx   = $this->getActiveTransaction($request);
         $items = $trx->items()->with('unit.product')->get();
 
         $cart = $items->map(fn($i) => [
-            'id' => $i->id,
-            'name' => $i->unit->product->name,
-            'unit' => $i->unit->unit_name,
-            'qty' => $i->qty,
-            'price' => $i->price,
-            'subtotal' => ($i->price - $i->discount) * $i->qty,
-            'location' => $i->location
+            'id'           => $i->id,
+            'name'         => $i->unit->product->name,
+            'unit'         => $i->unit->unit_name,
+            'qty'          => $i->qty,
+            'price'        => $i->price,
+            'subtotal'     => ($i->price - $i->discount) * $i->qty,
+            'warehouse_id' => $i->warehouse_id,
         ]);
 
         return response()->json(['items' => $cart, 'total' => $cart->sum('subtotal')]);
-    }
-
-    // ================= UPDATE UNIT =================
-    public function updateUnit(Request $request)
-    {
-        $request->validate([
-            'trx_id' => 'required|exists:transactions,id',
-            'item_id' => 'required|exists:transaction_items,id',
-            'product_unit_id' => 'required|exists:product_units,id',
-            'location' => 'required|in:gudang,toko',
-            'override_password' => 'nullable|string'
-        ]);
-
-        $trx = $this->getActiveTransaction($request);
-        $item = TransactionItem::findOrFail($request->item_id);
-        abort_if($item->transaction_id !== $trx->id, 403);
-
-        $unit = ProductUnit::with('product')->findOrFail($request->product_unit_id);
-        $location = strtolower(trim($request->location));
-
-        $stock = Stock::where('product_unit_id', $unit->id)
-            ->where('location', $location)
-            ->first();
-
-        $needOverride = !$stock || ($item->qty > $stock->qty);
-        if ($needOverride) {
-            $overridePassword = $request->override_password ?? '';
-            $validOverride = $overridePassword === env('POS_OVERRIDE_PASSWORD');
-            if (!$validOverride) {
-                return response()->json([
-                    'success' => false,
-                    'need_override' => true,
-                    'message' => 'Stok tidak cukup, butuh password override'
-                ]);
-            }
-        }
-
-        $item->product_unit_id = $unit->id;
-        $item->price = $unit->price;
-        $item->subtotal = ($unit->price - $item->discount) * $item->qty;
-        $item->location = $location;
-        $item->save();
-
-        return response()->json(['success' => true]);
-    }
-
-    // ================= UPDATE QTY MANUAL =================
-    public function updateQtyManual(Request $request)
-    {
-        $request->validate([
-            'trx_id' => 'required|exists:transactions,id',
-            'item_id' => 'required|exists:transaction_items,id',
-            'qty' => 'required|integer|min:1',
-            'location' => 'required|in:gudang,toko',
-            'override_password' => 'nullable|string'
-        ]);
-
-        $trx = $this->getActiveTransaction($request);
-        $item = TransactionItem::with('unit')->findOrFail($request->item_id);
-        abort_if($item->transaction_id !== $trx->id, 403);
-
-        $location = strtolower(trim($request->location));
-        $stock = Stock::where('product_unit_id', $item->product_unit_id)
-            ->where('location', $location)
-            ->first();
-
-        $needOverride = !$stock || ($request->qty > $stock->qty);
-        if ($needOverride) {
-            $overridePassword = $request->override_password ?? '';
-            $validOverride = $overridePassword === env('POS_OVERRIDE_PASSWORD');
-            if (!$validOverride) {
-                return response()->json([
-                    'success' => false,
-                    'need_override' => true,
-                    'message' => 'Stok tidak cukup, butuh password override'
-                ]);
-            }
-        }
-
-        $item->qty = $request->qty;
-        $item->price = $this->resolvePrice($item->unit, $item->qty);
-        $item->subtotal = ($item->price - $item->discount) * $item->qty;
-        $item->location = $location;
-        $item->save();
-
-        return response()->json(['success' => true]);
-    }
-
-    // ================= REMOVE ITEM =================
-    public function removeItem(Request $request)
-    {
-        $item = TransactionItem::find($request->item_id);
-        if ($item) $item->delete();
-        return response()->json(['success' => true]);
     }
 
     // ================= OVERRIDE OWNER =================
@@ -531,9 +527,10 @@ class PosController extends Controller
     {
         $q = $r->q;
         return DB::table('members')
-            ->where(fn($query) => $query->where('name','like',"%$q%")
-                                         ->orWhere('phone','like',"%$q%")
-                                         ->orWhere('address','like',"%$q%"))
+            ->where(fn($query) => $query
+                ->where('name',    'like', "%$q%")
+                ->orWhere('phone', 'like', "%$q%")
+                ->orWhere('address', 'like', "%$q%"))
             ->limit(10)
             ->get();
     }
@@ -559,6 +556,21 @@ class PosController extends Controller
         return response()->json(['success' => true]);
     }
 
+    // ================= SET DISCOUNT =================
+    public function setDiscount(Request $r)
+    {
+        $trx = Transaction::find($r->trx_id);
+        if (!$trx) return response()->json(['success' => false]);
+
+        $trx->discount_percent = $r->discount ?? 0;
+
+        $subtotal    = $trx->items->sum(fn($item) => ($item->price - ($item->discount ?? 0)) * $item->qty);
+        $trx->discount = round($subtotal * ($r->discount ?? 0) / 100, 0);
+        $trx->save();
+
+        return response()->json(['success' => true]);
+    }
+
     // ================= CLEANUP EMPTY PENDING =================
     public function cleanupEmptyPending()
     {
@@ -567,10 +579,6 @@ class PosController extends Controller
             ->where('total', 0)
             ->delete();
 
-        return response()->json([
-            'success' => true,
-            'deleted' => $deleted,
-            'message' => "$deleted transaksi pending kosong telah dihapus"
-        ]);
+        return response()->json(['success' => true, 'deleted' => $deleted]);
     }
 }

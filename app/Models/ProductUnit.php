@@ -42,6 +42,7 @@ class ProductUnit extends Model
         return $this->hasMany(ProductPrice::class, 'unit_id');
     }
 
+
     /**
      * Ambil harga berdasarkan qty dan type (retail, wholesale, member)
      */

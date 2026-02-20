@@ -15,6 +15,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\CashierSessionController;
 use App\Http\Controllers\PriceRuleController;
+use App\Http\Controllers\WarehouseController;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,8 +34,6 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 */
 
 Route::middleware('auth')->group(function () {
-
-    // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     /*
@@ -43,7 +42,6 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::prefix('master')->group(function () {
-        // Price Rules
         Route::get('/harga', [PriceRuleController::class, 'index'])->name('price-rules.index');
         Route::post('/harga', [PriceRuleController::class, 'store'])->name('price-rules.store');
         Route::put('/harga/{id}', [PriceRuleController::class, 'update'])->name('price-rules.update');
@@ -65,10 +63,14 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::get('/stocks', [StockController::class, 'index'])->name('stocks.index');
-    Route::get('/stocks/create', [StockController::class, 'create'])->name('stocks.create');
-    Route::post('/stocks', [StockController::class, 'store'])->name('stocks.store');
-    Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('stocks.transfer');
+Route::get('/stocks/create', [StockController::class, 'create'])->name('stocks.create');
+Route::post('/stocks', [StockController::class, 'store'])->name('stocks.store');
 
+Route::get('/stocks/{id}/edit', [StockController::class, 'edit'])->name('stocks.edit');
+Route::put('/stocks/{id}', [StockController::class, 'update'])->name('stocks.update');
+Route::delete('/stocks/{id}', [StockController::class, 'destroy'])->name('stocks.destroy');
+
+Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('stocks.transfer');
     /*
     |--------------------------------------------------------------------------
     | POS
@@ -90,8 +92,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos/set-member', [PosController::class, 'setMember']);
     Route::post('/pos/set-discount', [PosController::class, 'setDiscount']);
     Route::post('/pos/remove-item', [PosController::class, 'removeItem']);
-    Route::get('/pos/search-member', [PosController::class,'searchMember']);
-    Route::get('/pos/get-member', [PosController::class,'getMember']);
+    Route::get('/pos/search-member', [PosController::class, 'searchMember']);
+    Route::get('/pos/get-member', [PosController::class, 'getMember']);
     Route::post('/pos/cleanup-empty', [PosController::class, 'cleanupEmptyPending']);
 
 
@@ -110,36 +112,23 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
 
-Route::prefix('transactions')->group(function () {
+    Route::prefix('transactions')->group(function () {
 
-    // LIST
-    Route::get('/', [TransactionController::class, 'index'])
-        ->name('transactions.index');
-
-    // EDIT
-    Route::get('/{id}/edit', [TransactionController::class, 'edit'])
-        ->name('transactions.edit');
-
-    // UPDATE
-    Route::put('/{id}', [TransactionController::class, 'update'])
-        ->name('transactions.update');
-
-    // REQUEST EDIT (KASIR)
-    Route::post('/{id}/request-edit', [TransactionController::class, 'requestEdit'])
-        ->name('transactions.request-edit');
-
-    // APPROVE (OWNER)
-    Route::put('/{id}/approve', [TransactionController::class, 'approve'])
-        ->name('transactions.approve');
-
-    // CANCEL / HAPUS PENDING
-    Route::delete('/{id}', [TransactionController::class, 'destroy'])
-        ->name('transactions.destroy');
-
-    // STRUK
-    Route::get('/{id}/struk', [TransactionController::class, 'struk'])
-        ->name('transactions.struk');
-});
+        Route::get('/', [TransactionController::class, 'index'])
+            ->name('transactions.index');
+        Route::get('/{id}/edit', [TransactionController::class, 'edit'])
+            ->name('transactions.edit');
+        Route::put('/{id}', [TransactionController::class, 'update'])
+            ->name('transactions.update');
+        Route::post('/{id}/request-edit', [TransactionController::class, 'requestEdit'])
+            ->name('transactions.request-edit');
+        Route::put('/{id}/approve', [TransactionController::class, 'approve'])
+            ->name('transactions.approve');
+        Route::delete('/{id}', [TransactionController::class, 'destroy'])
+            ->name('transactions.destroy');
+        Route::get('/{id}/struk', [TransactionController::class, 'struk'])
+            ->name('transactions.struk');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -155,21 +144,20 @@ Route::prefix('transactions')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::prefix('po')->group(function () {
-        Route::get('/', [PurchaseOrderController::class, 'index'])->name('po.index');
-        Route::get('create', [PurchaseOrderController::class, 'create'])->name('po.create');
-        Route::post('/', [PurchaseOrderController::class, 'store'])->name('po.store');
-        Route::get('{id}/edit', [PurchaseOrderController::class, 'edit'])->name('po.edit');
-        Route::put('{id}', [PurchaseOrderController::class, 'update'])->name('po.update');
-        Route::delete('{id}', [PurchaseOrderController::class, 'destroy'])->name('po.destroy');
-
-        Route::post('{id}/item', [PurchaseOrderController::class, 'addItem'])->name('po.addItem');
-        Route::put('item/{id}', [PurchaseOrderController::class, 'updateItem'])->name('po.updateItem');
+        Route::get('/',            [PurchaseOrderController::class, 'index'])->name('po.index');
+        Route::get('create',       [PurchaseOrderController::class, 'create'])->name('po.create');
+        Route::get('{id}/edit',    [PurchaseOrderController::class, 'edit'])->name('po.edit');
+        Route::post('/',           [PurchaseOrderController::class, 'store'])->name('po.store');
+        Route::put('{id}',         [PurchaseOrderController::class, 'update'])->name('po.update');
+        Route::delete('{id}',      [PurchaseOrderController::class, 'destroy'])->name('po.destroy');
+        Route::post('{id}/update-header', [PurchaseOrderController::class, 'updateHeader'])->name('po.updateHeader');
+        Route::post('{id}/item',   [PurchaseOrderController::class, 'addItem'])->name('po.addItem');
+        Route::put('item/{id}',    [PurchaseOrderController::class, 'updateItem'])->name('po.updateItem');
         Route::delete('item/{id}', [PurchaseOrderController::class, 'deleteItem'])->name('po.deleteItem');
         Route::post('{id}/approve', [PurchaseOrderController::class, 'approve'])->name('po.approve');
-        Route::post('{id}/cancel', [PurchaseOrderController::class, 'cancel'])->name('po.cancel');
+        Route::post('{id}/cancel',  [PurchaseOrderController::class, 'cancel'])->name('po.cancel');
         Route::post('{id}/receive', [PurchaseOrderController::class, 'receive'])->name('po.receive');
     });
-
     /*
     |--------------------------------------------------------------------------
     | Returns
@@ -181,6 +169,8 @@ Route::prefix('transactions')->group(function () {
         Route::post('{id}/approve', [ReturnController::class, 'approve'])->name('returns.approve');
         Route::post('{id}/reject', [ReturnController::class, 'reject'])->name('returns.reject');
     });
+
+    Route::resource('suppliers', \App\Http\Controllers\SupplierController::class);
 
     /*
     |--------------------------------------------------------------------------
@@ -204,5 +194,19 @@ Route::prefix('transactions')->group(function () {
     | Cashier Closing
     |--------------------------------------------------------------------------
     */
+
+    Route::get('/cashier/sessions', [CashierSessionController::class, 'index'])->name('cashier.sessions');
     Route::get('/closing', [CashierClosingController::class, 'close'])->middleware('role:kasir')->name('closing');
+
+    Route::prefix('warehouses')->group(function () {
+
+        Route::get('/', [WarehouseController::class, 'index'])
+            ->name('warehouses.index');
+
+        Route::post('/store', [WarehouseController::class, 'store'])
+            ->name('warehouses.store');
+
+        Route::post('/set-active/{id}', [WarehouseController::class, 'setActive'])
+            ->name('warehouses.setActive');
+    });
 });

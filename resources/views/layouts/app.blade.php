@@ -81,6 +81,10 @@
                 <i class="bi bi-receipt"></i> Transaksi
             </a>
 
+            <a href="{{ route('cashier.sessions') }}">
+                <i class="bi bi-table"></i> Sesi Kasir
+            </a>
+
             <a href="/returns">
                 <i class="bi bi-arrow-counterclockwise"></i> Retur Barang
             </a>
@@ -105,47 +109,103 @@
         @endif
 
         {{-- ================= OWNER ================= --}}
-        @if(auth()->check() && auth()->user()->role === 'owner')
+       @if(auth()->check() && auth()->user()->role === 'owner')
 
-            <a href="/pos">
-                <i class="bi bi-cash-stack"></i> POS / Kasir
-            </a>
+    <a href="/pos">
+        <i class="bi bi-cash-stack"></i> POS / Kasir
+    </a>
 
-             <a href="/master/harga">
-                <i class="bi bi-tags"></i> Data Master
-            </a>
+    {{-- ================= DATA MASTER DROPDOWN ================= --}}
+    <a class="d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse"
+       href="#menuMaster"
+       role="button"
+       aria-expanded="false"
+       aria-controls="menuMaster">
+        <span><i class="bi bi-folder"></i> Data Master</span>
+        <i class="bi bi-chevron-down"></i>
+    </a>
 
-            <a href="/products">
-                <i class="bi bi-box-seam"></i> Produk
-            </a>
+    <div class="collapse ps-3" id="menuMaster">
 
-            <a href="/stocks">
-                <i class="bi bi-archive"></i> Stok
-            </a>
+        <a href="/products">
+            <i class="bi bi-box-seam"></i> Produk
+        </a>
 
-            <a href="/transactions">
-                <i class="bi bi-receipt"></i> Transaksi
-            </a>
+        <a href="/suppliers">
+            <i class="bi bi-truck"></i> Supplier
+        </a>
 
-            <a href="/returns">
-                <i class="bi bi-arrow-counterclockwise"></i> Retur Barang
-            </a>
+        <a href="/members">
+            <i class="bi bi-people"></i> Member
+        </a>
 
-            <a href="/members">
-                <i class="bi bi-people"></i> Member
-            </a>
+        <a href="/master/harga">
+            <i class="bi bi-tags"></i> Harga
+        </a>
 
-            <hr class="text-secondary">
+        <a href="{{ route('warehouses.index') }}">
+            <i class="bi bi-building"></i> Gudang
+        </a>
 
-            <a href="/reports/sales">
-                <i class="bi bi-graph-up"></i> Laporan Penjualan
-            </a>
+    </div>
 
-            <a href="/reports/stock">
-                <i class="bi bi-bar-chart"></i> Laporan Stok
-            </a>
+    {{-- ================= OPERASIONAL ================= --}}
+    <a class="d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse"
+       href="#menuOperasional"
+       role="button">
+        <span><i class="bi bi-gear"></i> Operasional</span>
+        <i class="bi bi-chevron-down"></i>
+    </a>
 
-        @endif
+    <div class="collapse ps-3" id="menuOperasional">
+
+        <a href="/stocks">
+            <i class="bi bi-archive"></i> Stok
+        </a>
+
+        <a href="/transactions">
+            <i class="bi bi-receipt"></i> Transaksi
+        </a>
+
+        <a href="/returns">
+            <i class="bi bi-arrow-counterclockwise"></i> Retur Barang
+        </a>
+
+        <a href="{{ route('po.index') }}">
+            <i class="bi bi-cart-fill"></i> Pembelian
+        </a>
+
+         <a href="{{ route('cashier.sessions') }}">
+                <i class="bi bi-table"></i> Sesi Kasir
+        </a>
+
+    </div>
+
+    {{-- ================= LAPORAN ================= --}}
+    <a class="d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse"
+       href="#menuLaporan"
+       role="button">
+        <span><i class="bi bi-graph-up"></i> Laporan</span>
+        <i class="bi bi-chevron-down"></i>
+    </a>
+
+    <div class="collapse ps-3" id="menuLaporan">
+
+        <a href="/reports/sales">
+            <i class="bi bi-graph-up"></i> Penjualan
+        </a>
+
+        <a href="/reports/stock">
+            <i class="bi bi-bar-chart"></i> Stok
+        </a>
+
+    </div>
+
+@endif
+
     </div>
 
     {{-- MAIN --}}

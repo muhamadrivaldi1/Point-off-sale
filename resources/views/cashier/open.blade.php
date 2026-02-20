@@ -8,9 +8,11 @@
 
     <form method="POST" action="{{ route('cashier.open') }}">
         @csrf
+
         <div class="mb-3">
             <label>Saldo Awal</label>
-            <input type="number" name="opening_balance" class="form-control" required>
+            <input type="text" class="form-control" value="500000" readonly>
+            <input type="hidden" name="opening_balance" value="500000">
         </div>
 
         <button class="btn btn-primary">
