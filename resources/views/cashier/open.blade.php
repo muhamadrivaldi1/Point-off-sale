@@ -11,8 +11,17 @@
 
         <div class="mb-3">
             <label>Saldo Awal</label>
-            <input type="text" class="form-control" value="500000" readonly>
-            <input type="hidden" name="opening_balance" value="500000">
+
+            {{-- Jika user owner, bisa ubah --}}
+            @if(auth()->user()->role === 'owner')
+                <input type="number" class="form-control" name="opening_balance" 
+                       value="{{ $openingBalance }}" required>
+            @else
+                {{-- Jika user kasir, read-only --}}
+                <input type="text" class="form-control" 
+                       value="Rp {{ number_format($openingBalance,0,',','.') }}" readonly>
+                <input type="hidden" name="opening_balance" value="{{ $openingBalance }}">
+            @endif
         </div>
 
         <button class="btn btn-primary">

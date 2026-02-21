@@ -63,14 +63,14 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::get('/stocks', [StockController::class, 'index'])->name('stocks.index');
-Route::get('/stocks/create', [StockController::class, 'create'])->name('stocks.create');
-Route::post('/stocks', [StockController::class, 'store'])->name('stocks.store');
+    Route::get('/stocks/create', [StockController::class, 'create'])->name('stocks.create');
+    Route::post('/stocks', [StockController::class, 'store'])->name('stocks.store');
 
-Route::get('/stocks/{id}/edit', [StockController::class, 'edit'])->name('stocks.edit');
-Route::put('/stocks/{id}', [StockController::class, 'update'])->name('stocks.update');
-Route::delete('/stocks/{id}', [StockController::class, 'destroy'])->name('stocks.destroy');
+    Route::get('/stocks/{id}/edit', [StockController::class, 'edit'])->name('stocks.edit');
+    Route::put('/stocks/{id}', [StockController::class, 'update'])->name('stocks.update');
+    Route::delete('/stocks/{id}', [StockController::class, 'destroy'])->name('stocks.destroy');
 
-Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('stocks.transfer');
+    Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('stocks.transfer');
     /*
     |--------------------------------------------------------------------------
     | POS
@@ -209,4 +209,7 @@ Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('sto
         Route::post('/set-active/{id}', [WarehouseController::class, 'setActive'])
             ->name('warehouses.setActive');
     });
+
+
+    Route::post('/cashier/opening-balance/update', [CashierSessionController::class, 'updateOpeningBalance'])->name('cashier.updateOpeningBalance');// bisa tambah middleware role jika perlu
 });

@@ -46,14 +46,55 @@ class PurchaseOrderController extends Controller
     // CREATE
     // -------------------------------------------------------
     public function create()
+{
+    $suppliers = Supplier::orderBy('nama_supplier')->get();
+    $units     = ProductUnit::with('product')->get();
+
+    // Buat PO baru langsung di DB, status 'draft'
+    $po = PurchaseOrder::create([
+        'user_id'          => Auth::id(),
+        'po_number'        => 'PO-' . now()->format('YmdHis'),
+        'tanggal'          => now()->format('Y-m-d'),
+        'status'           => 'draft',
+        'jenis_transaksi'  => 'Pembelian',
+        'jenis_pembayaran' => 'Cash',
+        'ppn'              => 0,
+        'total'            => 0,
+        'gudang'           => 'Gudang utama'
+    ]);
+
+    return view('po.create', compact('suppliers', 'units', 'po'));
+}
+
+    // -------------------------------------------------------
+    // STORE — simpan PO baru
+    // -------------------------------------------------------
+    public function store(Request $request)
     {
-        $po = PurchaseOrder::create([
-            'user_id'   => Auth::id(),
-            'status'    => 'draft',
-            'po_number' => 'PO-' . now()->format('YmdHis'),
+        $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'tanggal'     => 'required|date',
+            'gudang'      => 'required|string|max:100',
+            'jenis_pembayaran' => 'required|in:cash,transfer',
+            'total'       => 'required|numeric|min:0',
+            'nomor_faktur'=> 'nullable|string|max:100',
+            'tanggal_jatuh_tempo' => 'nullable|date',
         ]);
 
-        return redirect()->route('po.edit', $po->id);
+        $po = PurchaseOrder::create([
+            'user_id'           => Auth::id(),
+            'po_number'         => $request->po_number,
+            'tanggal'           => $request->tanggal,
+            'gudang'            => $request->gudang,
+            'supplier_id'       => $request->supplier_id,
+            'jenis_pembayaran'  => $request->jenis_pembayaran,
+            'nomor_faktur'      => $request->nomor_faktur,
+            'tanggal_jatuh_tempo'=> $request->tanggal_jatuh_tempo,
+            'status'            => 'draft',
+            'total'             => $request->total,
+        ]);
+
+        return redirect()->route('po.index')->with('success', 'PO berhasil dibuat.');
     }
 
     // -------------------------------------------------------

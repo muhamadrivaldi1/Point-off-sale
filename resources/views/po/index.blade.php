@@ -97,7 +97,7 @@
     <div class="po-toolbar">
         <span class="title"><i class="bi bi-cart-plus me-2 text-primary"></i>Daftar Purchase Order</span>
         <a href="{{ route('po.create') }}" class="btn btn-primary btn-sm">
-            <i class="bi bi-plus-lg me-1"></i> Buat PO Baru
+            <i class="bi bi-plus-lg me-1"></i> Buat Transaksi Baru
         </a>
     </div>
 
