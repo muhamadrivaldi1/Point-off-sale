@@ -46,6 +46,9 @@ class PosController extends Controller
                 ->with('error', 'Aktifkan gudang terlebih dahulu sebelum menggunakan POS');
         }
 
+        // Ambil semua gudang untuk ditampilkan sebagai kolom stok
+        $warehouses = Warehouse::orderBy('id')->get();
+
         // Cek sesi kasir
         if ($user->role === 'kasir') {
             $session = CashierSession::where('user_id', $user->id)
@@ -124,17 +127,27 @@ class PosController extends Controller
             ->take(10)
             ->get();
 
+        $warehousesJson = $warehouses->map(function($w, $i) {
+            return [
+                'id'    => $w->id,
+                'label' => 'Stok ' . chr(65 + $i),   // A, B, C …
+                'name'  => $w->name,
+            ];
+        })->values()->toArray();
+
         return view('pos.index', compact(
             'trx',
             'members',
             'pendingTransactions',
             'todayTransactions',
-            'activeWarehouse'
+            'activeWarehouse',
+            'warehouses',
+            'warehousesJson'// ← ditambahkan untuk kolom stok per gudang
         ));
     }
 
     // ================= SEARCH PRODUK =================
-    // Menerima warehouse_id, bukan location
+    // Mengembalikan stok per gudang (bukan hanya 1 gudang)
     public function search(Request $request)
     {
         $request->validate([
@@ -142,8 +155,8 @@ class PosController extends Controller
             'warehouse_id' => 'required|exists:warehouses,id',
         ]);
 
-        $keyword     = trim($request->q);
-        $warehouseId = $request->warehouse_id;
+        $keyword    = trim($request->q);
+        $warehouses = Warehouse::orderBy('id')->get();
 
         $units = ProductUnit::with('product')
             ->where(function ($query) use ($keyword) {
@@ -156,10 +169,14 @@ class PosController extends Controller
             ->get();
 
         return response()->json(
-            $units->map(function ($unit) use ($warehouseId) {
-                $stock = Stock::where('product_unit_id', $unit->id)
-                    ->where('warehouse_id', $warehouseId)
-                    ->value('qty') ?? 0;
+            $units->map(function ($unit) use ($warehouses) {
+                // Stok per gudang
+                $stocks = [];
+                foreach ($warehouses as $wh) {
+                    $stocks[] = Stock::where('product_unit_id', $unit->id)
+                        ->where('warehouse_id', $wh->id)
+                        ->value('qty') ?? 0;
+                }
 
                 return [
                     'id'      => $unit->id,
@@ -167,7 +184,7 @@ class PosController extends Controller
                     'name'    => $unit->product->name,
                     'unit'    => $unit->unit_name,
                     'price'   => $unit->price,
-                    'stock'   => $stock,
+                    'stocks'  => $stocks,   // array stok per gudang (urutan sama dengan $warehouses)
                 ];
             })
         );
@@ -355,6 +372,7 @@ class PosController extends Controller
     }
 
     // ================= REMOVE ITEM =================
+    // Password di-handle di frontend (override-owner), controller hanya hapus
     public function removeItem(Request $request)
     {
         $item = TransactionItem::find($request->item_id);

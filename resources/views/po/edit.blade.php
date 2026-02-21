@@ -327,11 +327,17 @@
                 <div class="field-row">
                     <label>Jenis Transaksi</label>
                     <select name="jenis_transaksi" class="form-select" {{ $po->status !== 'draft' ? 'disabled' : '' }}>
-                        <option value="Pembelian" {{ ($po->jenis_transaksi ?? 'Pembelian') === 'Pembelian' ? 'selected' : '' }}>Pembelian</option>
-                        <option value="Retur"     {{ ($po->jenis_transaksi ?? '') === 'Retur' ? 'selected' : '' }}>Retur</option>
+                        <option value="Pembelian"
+                            {{ ($po->jenis_transaksi ?? 'Pembelian') === 'Pembelian' ? 'selected' : '' }}>
+                             Pembelian Reguler
+                        </option>
+                        <option value="PO"
+                            {{ ($po->jenis_transaksi ?? '') === 'PO' ? 'selected' : '' }}>
+                             PO (Private Order)
+                        </option>
+
                     </select>
                 </div>
-
                 <div class="field-row">
                     <label>Nomor Transaksi</label>
                     <input type="text" class="form-control ro" value="{{ $po->po_number }}" readonly>

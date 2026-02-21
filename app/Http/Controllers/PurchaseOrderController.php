@@ -87,7 +87,7 @@ class PurchaseOrderController extends Controller
             'keterangan'          => 'nullable|string',
             'gudang'              => 'nullable|string|max:100',
             'bulan_lapor'         => 'nullable|string|max:7',
-            'jenis_transaksi'     => 'nullable|in:Pembelian,Retur',
+            'jenis_transaksi'     => 'nullable|in:Pembelian,PO',
         ]);
 
         $po = PurchaseOrder::findOrFail($id);
@@ -113,62 +113,62 @@ class PurchaseOrderController extends Controller
             'bulan_lapor'         => $request->bulan_lapor,
         ]);
 
+        // Hitung ulang total jika header berubah
+        $this->recalculateTotal($po);
+
         return back()->with('success', 'Header PO berhasil disimpan.');
     }
 
-// ============================================================
-// Ganti method addItem() di PurchaseOrderController.php
-// ============================================================
+    // -------------------------------------------------------
+    // ADD ITEM
+    // -------------------------------------------------------
+    public function addItem(Request $request, $poId)
+    {
+        $request->validate([
+            'product_unit_id' => 'required|exists:product_units,id',
+            'qty'             => 'required|numeric|min:1',
+            'price'           => 'required|numeric|min:0',
+            'bonus_nama'      => 'nullable|string|max:100',
+            'bonus_qty'       => 'nullable|numeric|min:0',
+        ]);
 
-public function addItem(Request $request, $poId)
-{
-    $request->validate([
-        'product_unit_id' => 'required|exists:product_units,id',
-        'qty'             => 'required|numeric|min:1',
-        'price'           => 'required|numeric|min:0',
-        'bonus_nama'      => 'nullable|string|max:100',
-        'bonus_qty'       => 'nullable|numeric|min:0',
-    ]);
+        $po = PurchaseOrder::findOrFail($poId);
 
-    $po = PurchaseOrder::findOrFail($poId);
+        if ($po->status !== 'draft') {
+            return back()->with('error', 'PO sudah dikunci, tidak bisa menambah item.');
+        }
 
-    if ($po->status !== 'draft') {
-        return back()->with('error', 'PO sudah dikunci, tidak bisa menambah item.');
+        PurchaseOrderItem::create([
+            'purchase_order_id' => $po->id,
+            'product_unit_id'   => $request->product_unit_id,
+            'qty'               => $request->qty,
+            'price'             => $request->price,
+            'bonus_nama'        => $request->filled('bonus_nama') ? trim($request->bonus_nama) : null,
+            'bonus_qty'         => $request->bonus_qty ?? 0,
+        ]);
+
+        $this->recalculateTotal($po);
+
+        return back()->with('success', 'Item berhasil ditambahkan.');
     }
 
-    $qty      = $request->qty;
-    $price    = $request->price;
-    $subtotal = $qty * $price;
+    // -------------------------------------------------------
+    // RECALCULATE TOTAL
+    // -------------------------------------------------------
+    private function recalculateTotal(PurchaseOrder $po): void
+    {
+        $po->refresh();
 
-    PurchaseOrderItem::create([
-        'purchase_order_id' => $po->id,
-        'product_unit_id'   => $request->product_unit_id,
-        'qty'               => $qty,
-        'price'             => $price,
-        'bonus_nama'        => $request->filled('bonus_nama') ? trim($request->bonus_nama) : null,
-        'bonus_qty'         => $request->bonus_qty ?? 0,
-    ]);
+        $grandTotal = $po->items->sum(fn($i) => $i->qty * $i->price);
 
-    // Update total di header PO
-    $this->recalculateTotal($po);
+        // Diskon nota
+        $diskonRp = ($grandTotal * ($po->disc_nota_persen ?? 0) / 100) + ($po->disc_nota_rupiah ?? 0);
 
-    return back()->with('success', 'Item berhasil ditambahkan.');
-}
+        $ppnRp      = ($grandTotal - $diskonRp) * ($po->ppn ?? 0) / 100;
+        $total      = $grandTotal - $diskonRp + $ppnRp;
 
-// ============================================================
-// Ganti method recalculateTotal() di PurchaseOrderController.php
-// ============================================================
-
-private function recalculateTotal(PurchaseOrder $po): void
-{
-    $po->refresh();
-
-    $grandTotal = $po->items->sum(fn($i) => $i->qty * $i->price);
-    $ppnRp      = $grandTotal * ($po->ppn ?? 0) / 100;
-    $total      = $grandTotal + $ppnRp;
-
-    $po->update(['total' => $total]);
-}
+        $po->update(['total' => $total]);
+    }
 
     // -------------------------------------------------------
     // DELETE ITEM
@@ -183,6 +183,8 @@ private function recalculateTotal(PurchaseOrder $po): void
         }
 
         $item->delete();
+
+        $this->recalculateTotal($po);
 
         return back()->with('success', 'Item berhasil dihapus.');
     }
@@ -254,16 +256,16 @@ private function recalculateTotal(PurchaseOrder $po): void
     // -------------------------------------------------------
     // DESTROY
     // -------------------------------------------------------
-public function destroy($id)
-{
-    $po = PurchaseOrder::findOrFail($id);
+    public function destroy($id)
+    {
+        $po = PurchaseOrder::findOrFail($id);
 
-    // Hapus semua item terlebih dahulu
-    $po->items()->delete();
+        // Hapus semua item terlebih dahulu
+        $po->items()->delete();
 
-    // Hapus PO
-    $po->delete();
+        // Hapus PO
+        $po->delete();
 
-    return back()->with('success', 'PO ' . $po->po_number . ' berhasil dihapus.');
-}
+        return back()->with('success', 'PO ' . $po->po_number . ' berhasil dihapus.');
+    }
 }
