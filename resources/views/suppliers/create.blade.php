@@ -3,11 +3,13 @@
 @section('title','Tambah Supplier')
 
 @section('content')
-<div class="card">
-    <div class="card-header">Tambah Supplier</div>
-    <div class="card-body">
+<div class="card shadow-sm">
+    <div class="card-header bg-dark text-white">
+        Tambah Supplier
+    </div>
 
-        <form method="POST" action="{{ route('suppliers.store') }}">
+    <div class="card-body">
+        <form action="{{ route('suppliers.store') }}" method="POST">
             @csrf
 
             <div class="mb-3">
@@ -30,10 +32,9 @@
                 <input type="text" name="telepon" class="form-control">
             </div>
 
-            <button class="btn btn-primary">Simpan</button>
+            <button class="btn btn-success">Simpan</button>
             <a href="{{ route('suppliers.index') }}" class="btn btn-secondary">Kembali</a>
         </form>
-
     </div>
 </div>
 @endsection

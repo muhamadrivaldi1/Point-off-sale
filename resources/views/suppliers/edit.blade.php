@@ -3,11 +3,13 @@
 @section('title','Edit Supplier')
 
 @section('content')
-<div class="card">
-    <div class="card-header">Edit Supplier</div>
-    <div class="card-body">
+<div class="card shadow-sm">
+    <div class="card-header bg-dark text-white">
+        Edit Supplier
+    </div>
 
-        <form method="POST" action="{{ route('suppliers.update', $supplier->id) }}">
+    <div class="card-body">
+        <form action="{{ route('suppliers.update', $supplier->id) }}" method="POST">
             @csrf
             @method('PUT')
 
@@ -27,8 +29,7 @@
 
             <div class="mb-3">
                 <label>Alamat</label>
-                <textarea name="alamat"
-                          class="form-control">{{ $supplier->alamat }}</textarea>
+                <textarea name="alamat" class="form-control">{{ $supplier->alamat }}</textarea>
             </div>
 
             <div class="mb-3">
@@ -41,7 +42,6 @@
             <button class="btn btn-primary">Update</button>
             <a href="{{ route('suppliers.index') }}" class="btn btn-secondary">Kembali</a>
         </form>
-
     </div>
 </div>
 @endsection
