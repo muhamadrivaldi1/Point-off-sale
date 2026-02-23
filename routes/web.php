@@ -16,6 +16,7 @@ use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\CashierSessionController;
 use App\Http\Controllers\PriceRuleController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\UserManagementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,6 +50,17 @@ Route::middleware('auth')->group(function () {
 
         // Other master routes (if any) can go here
     });
+
+    Route::middleware(['auth'])->group(function () {
+
+    Route::get('/users',            [UserManagementController::class, 'index'])->name('users.index');
+    Route::get('/users/create',     [UserManagementController::class, 'create'])->name('users.create');
+    Route::post('/users',           [UserManagementController::class, 'store'])->name('users.store');
+    Route::get('/users/{id}/edit',  [UserManagementController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{id}',       [UserManagementController::class, 'update'])->name('users.update');
+    Route::delete('/users/{id}',    [UserManagementController::class, 'destroy'])->name('users.delete');
+
+});
 
     /*
     |--------------------------------------------------------------------------
@@ -211,5 +223,5 @@ Route::middleware('auth')->group(function () {
     });
 
 
-    Route::post('/cashier/opening-balance/update', [CashierSessionController::class, 'updateOpeningBalance'])->name('cashier.updateOpeningBalance');// bisa tambah middleware role jika perlu
+    Route::post('/cashier/opening-balance/update', [CashierSessionController::class, 'updateOpeningBalance'])->name('cashier.updateOpeningBalance'); // bisa tambah middleware role jika perlu
 });

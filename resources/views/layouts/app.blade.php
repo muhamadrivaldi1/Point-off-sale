@@ -148,6 +148,12 @@
             <i class="bi bi-building"></i> Gudang
         </a>
 
+        @if(auth()->user()->hasPermission('kelola_user'))
+        <a href="/users">
+            <i class="bi bi-people-fill"></i> Kelola User
+        </a>
+@endif
+
     </div>
 
     {{-- ================= OPERASIONAL ================= --}}

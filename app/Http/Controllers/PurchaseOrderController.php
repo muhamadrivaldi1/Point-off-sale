@@ -14,6 +14,17 @@ use Illuminate\Support\Facades\Auth;
 class PurchaseOrderController extends Controller
 {
     // -------------------------------------------------------
+    // HELPER: Generate nomor PO berdasarkan jenis transaksi
+    // PR-YmdHis = Pembelian Reguler
+    // PO-YmdHis = Private Order
+    // -------------------------------------------------------
+    private function generateNumber(string $jenis): string
+    {
+        $prefix = $jenis === 'PO' ? 'PO' : 'PR';
+        return $prefix . '-' . now()->format('YmdHis');
+    }
+
+    // -------------------------------------------------------
     // INDEX
     // -------------------------------------------------------
     public function index(Request $request)
@@ -43,58 +54,79 @@ class PurchaseOrderController extends Controller
     }
 
     // -------------------------------------------------------
-    // CREATE
+    // CREATE — buat draft PO langsung di DB
     // -------------------------------------------------------
     public function create()
-{
-    $suppliers = Supplier::orderBy('nama_supplier')->get();
-    $units     = ProductUnit::with('product')->get();
+    {
+        $suppliers = Supplier::orderBy('nama_supplier')->get();
+        $units     = ProductUnit::with('product')->get();
 
-    // Buat PO baru langsung di DB, status 'draft'
-    $po = PurchaseOrder::create([
-        'user_id'          => Auth::id(),
-        'po_number'        => 'PO-' . now()->format('YmdHis'),
-        'tanggal'          => now()->format('Y-m-d'),
-        'status'           => 'draft',
-        'jenis_transaksi'  => 'Pembelian',
-        'jenis_pembayaran' => 'Cash',
-        'ppn'              => 0,
-        'total'            => 0,
-        'gudang'           => 'Gudang utama'
-    ]);
+        // Default: Pembelian Reguler → prefix PR-
+        $po = PurchaseOrder::create([
+            'user_id'          => Auth::id(),
+            'po_number'        => $this->generateNumber('Pembelian'),
+            'tanggal'          => now()->format('Y-m-d'),
+            'status'           => 'draft',
+            'jenis_transaksi'  => 'Pembelian',
+            'jenis_pembayaran' => 'Cash',
+            'ppn'              => 0,
+            'total'            => 0,
+            'gudang'           => 'Gudang Utama',
+        ]);
 
-    return view('po.create', compact('suppliers', 'units', 'po'));
-}
+        return view('po.create', compact('suppliers', 'units', 'po'));
+    }
 
     // -------------------------------------------------------
-    // STORE — simpan PO baru
+    // STORE — simpan header PO (update draft yang sudah dibuat)
     // -------------------------------------------------------
     public function store(Request $request)
     {
         $request->validate([
-            'supplier_id' => 'required|exists:suppliers,id',
-            'tanggal'     => 'required|date',
-            'gudang'      => 'required|string|max:100',
-            'jenis_pembayaran' => 'required|in:cash,transfer',
-            'total'       => 'required|numeric|min:0',
-            'nomor_faktur'=> 'nullable|string|max:100',
+            'po_number'           => 'required|string|max:50',
+            'supplier_id'         => 'required|exists:suppliers,id',
+            'tanggal'             => 'required|date',
+            'jenis_transaksi'     => 'required|in:Pembelian,PO',
+            'jenis_pembayaran'    => 'required|in:Cash,Kredit,Transfer',
+            'gudang'              => 'nullable|string|max:100',
+            'nomor_faktur'        => 'nullable|string|max:100',
+            'tanggal_faktur'      => 'nullable|date',
+            'jk_waktu'            => 'nullable|integer|min:0',
             'tanggal_jatuh_tempo' => 'nullable|date',
+            'ppn'                 => 'nullable|numeric|min:0|max:100',
+            'bulan_lapor'         => 'nullable|string|max:7',
         ]);
 
-        $po = PurchaseOrder::create([
-            'user_id'           => Auth::id(),
-            'po_number'         => $request->po_number,
-            'tanggal'           => $request->tanggal,
-            'gudang'            => $request->gudang,
-            'supplier_id'       => $request->supplier_id,
-            'jenis_pembayaran'  => $request->jenis_pembayaran,
-            'nomor_faktur'      => $request->nomor_faktur,
-            'tanggal_jatuh_tempo'=> $request->tanggal_jatuh_tempo,
-            'status'            => 'draft',
-            'total'             => $request->total,
-        ]);
+        // Cari draft PO berdasarkan po_number (dibuat saat create())
+        // atau buat baru jika tidak ada
+        $po = PurchaseOrder::where('po_number', $request->po_number)
+                           ->where('status', 'draft')
+                           ->first();
 
-        return redirect()->route('po.index')->with('success', 'PO berhasil dibuat.');
+        if (!$po) {
+            $po = new PurchaseOrder();
+            $po->user_id = Auth::id();
+            $po->status  = 'draft';
+        }
+
+        $po->po_number           = $request->po_number;
+        $po->supplier_id         = $request->supplier_id;
+        $po->tanggal             = $request->tanggal;
+        $po->jenis_transaksi     = $request->jenis_transaksi;
+        $po->gudang              = $request->gudang;
+        $po->nomor_faktur        = $request->nomor_faktur;
+        $po->tanggal_faktur      = $request->tanggal_faktur;
+        $po->jenis_pembayaran    = $request->jenis_pembayaran;
+        $po->jk_waktu            = $request->jk_waktu;
+        $po->tanggal_jatuh_tempo = $request->tanggal_jatuh_tempo;
+        $po->ppn                 = $request->ppn ?? 0;
+        $po->bulan_lapor         = $request->bulan_lapor;
+        $po->save();
+
+        $this->recalculateTotal($po);
+
+        return redirect()->route('po.edit', $po->id)
+                         ->with('success', 'Header PO berhasil disimpan.');
     }
 
     // -------------------------------------------------------
@@ -106,7 +138,7 @@ class PurchaseOrderController extends Controller
         $units     = ProductUnit::with('product')->get();
         $suppliers = Supplier::orderBy('nama_supplier')->get();
 
-        return view('po.edit', compact('po', 'units', 'suppliers'));
+        return view('po.create', compact('po', 'units', 'suppliers'));
     }
 
     // -------------------------------------------------------
@@ -117,6 +149,7 @@ class PurchaseOrderController extends Controller
         $request->validate([
             'supplier_id'         => 'required|exists:suppliers,id',
             'tanggal'             => 'required|date',
+            'jenis_transaksi'     => 'nullable|in:Pembelian,PO',
             'jenis_pembayaran'    => 'required|in:Cash,Kredit,Transfer',
             'nomor_faktur'        => 'nullable|string|max:100',
             'tanggal_faktur'      => 'nullable|date',
@@ -128,7 +161,6 @@ class PurchaseOrderController extends Controller
             'keterangan'          => 'nullable|string',
             'gudang'              => 'nullable|string|max:100',
             'bulan_lapor'         => 'nullable|string|max:7',
-            'jenis_transaksi'     => 'nullable|in:Pembelian,PO',
         ]);
 
         $po = PurchaseOrder::findOrFail($id);
@@ -137,11 +169,19 @@ class PurchaseOrderController extends Controller
             return back()->with('error', 'PO sudah dikunci, header tidak bisa diubah.');
         }
 
+        $jenisTransaksi = $request->jenis_transaksi ?? $po->jenis_transaksi;
+
+        // Update prefix nomor jika jenis_transaksi berubah
+        $newPrefix = $jenisTransaksi === 'PO' ? 'PO' : 'PR';
+        $parts     = explode('-', $po->po_number, 2);
+        $newNumber = $newPrefix . '-' . ($parts[1] ?? now()->format('YmdHis'));
+
         $po->update([
+            'po_number'           => $newNumber,
             'supplier_id'         => $request->supplier_id,
             'tanggal'             => $request->tanggal,
             'gudang'              => $request->gudang,
-            'jenis_transaksi'     => $request->jenis_transaksi ?? 'Pembelian',
+            'jenis_transaksi'     => $jenisTransaksi,
             'nomor_faktur'        => $request->nomor_faktur,
             'tanggal_faktur'      => $request->tanggal_faktur,
             'jenis_pembayaran'    => $request->jenis_pembayaran,
@@ -154,7 +194,6 @@ class PurchaseOrderController extends Controller
             'bulan_lapor'         => $request->bulan_lapor,
         ]);
 
-        // Hitung ulang total jika header berubah
         $this->recalculateTotal($po);
 
         return back()->with('success', 'Header PO berhasil disimpan.');
@@ -194,21 +233,30 @@ class PurchaseOrderController extends Controller
     }
 
     // -------------------------------------------------------
-    // RECALCULATE TOTAL
+    // UPDATE ITEM (qty / price)
     // -------------------------------------------------------
-    private function recalculateTotal(PurchaseOrder $po): void
+    public function updateItem(Request $request, $id)
     {
-        $po->refresh();
+        $request->validate([
+            'qty'   => 'required|numeric|min:1',
+            'price' => 'required|numeric|min:0',
+        ]);
 
-        $grandTotal = $po->items->sum(fn($i) => $i->qty * $i->price);
+        $item = PurchaseOrderItem::findOrFail($id);
+        $po   = $item->purchaseOrder;
 
-        // Diskon nota
-        $diskonRp = ($grandTotal * ($po->disc_nota_persen ?? 0) / 100) + ($po->disc_nota_rupiah ?? 0);
+        if ($po->status !== 'draft') {
+            return back()->with('error', 'PO sudah dikunci, item tidak bisa diubah.');
+        }
 
-        $ppnRp      = ($grandTotal - $diskonRp) * ($po->ppn ?? 0) / 100;
-        $total      = $grandTotal - $diskonRp + $ppnRp;
+        $item->update([
+            'qty'   => $request->qty,
+            'price' => $request->price,
+        ]);
 
-        $po->update(['total' => $total]);
+        $this->recalculateTotal($po);
+
+        return back()->with('success', 'Item berhasil diupdate.');
     }
 
     // -------------------------------------------------------
@@ -224,10 +272,24 @@ class PurchaseOrderController extends Controller
         }
 
         $item->delete();
-
         $this->recalculateTotal($po);
 
         return back()->with('success', 'Item berhasil dihapus.');
+    }
+
+    // -------------------------------------------------------
+    // RECALCULATE TOTAL
+    // -------------------------------------------------------
+    private function recalculateTotal(PurchaseOrder $po): void
+    {
+        $po->refresh();
+
+        $grandTotal = $po->items->sum(fn($i) => $i->qty * $i->price);
+        $diskonRp   = ($grandTotal * ($po->disc_nota_persen ?? 0) / 100) + ($po->disc_nota_rupiah ?? 0);
+        $ppnRp      = ($grandTotal - $diskonRp) * ($po->ppn ?? 0) / 100;
+        $total      = $grandTotal - $diskonRp + $ppnRp;
+
+        $po->update(['total' => $total]);
     }
 
     // -------------------------------------------------------
@@ -244,12 +306,12 @@ class PurchaseOrderController extends Controller
             return back()->with('error', 'PO belum memiliki item.');
         }
         if (empty($po->supplier_id)) {
-            return back()->with('error', 'Supplier belum dipilih, isi header PO terlebih dahulu.');
+            return back()->with('error', 'Supplier belum dipilih.');
         }
 
         $po->update(['status' => 'approved']);
 
-        return redirect()->route('po.index')->with('success', 'PO berhasil di-approve.');
+        return redirect()->route('po.index')->with('success', 'PO ' . $po->po_number . ' berhasil di-approve.');
     }
 
     // -------------------------------------------------------
@@ -258,7 +320,6 @@ class PurchaseOrderController extends Controller
     public function receive($id)
     {
         DB::transaction(function () use ($id) {
-
             $po = PurchaseOrder::with('items')->findOrFail($id);
 
             if ($po->status !== 'approved') {
@@ -266,9 +327,7 @@ class PurchaseOrderController extends Controller
             }
 
             foreach ($po->items as $item) {
-                $stock = Stock::firstOrCreate([
-                    'product_unit_id' => $item->product_unit_id,
-                ]);
+                $stock = Stock::firstOrCreate(['product_unit_id' => $item->product_unit_id]);
                 $stock->increment('qty', $item->qty);
             }
 
@@ -301,10 +360,7 @@ class PurchaseOrderController extends Controller
     {
         $po = PurchaseOrder::findOrFail($id);
 
-        // Hapus semua item terlebih dahulu
         $po->items()->delete();
-
-        // Hapus PO
         $po->delete();
 
         return back()->with('success', 'PO ' . $po->po_number . ' berhasil dihapus.');

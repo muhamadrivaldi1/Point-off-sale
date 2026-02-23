@@ -70,6 +70,19 @@
         box-shadow: 0 0 0 2px rgba(13,110,253,.15);
     }
 
+    /* Badge prefix nomor */
+    .nomor-badge {
+        display: inline-block;
+        font-size: 0.68rem;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-weight: 700;
+        margin-left: 3px;
+        vertical-align: middle;
+    }
+    .nomor-badge.pr { background: #d1ecf1; color: #0c5460; }
+    .nomor-badge.po { background: #fff3cd; color: #856404; }
+
     /* Tabel transaksi bawah kiri */
     .table-transaksi-wrap {
         border-top: 1px solid #dee2e6;
@@ -307,40 +320,69 @@
 </div>
 @endif
 
+{{-- Simpan nomor asli untuk JS (hanya bagian angkanya) --}}
+@php
+    $nomorParts   = explode('-', $po->po_number, 2);
+    $nomorAngka   = $nomorParts[1] ?? now()->format('YmdHis');
+    $jenisAwal    = $po->jenis_transaksi ?? 'Pembelian';
+@endphp
+
 <div class="po-wrapper">
 
-    {{-- PANEL KIRI --}}
+    {{-- ===== PANEL KIRI ===== --}}
     <div class="panel-left">
 
         <div class="panel-left-header">
             <span><i class="bi bi-cart-plus me-1"></i> Pembelian</span>
-            @php $badge = match($po->status) { 'draft'=>'secondary','approved'=>'primary','received'=>'success','canceled'=>'danger',default=>'secondary' }; @endphp
+            @php
+                $badge = match($po->status) {
+                    'draft'    => 'secondary',
+                    'approved' => 'primary',
+                    'received' => 'success',
+                    'canceled' => 'danger',
+                    default    => 'secondary'
+                };
+            @endphp
             <span class="status-pill bg-{{ $badge }} text-white">{{ ucfirst($po->status) }}</span>
         </div>
 
         <div class="po-form-body">
+
             @if($po->status === 'draft')
             <form method="POST" action="{{ route('po.updateHeader', $po->id) }}" id="form-header">
             @csrf
             @endif
 
+                {{-- JENIS TRANSAKSI --}}
                 <div class="field-row">
                     <label>Jenis Transaksi</label>
-                    <select name="jenis_transaksi" class="form-select" {{ $po->status !== 'draft' ? 'disabled' : '' }}>
-                        <option value="Pembelian"
-                            {{ ($po->jenis_transaksi ?? 'Pembelian') === 'Pembelian' ? 'selected' : '' }}>
-                             Pembelian Reguler
+                    <select name="jenis_transaksi" id="jenis_transaksi"
+                            class="form-select"
+                            {{ $po->status !== 'draft' ? 'disabled' : '' }}>
+                        <option value="Pembelian" {{ $jenisAwal === 'Pembelian' ? 'selected' : '' }}>
+                            PR — Pembelian Reguler
                         </option>
-                        <option value="PO"
-                            {{ ($po->jenis_transaksi ?? '') === 'PO' ? 'selected' : '' }}>
-                             PO (Private Order)
+                        <option value="PO" {{ $jenisAwal === 'PO' ? 'selected' : '' }}>
+                            PO — Private Order
                         </option>
-
                     </select>
                 </div>
+
+                {{-- NOMOR TRANSAKSI — prefix ikut jenis_transaksi --}}
                 <div class="field-row">
-                    <label>Nomor Transaksi</label>
-                    <input type="text" class="form-control ro" value="{{ $po->po_number }}" readonly>
+                    <label>
+                        Nomor Transaksi
+                        @if($po->status === 'draft')
+                            <span id="nomor-badge"
+                                  class="nomor-badge {{ $jenisAwal === 'PO' ? 'po' : 'pr' }}">
+                                {{ $jenisAwal === 'PO' ? 'PO' : 'PR' }}
+                            </span>
+                        @endif
+                    </label>
+                    <input type="text" name="po_number" id="po_number"
+                           class="form-control ro"
+                           value="{{ $po->po_number }}"
+                           readonly>
                 </div>
 
                 <div class="field-row">
@@ -353,49 +395,58 @@
 
                 <div class="field-row">
                     <label>Gudang</label>
-                    <input type="text" name="gudang" class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
+                    <input type="text" name="gudang"
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
                            value="{{ old('gudang', $po->gudang ?? '') }}"
-                           placeholder="Gudang utama"
+                           placeholder="Gudang Utama"
                            {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                 </div>
 
                 <div class="field-row">
                     <label>Nama Supplier</label>
-                    <select name="supplier_id" class="form-select" {{ $po->status !== 'draft' ? 'disabled' : '' }} required>
+                    <select name="supplier_id" class="form-select"
+                            {{ $po->status !== 'draft' ? 'disabled' : '' }} required>
                         <option value="">-- Pilih --</option>
                         @foreach($suppliers as $sup)
-                            <option value="{{ $sup->id }}" {{ old('supplier_id', $po->supplier_id) == $sup->id ? 'selected' : '' }}>
+                            <option value="{{ $sup->id }}"
+                                {{ old('supplier_id', $po->supplier_id) == $sup->id ? 'selected' : '' }}>
                                 {{ $sup->nama_supplier }}
                             </option>
                         @endforeach
                     </select>
                 </div>
 
+                {{-- Field yang disabled saat jenis = PO --}}
                 <div class="field-row">
                     <label>Nomor Faktur</label>
-                    <input type="text" name="nomor_faktur" class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
+                    <input type="text" name="nomor_faktur" id="field-nomor-faktur"
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
                            value="{{ old('nomor_faktur', $po->nomor_faktur) }}"
                            {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                 </div>
 
                 <div class="field-row">
                     <label>Tanggal Faktur</label>
-                    <input type="date" name="tanggal_faktur" class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
+                    <input type="date" name="tanggal_faktur" id="field-tanggal-faktur"
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
                            value="{{ old('tanggal_faktur', $po->tanggal_faktur?->format('Y-m-d')) }}"
                            {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                 </div>
 
                 <div class="field-row">
                     <label>Jenis Pembayaran</label>
-                    <select name="jenis_pembayaran" id="jenis_pembayaran" class="form-select"
+                    <select name="jenis_pembayaran" id="jenis_pembayaran"
+                            class="form-select"
                             {{ $po->status !== 'draft' ? 'disabled' : '' }}>
-                        <option value="Cash"     {{ old('jenis_pembayaran', $po->jenis_pembayaran) == 'Cash'     ? 'selected' : '' }}>Cash</option>
-                        <option value="Kredit"   {{ old('jenis_pembayaran', $po->jenis_pembayaran) == 'Kredit'   ? 'selected' : '' }}>Kredit</option>
-                        <option value="Transfer" {{ old('jenis_pembayaran', $po->jenis_pembayaran) == 'Transfer' ? 'selected' : '' }}>Transfer</option>
+                        <option value="Cash"     {{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Cash'     ? 'selected' : '' }}>Cash</option>
+                        <option value="Kredit"   {{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Kredit'   ? 'selected' : '' }}>Kredit</option>
+                        <option value="Transfer" {{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Transfer' ? 'selected' : '' }}>Transfer</option>
                     </select>
                 </div>
 
-                <div class="field-row" id="row-jk" style="{{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Kredit' ? '' : 'display:none' }}">
+                {{-- JK Waktu — tampil hanya saat Kredit --}}
+                <div class="field-row" id="row-jk"
+                     style="{{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Kredit' ? '' : 'display:none' }}">
                     <label>Jk. Waktu</label>
                     <div class="d-flex gap-1 align-items-center">
                         <input type="number" name="jk_waktu" id="jk_waktu"
@@ -413,7 +464,9 @@
 
                 <div class="field-row">
                     <label>Faktur Pajak</label>
-                    <select name="ppn" class="form-select" {{ $po->status !== 'draft' ? 'disabled' : '' }}>
+                    <select name="ppn" id="field-ppn"
+                            class="form-select"
+                            {{ $po->status !== 'draft' ? 'disabled' : '' }}>
                         <option value="0"   {{ old('ppn', $po->ppn) == 0   ? 'selected' : '' }}>0% (Non PPN)</option>
                         <option value="11"  {{ old('ppn', $po->ppn) == 11  ? 'selected' : '' }}>11% (PPN)</option>
                         <option value="1.1" {{ old('ppn', $po->ppn) == 1.1 ? 'selected' : '' }}>1.1% (Final)</option>
@@ -422,22 +475,25 @@
 
                 <div class="field-row">
                     <label>Bulan Lapor</label>
-                    <input type="month" name="bulan_lapor" class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
+                    <input type="month" name="bulan_lapor" id="field-bulan-lapor"
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
                            value="{{ old('bulan_lapor', $po->bulan_lapor ?? '') }}"
                            {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                 </div>
 
                 <div class="field-row">
                     <label>Status</label>
-                    <input type="text" class="form-control ro" value="{{ ucfirst($po->status) }}" readonly>
+                    <input type="text" class="form-control ro"
+                           value="{{ ucfirst($po->status) }}" readonly>
                 </div>
 
             @if($po->status === 'draft')
             </form>
             @endif
+
         </div>
 
-        {{-- Tabel riwayat transaksi --}}
+        {{-- Riwayat transaksi --}}
         <div class="table-transaksi-wrap">
             <div class="table-transaksi-header">
                 <i class="bi bi-table me-1"></i> Daftar Transaksi
@@ -447,7 +503,7 @@
                     <thead>
                         <tr>
                             <th>Kode Transaksi</th>
-                            <th>Nama Supplier</th>
+                            <th>Supplier</th>
                             <th>Jenis</th>
                         </tr>
                     </thead>
@@ -461,7 +517,13 @@
                             onclick="window.location='{{ route('po.edit', $r->id) }}'">
                             <td>{{ $r->po_number }}</td>
                             <td>{{ $r->supplier->nama_supplier ?? '-' }}</td>
-                            <td>{{ $r->jenis_transaksi ?? 'Pembelian' }}</td>
+                            <td>
+                                @if(($r->jenis_transaksi ?? 'Pembelian') === 'PO')
+                                    <span class="nomor-badge po">PO</span>
+                                @else
+                                    <span class="nomor-badge pr">PR</span>
+                                @endif
+                            </td>
                         </tr>
                         @empty
                         <tr><td colspan="3" class="text-center text-muted py-2">Belum ada data</td></tr>
@@ -470,7 +532,8 @@
                 </table>
             </div>
             <div class="px-2 py-1 border-top" style="background:#f8f9fa">
-                <a href="{{ route('po.create') }}" class="btn btn-sm btn-outline-secondary w-100" style="font-size:0.75rem;padding:2px">
+                <a href="{{ route('po.create') }}" class="btn btn-sm btn-outline-secondary w-100"
+                   style="font-size:0.75rem;padding:2px">
                     <i class="bi bi-plus"></i> Buat PO Baru
                 </a>
             </div>
@@ -479,7 +542,7 @@
     </div>{{-- end panel-left --}}
 
 
-    {{-- PANEL KANAN --}}
+    {{-- ===== PANEL KANAN ===== --}}
     <div class="panel-right">
 
         <div class="preview-area">
@@ -496,7 +559,6 @@
             @csrf
             <div class="row g-2 align-items-end">
 
-                {{-- Nama Barang --}}
                 <div class="col" style="min-width:180px">
                     <label>Nama Barang</label>
                     <select name="product_unit_id" id="product_unit_id"
@@ -513,7 +575,6 @@
                     </select>
                 </div>
 
-                {{-- Jumlah --}}
                 <div class="col-auto" style="width:80px">
                     <label>Jumlah</label>
                     <input type="number" name="qty" id="input_qty"
@@ -521,14 +582,12 @@
                            oninput="hitungSubtotal()" required>
                 </div>
 
-                {{-- Satuan --}}
                 <div class="col-auto" style="width:75px">
                     <label>Satuan</label>
                     <input type="text" id="preview_satuan" name="satuan"
                            class="form-control ro" readonly placeholder="-">
                 </div>
 
-                {{-- Harga Satuan --}}
                 <div class="col-auto" style="width:115px">
                     <label>Harga Satuan</label>
                     <input type="number" name="price" id="input_price"
@@ -536,19 +595,16 @@
                            oninput="hitungSubtotal()" required>
                 </div>
 
-                {{-- Subtotal preview --}}
                 <div class="col-auto" style="width:115px">
                     <label>Subtotal</label>
                     <input type="text" id="preview_subtotal"
                            class="form-control ro text-end fw-semibold" readonly value="0">
                 </div>
 
-                {{-- Divider --}}
                 <div class="col-auto d-flex align-items-end" style="padding-bottom:5px">
                     <div style="width:1px;height:20px;background:#dee2e6"></div>
                 </div>
 
-                {{-- Nama Bonus --}}
                 <div class="col" style="min-width:140px">
                     <label>
                         <i class="bi bi-gift me-1 text-success"></i>
@@ -560,14 +616,12 @@
                            maxlength="100">
                 </div>
 
-                {{-- Jumlah Bonus --}}
                 <div class="col-auto" style="width:85px">
                     <label>Jml Bonus</label>
                     <input type="number" name="bonus_qty"
                            class="form-control" value="0" min="0" step="1">
                 </div>
 
-                {{-- Tombol --}}
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-primary px-3" style="font-size:0.78rem">
                         <i class="bi bi-plus-lg me-1"></i>Tambah
@@ -600,11 +654,9 @@
                     </thead>
                     <tbody>
                         @forelse($po->items as $i => $item)
-                        @php
-                            $subtotal = $item->qty * $item->price;
-                        @endphp
+                        @php $subtotal = $item->qty * $item->price; @endphp
                         <tr>
-                            <td class="text-muted">{{ $i+1 }}</td>
+                            <td class="text-muted">{{ $i + 1 }}</td>
                             <td>{{ $item->unit->product->name ?? '-' }}</td>
                             <td class="text-end">{{ number_format($item->qty, 0, ',', '.') }}</td>
                             <td>{{ $item->unit->unit_name ?? $item->unit->unit ?? '-' }}</td>
@@ -613,7 +665,7 @@
                             <td>
                                 @if(!empty($item->bonus_nama) && ($item->bonus_qty ?? 0) > 0)
                                     <span class="bonus-badge">
-                                        <i class="bi bi-gift"></i>{{ $item->bonus_nama }}
+                                        <i class="bi bi-gift"></i> {{ $item->bonus_nama }}
                                     </span>
                                 @else
                                     <span class="text-muted" style="font-size:0.72rem">-</span>
@@ -652,18 +704,17 @@
 
         {{-- Summary Footer --}}
         @php
-            $totalItems  = $po->items->count();
-            $totalQty    = $po->items->sum('qty');
-            $totalBonus  = $po->items->sum('bonus_qty');
-            $itemBonus   = $po->items->filter(fn($i) => ($i->bonus_qty ?? 0) > 0)->count();
-            $grandTotal  = $po->items->sum(fn($i) => $i->qty * $i->price);
-            $ppnRp       = $grandTotal * ($po->ppn ?? 0) / 100;
-            $totalAkhir  = $grandTotal + $ppnRp;
+            $totalItems = $po->items->count();
+            $totalQty   = $po->items->sum('qty');
+            $totalBonus = $po->items->sum('bonus_qty');
+            $itemBonus  = $po->items->filter(fn($i) => ($i->bonus_qty ?? 0) > 0)->count();
+            $grandTotal = $po->items->sum(fn($i) => $i->qty * $i->price);
+            $ppnRp      = $grandTotal * ($po->ppn ?? 0) / 100;
+            $totalAkhir = $grandTotal + $ppnRp;
         @endphp
 
         <div class="summary-footer">
 
-            {{-- Kolom 1 --}}
             <div class="summary-group">
                 <div class="summary-row">
                     <label>Jumlah Item</label>
@@ -671,31 +722,34 @@
                 </div>
                 <div class="summary-row">
                     <label>Total Qty</label>
-                    <input type="text" class="form-control" value="{{ number_format($totalQty, 0, ',', '.') }}" readonly>
+                    <input type="text" class="form-control"
+                           value="{{ number_format($totalQty, 0, ',', '.') }}" readonly>
                 </div>
                 <div class="summary-row">
                     <label>Item Ada Bonus</label>
-                    <input type="text" class="form-control" value="{{ $itemBonus }} item ({{ number_format($totalBonus,0,',','.') }} pcs)" readonly>
+                    <input type="text" class="form-control"
+                           value="{{ $itemBonus }} item ({{ number_format($totalBonus,0,',','.') }} pcs)" readonly>
                 </div>
             </div>
 
-            {{-- Kolom 2 --}}
             <div class="summary-group">
                 <div class="summary-row">
                     <label>Subtotal</label>
-                    <input type="text" class="form-control" value="Rp {{ number_format($grandTotal, 0, ',', '.') }}" readonly>
+                    <input type="text" class="form-control"
+                           value="Rp {{ number_format($grandTotal, 0, ',', '.') }}" readonly>
                 </div>
                 <div class="summary-row">
                     <label>PPN ({{ $po->ppn ?? 0 }}%)</label>
-                    <input type="text" class="form-control" value="Rp {{ number_format($ppnRp, 0, ',', '.') }}" readonly>
+                    <input type="text" class="form-control"
+                           value="Rp {{ number_format($ppnRp, 0, ',', '.') }}" readonly>
                 </div>
                 <div class="summary-row">
                     <label>Jenis Bayar</label>
-                    <input type="text" class="form-control" value="{{ $po->jenis_pembayaran ?? '-' }}" readonly>
+                    <input type="text" class="form-control"
+                           value="{{ $po->jenis_pembayaran ?? '-' }}" readonly>
                 </div>
             </div>
 
-            {{-- Kolom 3: TOTAL AKHIR --}}
             <div class="summary-group">
                 <div class="summary-row">
                     <label><strong>TOTAL</strong></label>
@@ -709,7 +763,8 @@
                 </div>
                 <div class="summary-row">
                     <label>Status</label>
-                    <input type="text" class="form-control" value="{{ ucfirst($po->status) }}" readonly>
+                    <input type="text" class="form-control"
+                           value="{{ ucfirst($po->status) }}" readonly>
                 </div>
             </div>
 
@@ -757,30 +812,93 @@
 
 @push('scripts')
 <script>
-// Saat produk dipilih → isi satuan & harga otomatis
-function onProdukChange(sel) {
-    const opt = sel.options[sel.selectedIndex];
-    document.getElementById('preview_satuan').value = opt.dataset.satuan || '';
-    document.getElementById('input_price').value    = opt.dataset.harga  || 0;
-    hitungSubtotal();
+// ============================================================
+// DATA dari PHP
+// ============================================================
+const nomorAngka = @json($nomorAngka);   // bagian angka dari nomor, e.g. "20240601120000"
+const isDraft    = @json($po->status === 'draft');
+
+// ============================================================
+// GANTI PREFIX NOMOR saat jenis_transaksi berubah
+// PR-xxx = Pembelian Reguler
+// PO-xxx = Private Order
+// ============================================================
+const jenisSelect   = document.getElementById('jenis_transaksi');
+const poNumberInput = document.getElementById('po_number');
+const nomorBadge    = document.getElementById('nomor-badge');
+
+// Field yang di-disable saat jenis = PO
+const fieldsDisabledWhenPO = [
+    'field-nomor-faktur',
+    'field-tanggal-faktur',
+    'jenis_pembayaran',
+    'jk_waktu',
+    'tgl_jatuh_tempo',
+    'field-ppn',
+    'field-bulan-lapor',
+];
+
+function updateNomor(jenis) {
+    if (!poNumberInput || !isDraft) return;
+
+    // Ambil bagian angka dari nomor yang sekarang ada di input
+    const currentVal = poNumberInput.value;
+    const parts      = currentVal.split('-');
+    const angka      = parts.slice(1).join('-') || nomorAngka;
+
+    if (jenis === 'PO') {
+        poNumberInput.value    = 'PO-' + angka;
+        if (nomorBadge) {
+            nomorBadge.textContent = 'PO';
+            nomorBadge.className   = 'nomor-badge po';
+        }
+    } else {
+        poNumberInput.value    = 'PR-' + angka;
+        if (nomorBadge) {
+            nomorBadge.textContent = 'PR';
+            nomorBadge.className   = 'nomor-badge pr';
+        }
+    }
 }
 
-// Hitung subtotal preview real-time
-function hitungSubtotal() {
-    const qty   = parseFloat(document.getElementById('input_qty')?.value)   || 0;
-    const price = parseFloat(document.getElementById('input_price')?.value) || 0;
-    const sub   = qty * price;
-    document.getElementById('preview_subtotal').value = sub.toLocaleString('id-ID');
+function toggleFieldsForJenis(jenis) {
+    if (!isDraft) return;
+    const isPO = jenis === 'PO';
+    fieldsDisabledWhenPO.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.disabled      = isPO;
+            el.style.opacity = isPO ? '0.45' : '1';
+        }
+    });
+    // Sembunyikan row-jk juga saat PO
+    if (isPO) {
+        document.getElementById('row-jk').style.display = 'none';
+    }
 }
 
-// Jenis pembayaran → tampil/sembunyikan JK Waktu
-document.getElementById('jenis_pembayaran')?.addEventListener('change', function () {
+if (jenisSelect && isDraft) {
+    jenisSelect.addEventListener('change', function () {
+        updateNomor(this.value);
+        toggleFieldsForJenis(this.value);
+    });
+    // Inisialisasi saat load
+    toggleFieldsForJenis(jenisSelect.value);
+}
+
+// ============================================================
+// JENIS PEMBAYARAN → tampil / sembunyikan JK Waktu
+// ============================================================
+const jenisBayarSel = document.getElementById('jenis_pembayaran');
+jenisBayarSel?.addEventListener('change', function () {
     const isKredit = this.value === 'Kredit';
     document.getElementById('row-jk').style.display = isKredit ? '' : 'none';
     if (isKredit) hitungJatuhTempo();
 });
 
-// Hitung jatuh tempo
+// ============================================================
+// HITUNG JATUH TEMPO otomatis dari jk_waktu
+// ============================================================
 function hitungJatuhTempo() {
     const tgl  = document.getElementById('tanggal_transaksi')?.value;
     const hari = parseInt(document.getElementById('jk_waktu')?.value) || 30;
@@ -794,17 +912,33 @@ function hitungJatuhTempo() {
 }
 
 document.getElementById('jk_waktu')?.addEventListener('input', hitungJatuhTempo);
-
 document.getElementById('tanggal_transaksi')?.addEventListener('change', function () {
     if (document.getElementById('jenis_pembayaran')?.value === 'Kredit') hitungJatuhTempo();
 });
 
-// Init saat load
+// Init jatuh tempo saat load
 (function () {
     const jenis = document.getElementById('jenis_pembayaran')?.value;
     if (jenis === 'Kredit' && !document.getElementById('tgl_jatuh_tempo')?.value) {
         hitungJatuhTempo();
     }
 })();
+
+// ============================================================
+// HITUNG SUBTOTAL real-time
+// ============================================================
+function hitungSubtotal() {
+    const qty   = parseFloat(document.getElementById('input_qty')?.value)   || 0;
+    const price = parseFloat(document.getElementById('input_price')?.value) || 0;
+    document.getElementById('preview_subtotal').value =
+        (qty * price).toLocaleString('id-ID', { minimumFractionDigits: 0 });
+}
+
+function onProdukChange(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    document.getElementById('preview_satuan').value = opt.dataset.satuan || '';
+    document.getElementById('input_price').value    = opt.dataset.harga  || 0;
+    hitungSubtotal();
+}
 </script>
 @endpush
