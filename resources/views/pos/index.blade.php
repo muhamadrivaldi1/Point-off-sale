@@ -6,9 +6,6 @@
 <style>
 * { box-sizing: border-box; }
 
-/* =============================================
-   RESET SCROLL — Semua muat 1 layar
-   ============================================= */
 html, body {
     margin: 0; padding: 0;
     height: 100%; overflow: hidden;
@@ -119,7 +116,7 @@ html, body {
 }
 
 /* =============================================
-   FOKUS AKTIF — highlight input yang sedang aktif
+   FOKUS AKTIF
    ============================================= */
 .input-active {
     border-color: #0d6efd !important;
@@ -128,7 +125,84 @@ html, body {
 }
 
 /* =============================================
-   KERANJANG — tampil 4 baris, scroll internal
+   KOTAK PENCARIAN — scroll horizontal + vertikal
+   ============================================= */
+#searchBox {
+    border: 1px solid #ddd;
+    border-radius: 5px 5px 0 0;
+    overflow-x: auto;   /* scroll kiri-kanan */
+    overflow-y: auto;   /* scroll atas-bawah */
+    max-height: calc(29px * 4 + 28px); /* header + 4 baris */
+    flex-shrink: 0;
+}
+#searchBox table {
+    margin: 0;
+    font-size: 12px;
+    /* TIDAK pakai min-width agar bisa scroll alami */
+    white-space: nowrap;
+}
+#searchBox thead th {
+    background: #f5f5f5;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-bottom: 2px solid #ddd;
+    white-space: nowrap;
+}
+#searchBox tbody td {
+    vertical-align: middle;
+    padding: 3px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* =============================================
+   HIGHLIGHT BARIS AKTIF
+   ============================================= */
+#searchResult tr.search-row-active td {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+}
+#searchResult tr.search-row-active td span {
+    background: rgba(255,255,255,0.25) !important;
+    color: #fff !important;
+}
+#searchResult tr:hover td {
+    background-color: #e8f0fe;
+}
+#searchResult tr.search-row-active:hover td {
+    background-color: #0b5ed7 !important;
+}
+
+/* =============================================
+   HINT NAVIGASI KEYBOARD
+   ============================================= */
+.search-nav-hint {
+    display: none;
+    font-size: 10px;
+    color: #6c757d;
+    padding: 2px 6px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.search-nav-hint.show { display: block; }
+
+/* =============================================
+   SCROLLBAR TIPIS PADA TABEL PENCARIAN
+   ============================================= */
+#searchBox::-webkit-scrollbar        { width: 5px; height: 5px; }
+#searchBox::-webkit-scrollbar-track  { background: #f1f1f1; }
+#searchBox::-webkit-scrollbar-thumb  { background: #bbb; border-radius: 3px; }
+#searchBox::-webkit-scrollbar-thumb:hover { background: #888; }
+
+/* =============================================
+   KERANJANG
    ============================================= */
 .cart-section {
     border: 1px solid #ddd;
@@ -146,7 +220,6 @@ html, body {
 .cart-table-header table { margin: 0; width: 100%; table-layout: fixed; font-size: 12px; }
 .cart-table-header th    { font-weight: 600; padding: 5px 7px; }
 
-/* 4 item × ~32px per baris = 128px */
 .cart-table-body {
     overflow-y: auto;
     max-height: calc(32px * 4);
@@ -171,7 +244,7 @@ html, body {
 }
 
 /* =============================================
-   TRANSAKSI HARI INI — dengan badge pending
+   BADGE PENDING
    ============================================= */
 .trx-today-header {
     display: flex;
@@ -259,7 +332,6 @@ html, body {
 /* Form controls */
 .form-control-xs { font-size: 12px; padding: 3px 7px; height: 28px; }
 .form-control-xs:focus { outline: none; border-color: #86b7fe; box-shadow: 0 0 0 2px rgba(13,110,253,.15); }
-
 .alert-xs { font-size: 12px; padding: 4px 9px; margin-bottom: 0; border-radius: 4px; }
 
 /* Tombol qty */
@@ -290,30 +362,43 @@ html, body {
                 Gudang: <strong>{{ $activeWarehouse->name }}</strong>
             </div>
 
-            {{-- Urutan navigasi Enter: barcode → search → member → discount_rp → discount_percent → paid → btnPay --}}
             <input type="text" id="barcode" class="form-control form-control-xs"
                    placeholder="① Scan barcode / Enter untuk lanjut">
             <input type="text" id="search"  class="form-control form-control-xs"
-                   placeholder="② Cari nama / barcode produk">
+                   placeholder="② Cari produk — ↑↓ pilih, ←→ geser kolom, Enter ambil">
 
             <span class="section-label">Hasil Pencarian</span>
 
-            {{-- Tabel pencarian dengan kolom stok per gudang --}}
-            <div class="pos-box" style="max-height: calc(28px * 4); flex-shrink:0; overflow-x:auto;">
-                <table class="table table-sm pos-table mb-0" id="searchTable">
+            {{-- Kotak hasil: scroll vertikal (baris) + horizontal (kolom) --}}
+            <div id="searchBox">
+                <table class="table table-sm table-bordered mb-0" id="searchTable">
                     <thead>
                         <tr>
-                            <th>No</th>
-                            <th>Barcode</th>
-                            <th>Nama</th>
-                            <th>Sat.</th>
+                            <th style="width:28px;">No</th>
+                            <th style="min-width:110px;">Barcode</th>
+                            <th style="min-width:140px;">Nama</th>
+                            <th style="min-width:50px;">Sat.</th>
                             @foreach($warehouses as $idx => $wh)
-                                <th title="{{ $wh->name }}">Stok {{ chr(65 + $idx) }}</th>
+                                <th style="min-width:58px; text-align:center;" title="{{ $wh->name }}">
+                                    Stok {{ chr(65 + $idx) }}
+                                </th>
                             @endforeach
                         </tr>
                     </thead>
-                    <tbody id="searchResult"></tbody>
+                    <tbody id="searchResult">
+                        <tr>
+                            <td colspan="{{ 4 + count($warehouses) }}" class="text-center text-muted"
+                                style="font-size:11px; padding:6px;">
+                                Ketik minimal 2 karakter untuk mencari produk
+                            </td>
+                        </tr>
+                    </tbody>
                 </table>
+            </div>
+
+            {{-- Hint navigasi keyboard --}}
+            <div class="search-nav-hint" id="searchNavHint">
+                ↑↓ Pilih baris &nbsp;|&nbsp; ←→ Geser kolom &nbsp;|&nbsp; Enter Ambil &nbsp;|&nbsp; Esc Tutup
             </div>
 
             {{-- MEMBER --}}
@@ -394,7 +479,6 @@ html, body {
                     </table>
                 </div>
 
-                {{-- BODY: maks 4 baris → scroll jika lebih --}}
                 <div class="cart-table-body">
                     <table class="table table-bordered table-sm mb-0">
                         <colgroup>
@@ -434,7 +518,6 @@ html, body {
                                                onchange="updateQtyManual({{ $i->id }},this.value)">
                                         <button class="btn btn-sm btn-outline-secondary btn-qty"
                                                 onclick="plusQty({{ $i->id }})">+</button>
-                                        {{-- Hapus: wajib password owner dulu --}}
                                         <button class="btn btn-sm btn-danger btn-qty"
                                                 onclick="removeItemWithAuth({{ $i->id }}, '{{ addslashes($i->unit->product->name) }}')">🗑</button>
                                     </div>
@@ -536,7 +619,6 @@ html, body {
 let TRX  = {{ $trx->id }};
 const csrf = '{{ csrf_token() }}';
 
-// Data gudang dari PHP untuk kolom stok pencarian
 const warehouseList = @json($warehousesJson);
 
 function getWarehouseId() {
@@ -555,49 +637,60 @@ let manualDiscountPercent = 0;
 let memberDiscount        = 0;
 let selectedPaymentMethod = 'cash';
 
-// ============================================
-// URUTAN NAVIGASI ENTER
-// barcode → search → member → discount_rp → discount_percent → paid → btnPay
-// ============================================
-const NAV_ORDER = [
-    'barcode',
-    'search',
-    'member',
-    'discount_rp',
-    'discount_percent',
-    'paid',
-];
+// =============================================
+// NAVIGASI KEYBOARD HASIL PENCARIAN
+// selectedSearchIdx : indeks baris yang di-highlight (-1 = belum ada)
+// =============================================
+let selectedSearchIdx = -1;
 
-/**
- * Pindah fokus ke field berikutnya.
- * Jika sudah di field terakhir (paid), trigger klik btnPay.
- */
+/** Perbarui highlight visual */
+function updateSearchHighlight() {
+    const rows = document.querySelectorAll('#searchResult tr[data-unit-id]');
+    rows.forEach((row, i) => {
+        row.classList.toggle('search-row-active', i === selectedSearchIdx);
+    });
+    // Auto-scroll vertikal agar baris aktif terlihat
+    if (selectedSearchIdx >= 0 && rows[selectedSearchIdx]) {
+        rows[selectedSearchIdx].scrollIntoView({ block: 'nearest' });
+    }
+}
+
+/** Tampilkan / sembunyikan hint navigasi */
+function showSearchHint(show) {
+    document.getElementById('searchNavHint').classList.toggle('show', show);
+}
+
+/** Reset seleksi */
+function resetSearchSelection() {
+    selectedSearchIdx = -1;
+    updateSearchHighlight();
+    showSearchHint(false);
+}
+
+// =============================================
+// URUTAN NAVIGASI ENTER ANTAR FIELD
+// =============================================
+const NAV_ORDER = ['barcode','search','member','discount_rp','discount_percent','paid'];
+
 function focusNext(currentId) {
     const idx = NAV_ORDER.indexOf(currentId);
     if (idx === -1) return;
-
     if (idx === NAV_ORDER.length - 1) {
-        // Terakhir: paid → buka modal bayar
         document.getElementById('btnPay').click();
         return;
     }
-
     const nextId = NAV_ORDER[idx + 1];
     const nextEl = document.getElementById(nextId);
     if (!nextEl) return;
-
-    // Jika field terkunci (locked), lewati ke field berikutnya
     if (nextEl.readOnly || nextEl.classList.contains('locked')) {
         focusNext(nextId);
         return;
     }
-
     nextEl.focus();
     nextEl.select && nextEl.select();
     highlightActive(nextId);
 }
 
-/** Tambah highlight ke input yang aktif, hapus dari yang lain */
 function highlightActive(activeId) {
     NAV_ORDER.forEach(id => {
         const el = document.getElementById(id);
@@ -607,157 +700,212 @@ function highlightActive(activeId) {
     if (el) el.classList.add('input-active');
 }
 
-// ============================================
+// =============================================
 // ENTER DI BARCODE
-// Jika ada isi → scan; jika kosong → pindah ke search
-// ============================================
+// =============================================
 document.getElementById('barcode').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     const code = this.value.trim();
+    if (code === '') { focusNext('barcode'); return; }
 
-    if (code === '') {
-        // Kosong: loncat ke search
-        focusNext('barcode');
-        return;
-    }
-
-    // Ada isi: proses scan
     fetch('/pos/scan', {
-        method  : 'POST',
-        headers : jsonHeaders,
-        body    : JSON.stringify({ code: code, warehouse_id: getWarehouseId() })
+        method : 'POST', headers: jsonHeaders,
+        body   : JSON.stringify({ code: code, warehouse_id: getWarehouseId() })
     })
     .then(r => r.json())
     .then(r => {
         if (!r.success) { alert(r.message); return; }
         add(r.id);
         this.value = '';
-        // Setelah scan berhasil, tetap di barcode untuk scan berikutnya
         this.focus();
         highlightActive('barcode');
     });
 });
+document.getElementById('barcode').addEventListener('focus', () => highlightActive('barcode'));
 
-document.getElementById('barcode').addEventListener('focus', function () {
-    highlightActive('barcode');
-});
-
-// ============================================
-// ENTER DI SEARCH
-// Jika ada hasil → pilih item pertama; jika kosong → pindah ke member
-// ============================================
+// =============================================
+// SEARCH — keydown: navigasi ↑↓ dan ←→ scroll
+// =============================================
 document.getElementById('search').addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
+    const box      = document.getElementById('searchBox');
+    const rows     = document.querySelectorAll('#searchResult tr[data-unit-id]');
+    const rowCount = rows.length;
 
-    const q = this.value.trim();
-
-    if (q === '') {
-        // Kosong: loncat ke member
-        focusNext('search');
+    // -------- ↓ Pilih baris berikutnya --------
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (rowCount === 0) return;
+        selectedSearchIdx = Math.min(selectedSearchIdx + 1, rowCount - 1);
+        updateSearchHighlight();
         return;
     }
 
-    // Coba pilih item pertama dari hasil pencarian
-    const firstRow = document.querySelector('#searchResult tr[data-unit-id]');
-    if (firstRow) {
-        firstRow.click();
-        this.value = '';
-        document.getElementById('searchResult').innerHTML = '';
-        // Setelah tambah item, kembali ke barcode untuk scan berikutnya
-        document.getElementById('barcode').focus();
-        highlightActive('barcode');
-    } else {
-        // Tidak ada hasil / hasil belum dimuat: pindah ke member
-        focusNext('search');
+    // -------- ↑ Pilih baris sebelumnya --------
+    if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (rowCount === 0) return;
+        if (selectedSearchIdx <= 0) {
+            selectedSearchIdx = -1; // kembali ke atas, batalkan highlight
+        } else {
+            selectedSearchIdx--;
+        }
+        updateSearchHighlight();
+        return;
     }
+
+    // -------- → Scroll tabel ke KANAN --------
+    if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        box.scrollLeft += 80; // geser 80px ke kanan
+        return;
+    }
+
+    // -------- ← Scroll tabel ke KIRI --------
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        box.scrollLeft -= 80; // geser 80px ke kiri
+        return;
+    }
+
+    // -------- Esc: tutup hasil pencarian --------
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        document.getElementById('searchResult').innerHTML =
+            `<tr><td colspan="${4 + warehouseList.length}" class="text-center text-muted"
+                style="font-size:11px; padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+        this.value = '';
+        resetSearchSelection();
+        return;
+    }
+
+    // -------- Enter: ambil baris yang dipilih --------
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const q = this.value.trim();
+
+        // Ada baris yang di-highlight → ambil
+        if (selectedSearchIdx >= 0 && rows[selectedSearchIdx]) {
+            const unitId = rows[selectedSearchIdx].dataset.unitId;
+            addFromSearch(Number(unitId));
+            return;
+        }
+
+        // Tidak ada yang di-highlight tapi ada 1 hasil → ambil langsung
+        if (rowCount === 1) {
+            const unitId = rows[0].dataset.unitId;
+            addFromSearch(Number(unitId));
+            return;
+        }
+
+        // Tidak ada hasil / kosong → loncat ke member
+        if (q === '' || rowCount === 0) {
+            focusNext('search');
+        }
+    }
+});
+
+// keyup: proses pencarian teks (abaikan tombol navigasi)
+document.getElementById('search').addEventListener('keyup', function (e) {
+    if (['Enter','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Escape'].includes(e.key)) return;
+
+    const q = this.value.trim();
+    if (q.length < 2) {
+        document.getElementById('searchResult').innerHTML =
+            `<tr><td colspan="${4 + warehouseList.length}" class="text-center text-muted"
+                style="font-size:11px; padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+        resetSearchSelection();
+        // Reset scroll ke kiri saat kosong
+        document.getElementById('searchBox').scrollLeft = 0;
+        return;
+    }
+
+    fetch(`/pos/search?q=${encodeURIComponent(q)}&warehouse_id=${getWarehouseId()}`)
+        .then(r => r.json())
+        .then(items => {
+            selectedSearchIdx = -1;
+
+            let html = '';
+            items.forEach((p, i) => {
+                let stockCols = '';
+                if (p.stocks && p.stocks.length) {
+                    p.stocks.forEach(s => {
+                        const color = s > 0 ? '#155724' : '#721c24';
+                        const bg    = s > 0 ? '#d4edda' : '#f8d7da';
+                        stockCols += `<td style="text-align:center; min-width:58px;">
+                            <span style="background:${bg};color:${color};padding:1px 6px;
+                                border-radius:4px;font-size:11px;font-weight:600;">${s}</span>
+                        </td>`;
+                    });
+                }
+                html += `<tr style="cursor:pointer;" data-unit-id="${p.id}" onclick="addFromSearch(${p.id})">
+                    <td style="width:28px;">${i+1}</td>
+                    <td style="min-width:110px;">${p.barcode ?? '-'}</td>
+                    <td style="min-width:140px;">${p.name}</td>
+                    <td style="min-width:50px;">${p.unit}</td>
+                    ${stockCols}
+                </tr>`;
+            });
+
+            const colCount = 4 + warehouseList.length;
+            document.getElementById('searchResult').innerHTML = html ||
+                `<tr><td colspan="${colCount}" class="text-center text-muted"
+                    style="font-size:11px; padding:6px;">Tidak ada hasil untuk "<strong>${q}</strong>"</td></tr>`;
+
+            // Reset scroll horizontal ke kiri setiap hasil baru
+            document.getElementById('searchBox').scrollLeft = 0;
+            showSearchHint(items.length > 0);
+        });
 });
 
 document.getElementById('search').addEventListener('focus', function () {
     highlightActive('search');
+    if (document.querySelectorAll('#searchResult tr[data-unit-id]').length > 0) {
+        showSearchHint(true);
+    }
 });
 
-// ============================================
-// ENTER DI MEMBER
-// Pindah ke discount_rp (jika unlocked) atau langsung ke discount_percent / paid
-// ============================================
-document.getElementById('member').addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    focusNext('member');
+document.getElementById('search').addEventListener('blur', function () {
+    setTimeout(() => showSearchHint(false), 200);
 });
 
-document.getElementById('member').addEventListener('focus', function () {
-    highlightActive('member');
+// =============================================
+// ENTER DI FIELD LAIN
+// =============================================
+['member','discount_rp','discount_percent','paid'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        focusNext(id);
+    });
+    el.addEventListener('focus', () => highlightActive(id));
 });
 
-// ============================================
-// ENTER DI DISCOUNT RP
-// ============================================
-document.getElementById('discount_rp').addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    focusNext('discount_rp');
-});
-
-document.getElementById('discount_rp').addEventListener('focus', function () {
-    highlightActive('discount_rp');
-});
-
-// ============================================
-// ENTER DI DISCOUNT %
-// ============================================
-document.getElementById('discount_percent').addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    focusNext('discount_percent');
-});
-
-document.getElementById('discount_percent').addEventListener('focus', function () {
-    highlightActive('discount_percent');
-});
-
-// ============================================
-// ENTER DI PAID → buka modal bayar
-// ============================================
-document.getElementById('paid').addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    focusNext('paid'); // akan trigger btnPay.click()
-});
-
-document.getElementById('paid').addEventListener('focus', function () {
-    highlightActive('paid');
-});
-
-// ============================================
-// ENTER DI MODAL PAID → konfirmasi bayar
-// ============================================
+// Enter di modal paid
 document.getElementById('modalPaid').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     confirmPay();
 });
 
-// ============================================
-// Saat halaman load, fokus ke barcode langsung
-// ============================================
+// Fokus awal ke barcode
 window.addEventListener('load', function () {
     document.getElementById('barcode').focus();
     highlightActive('barcode');
 });
 
-// ============================================
+// =============================================
 // BUAT TRANSAKSI BARU
-// ============================================
+// =============================================
 function createNewTransaction() {
     window.location.href = '/pos?new_transaction=1';
 }
 
-// ============================================
+// =============================================
 // UNLOCK MEMBER
-// ============================================
+// =============================================
 function unlockMember() {
     if (memberUnlocked) return;
     const pwd = prompt("Masukkan password owner:");
@@ -775,9 +923,9 @@ function unlockMember() {
     });
 }
 
-// ============================================
+// =============================================
 // UNLOCK DISKON Rp
-// ============================================
+// =============================================
 function unlockDiscountRp() {
     const el = document.getElementById('discount_rp');
     if (!el.classList.contains('locked')) return;
@@ -794,9 +942,9 @@ function unlockDiscountRp() {
     });
 }
 
-// ============================================
+// =============================================
 // UNLOCK DISKON %
-// ============================================
+// =============================================
 function unlockDiscountPercent() {
     const el = document.getElementById('discount_percent');
     if (!el.classList.contains('locked')) return;
@@ -813,9 +961,9 @@ function unlockDiscountPercent() {
     });
 }
 
-// ============================================
+// =============================================
 // INPUT DISKON Rp
-// ============================================
+// =============================================
 document.getElementById('discount_rp').addEventListener('input', function () {
     const val = this.value.trim();
     if (val === '' || Number(val) <= 0) {
@@ -828,9 +976,9 @@ document.getElementById('discount_rp').addEventListener('input', function () {
     applyDiscountLive();
 });
 
-// ============================================
+// =============================================
 // INPUT DISKON %
-// ============================================
+// =============================================
 document.getElementById('discount_percent').addEventListener('input', function () {
     const val = this.value.trim();
     if (val === '' || Number(val) <= 0) {
@@ -843,62 +991,24 @@ document.getElementById('discount_percent').addEventListener('input', function (
     applyDiscountLive();
 });
 
-// ============================================
-// SEARCH PRODUK — tampilkan stok per gudang
-// ============================================
-document.getElementById('search').addEventListener('keyup', function (e) {
-    // Abaikan Enter (sudah dihandle di keydown)
-    if (e.key === 'Enter') return;
-
-    const q = e.target.value.trim();
-    if (q.length < 2) {
-        document.getElementById('searchResult').innerHTML = '';
-        return;
-    }
-    fetch(`/pos/search?q=${encodeURIComponent(q)}&warehouse_id=${getWarehouseId()}`)
-        .then(r => r.json())
-        .then(items => {
-            let html = '';
-            items.forEach((p, i) => {
-                let stockCols = '';
-                if (p.stocks && p.stocks.length) {
-                    p.stocks.forEach(s => {
-                        const color = s > 0 ? '#155724' : '#721c24';
-                        const bg    = s > 0 ? '#d4edda' : '#f8d7da';
-                        stockCols += `<td style="text-align:center;">
-                            <span style="background:${bg};color:${color};padding:1px 5px;border-radius:4px;font-size:11px;font-weight:600;">${s}</span>
-                        </td>`;
-                    });
-                }
-                // data-unit-id dipakai oleh navigasi Enter untuk pilih item pertama
-                html += `<tr style="cursor:pointer" data-unit-id="${p.id}" onclick="addFromSearch(${p.id})">
-                    <td>${i+1}</td>
-                    <td>${p.barcode ?? '-'}</td>
-                    <td>${p.name}</td>
-                    <td>${p.unit}</td>
-                    ${stockCols}
-                </tr>`;
-            });
-            document.getElementById('searchResult').innerHTML =
-                html || '<tr><td colspan="' + (4 + warehouseList.length) + '" class="text-center text-muted">Tidak ada hasil</td></tr>';
-        });
-});
-
-// ============================================
-// ADD FROM SEARCH — klik baris hasil pencarian
-// ============================================
+// =============================================
+// ADD FROM SEARCH (klik atau keyboard)
+// =============================================
 function addFromSearch(id) {
     add(id);
-    // Bersihkan search dan kembali ke barcode
     document.getElementById('search').value = '';
-    document.getElementById('searchResult').innerHTML = '';
+    document.getElementById('searchResult').innerHTML =
+        `<tr><td colspan="${4 + warehouseList.length}" class="text-center text-muted"
+            style="font-size:11px; padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+    resetSearchSelection();
+    document.getElementById('searchBox').scrollLeft = 0;
     document.getElementById('barcode').focus();
     highlightActive('barcode');
 }
 
-// ============================================
-// ADD ITEM — kirim warehouse_id
-// ============================================
+// =============================================
+// ADD ITEM
+// =============================================
 function add(id, overridePassword = null) {
     fetch('/pos/add-item', {
         method  : 'POST',
@@ -923,9 +1033,9 @@ function add(id, overridePassword = null) {
     });
 }
 
-// ============================================
+// =============================================
 // LOAD CART
-// ============================================
+// =============================================
 function loadCart() {
     fetch(`/pos?trx_id=${TRX}`)
         .then(r => r.text())
@@ -939,16 +1049,11 @@ function loadCart() {
             document.getElementById('totalText').dataset.total    = originalTotal;
             document.getElementById('totalText').innerText        = 'Rp ' + originalTotal.toLocaleString('id-ID');
 
-            // Update badge pending
             const newPendingBadge = doc.querySelector('#pendingBadge');
             if (newPendingBadge) {
                 const badge = document.getElementById('pendingBadge');
                 badge.innerText = newPendingBadge.innerText;
-                if (newPendingBadge.classList.contains('hidden')) {
-                    badge.classList.add('hidden');
-                } else {
-                    badge.classList.remove('hidden');
-                }
+                badge.classList.toggle('hidden', newPendingBadge.classList.contains('hidden'));
             }
 
             applyDiscountLive();
@@ -956,9 +1061,9 @@ function loadCart() {
         });
 }
 
-// ============================================
+// =============================================
 // DISKON LIVE
-// ============================================
+// =============================================
 function applyDiscountLive() {
     const totalEl    = document.getElementById('totalText');
     const totalAwal  = Math.round(Number(totalEl.dataset.original));
@@ -978,9 +1083,9 @@ function applyDiscountLive() {
     updateKembalian();
 }
 
-// ============================================
+// =============================================
 // QTY
-// ============================================
+// =============================================
 function plusQty(id)  { updateQtyManual(id, getQty(id) + 1); }
 function minusQty(id) { updateQtyManual(id, Math.max(getQty(id) - 1, 1)); }
 function getQty(id) {
@@ -1024,9 +1129,9 @@ function updateUnit(itemId, unitId) {
     }).then(() => loadCart());
 }
 
-// ============================================
-// REMOVE ITEM — wajib password owner + konfirmasi
-// ============================================
+// =============================================
+// REMOVE ITEM
+// =============================================
 function removeItemWithAuth(itemId, productName) {
     const pwd = prompt("🔐 Masukkan password owner untuk menghapus item:");
     if (!pwd) return;
@@ -1038,15 +1143,10 @@ function removeItemWithAuth(itemId, productName) {
     })
     .then(r => r.json())
     .then(r => {
-        if (!r.success) {
-            alert("❌ Password salah! Tidak dapat menghapus item.");
-            return;
-        }
+        if (!r.success) { alert("❌ Password salah! Tidak dapat menghapus item."); return; }
         const ok = confirm(
-            "⚠️ Konfirmasi Hapus Item\n\n" +
-            "Produk : " + productName + "\n\n" +
-            "Apakah Anda yakin ingin menghapus item ini dari keranjang?\n" +
-            "Tindakan ini tidak dapat dibatalkan."
+            "⚠️ Konfirmasi Hapus Item\n\nProduk : " + productName +
+            "\n\nApakah Anda yakin ingin menghapus item ini?\nTindakan ini tidak dapat dibatalkan."
         );
         if (!ok) return;
 
@@ -1057,18 +1157,15 @@ function removeItemWithAuth(itemId, productName) {
         })
         .then(res => res.json())
         .then(res => {
-            if (res.success) {
-                loadCart();
-            } else {
-                alert("Gagal menghapus item. Coba lagi.");
-            }
+            if (res.success) loadCart();
+            else alert("Gagal menghapus item. Coba lagi.");
         });
     });
 }
 
-// ============================================
+// =============================================
 // KEMBALIAN
-// ============================================
+// =============================================
 document.getElementById('paid').addEventListener('input', updateKembalian);
 function updateKembalian() {
     const total = Number(document.getElementById('totalText').dataset.total);
@@ -1076,9 +1173,9 @@ function updateKembalian() {
     document.getElementById('changeText').innerText = 'Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID');
 }
 
-// ============================================
+// =============================================
 // MODAL PEMBAYARAN
-// ============================================
+// =============================================
 function selectMethod(method) {
     selectedPaymentMethod = method;
     document.getElementById('btnCash').classList.toggle('selected', method === 'cash');
@@ -1102,7 +1199,6 @@ function openPaymentModal() {
 
 function closePaymentModal() {
     document.getElementById('paymentModal').classList.remove('show');
-    // Setelah tutup modal, kembalikan fokus ke paid
     setTimeout(() => {
         document.getElementById('paid').focus();
         highlightActive('paid');
@@ -1120,13 +1216,11 @@ document.getElementById('paymentModal').addEventListener('click', function (e) {
     if (e.target === this) closePaymentModal();
 });
 
-document.getElementById('btnPay').addEventListener('click', function () {
-    openPaymentModal();
-});
+document.getElementById('btnPay').addEventListener('click', openPaymentModal);
 
-// ============================================
+// =============================================
 // KONFIRMASI BAYAR
-// ============================================
+// =============================================
 async function confirmPay() {
     const total         = Number(document.getElementById('totalText').dataset.total);
     const bayar         = Number(document.getElementById('modalPaid').value || 0);
@@ -1165,29 +1259,29 @@ async function confirmPay() {
             alert(r.message || 'Gagal menyimpan transaksi');
             strukWindow.close();
         }
-    } catch (e) {
-        alert('Terjadi error: ' + e.message);
+    } catch (err) {
+        alert('Terjadi error: ' + err.message);
         strukWindow.close();
     }
 }
 
-// ============================================
+// =============================================
 // MEMBER SEARCH & SELECT
-// ============================================
+// =============================================
 const memberBox  = document.getElementById('memberResult');
 const memberInfo = document.getElementById('memberInfo');
 
 document.getElementById('member').addEventListener('keyup', function (e) {
     if (!memberUnlocked) return;
-    if (e.key === 'Enter') return; // sudah dihandle keydown
-    const q = e.target.value;
+    if (e.key === 'Enter') return;
+    const q = this.value;
     if (q.length < 2) { memberBox.innerHTML = ''; return; }
     fetch(`/pos/search-member?q=${q}`)
         .then(r => r.json())
         .then(items => {
             memberBox.innerHTML = '';
             items.forEach(m => {
-                memberBox.innerHTML += `<div class="p-1 border-bottom" style="cursor:pointer; font-size:12px;"
+                memberBox.innerHTML += `<div class="p-1 border-bottom" style="cursor:pointer;font-size:12px;"
                     onclick="selectMember(${m.id})">
                     <strong>${m.name}</strong> — <small class="text-muted">${m.phone}</small>
                 </div>`;
@@ -1215,11 +1309,7 @@ function selectMember(id) {
             discPctEl.readOnly = false;
             discPctEl.classList.remove('locked');
 
-            memberInfo.innerHTML = `
-                <strong>Nama:</strong> ${m.name} |
-                <strong>Level:</strong> ${m.level} |
-                <strong>Disc:</strong> ${m.discount}% |
-                <strong>Poin:</strong> ${m.points}`;
+            memberInfo.innerHTML = `<strong>Nama:</strong> ${m.name} | <strong>Level:</strong> ${m.level} | <strong>Disc:</strong> ${m.discount}% | <strong>Poin:</strong> ${m.points}`;
 
             applyDiscountLive();
 
