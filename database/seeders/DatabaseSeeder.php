@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             ProductUnitSeeder::class,
             StockSeeder::class,
             PriceRuleSeeder::class,
+            PermissionSeeder::class,
+
         ]);
 
         User::factory()->create([
