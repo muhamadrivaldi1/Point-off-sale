@@ -3,11 +3,35 @@
 @section('content')
 <div class="container">
 
+    {{-- HEADER --}}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0 fw-bold">Daftar Member</h2>
         <a href="{{ route('members.create') }}" class="btn btn-primary shadow-sm">
             + Tambah Member
         </a>
+    </div>
+
+    {{-- SEARCH --}}
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body py-2">
+            <form method="GET" action="{{ route('members.index') }}" class="d-flex gap-2">
+
+                <input type="text"
+                    name="search"
+                    value="{{ request('search') }}"
+                    class="form-control"
+                    placeholder="Cari nama / barcode / telepon">
+
+                <button class="btn btn-primary">
+                    🔍 Cari
+                </button>
+
+                <a href="{{ route('members.index') }}" class="btn btn-secondary">
+                    Reset
+                </a>
+
+            </form>
+        </div>
     </div>
 
     {{-- ALERT SUCCESS --}}
@@ -25,6 +49,7 @@
                     <tr class="text-center text-muted">
                         <th>No</th>
                         <th class="text-start">Nama</th>
+                        <th>Barcode</th>
                         <th>Telepon</th>
                         <th class="text-start">Alamat</th>
                         <th>Level</th>
@@ -44,10 +69,17 @@
                     @forelse($members as $member)
                     @php $no++; @endphp
                     <tr class="text-center">
+
                         <td>{{ $no }}</td>
 
                         <td class="text-start fw-semibold">
                             {{ $member->name }}
+                        </td>
+
+                        <td>
+                            <span class="badge bg-dark">
+                                {{ $member->barcode }}
+                            </span>
                         </td>
 
                         <td>{{ $member->phone }}</td>
@@ -88,26 +120,35 @@
                         </td>
 
                         <td>
-                            <a href="{{ route('members.edit', $member->id) }}" 
-                               class="btn btn-sm btn-warning">
-                               Edit
-                            </a>
 
-                            <form action="{{ route('members.destroy', $member->id) }}" 
-                                  method="POST" 
-                                  class="d-inline">
-                                @csrf
-                                @method('DELETE')
-                                <button class="btn btn-sm btn-danger"
-                                        onclick="return confirm('Yakin hapus member?')">
-                                    Hapus
-                                </button>
-                            </form>
-                        </td>
+    <a href="{{ route('members.printBarcode', $member->id) }}" 
+       class="btn btn-sm btn-dark"
+       target="_blank">
+       Barcode
+    </a>
+
+    <a href="{{ route('members.edit', $member->id) }}" 
+       class="btn btn-sm btn-warning">
+       Edit
+    </a>
+
+    <form action="{{ route('members.destroy', $member->id) }}" 
+          method="POST" 
+          class="d-inline">
+        @csrf
+        @method('DELETE')
+        <button class="btn btn-sm btn-danger"
+                onclick="return confirm('Yakin hapus member?')">
+            Hapus
+        </button>
+    </form>
+
+</td>
+
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-4">
+                        <td colspan="11" class="text-center text-muted py-4">
                             Belum ada member
                         </td>
                     </tr>
@@ -120,7 +161,7 @@
     </div>
 
     <div class="mt-3">
-        {{ $members->links() }}
+        {{ $members->withQueryString()->links() }}
     </div>
 
 </div>
@@ -134,7 +175,7 @@
             alert.style.opacity = "0";
             setTimeout(() => alert.remove(), 500);
         }
-    }, 5000);
+    }, 4000);
 </script>
 
 @endsection

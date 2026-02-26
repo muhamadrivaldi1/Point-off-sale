@@ -148,7 +148,7 @@
             <i class="bi bi-building"></i> Gudang
         </a>
 
-       @if(auth()->user()->hasRole('owner'))
+       @if(auth()->user()->hasrole('owner'))
         <a href="/users">
             <i class="bi bi-people-fill"></i> Kelola User
         </a>

@@ -5,14 +5,38 @@
 @section('content')
 <div class="card shadow-sm">
     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <span>Master Supplier</span>
-        <a href="{{ route('suppliers.create') }}" class="btn btn-sm btn-light">
+
+    <span>Master Supplier</span>
+
+    <div class="d-flex gap-2">
+
+        <form method="GET" action="{{ route('suppliers.index') }}" class="d-flex">
+
+            <input type="text"
+                   name="search"
+                   value="{{ request('search') }}"
+                   class="form-control form-control-sm me-2"
+                   placeholder="Cari..."
+                   style="width:180px">
+
+            <button class="btn btn-sm btn-light me-1">🔍</button>
+
+            @if(request('search'))
+                <a href="{{ route('suppliers.index') }}" class="btn btn-sm btn-secondary">
+                    Reset
+                </a>
+            @endif
+
+        </form>
+
+        <a href="{{ route('suppliers.create') }}" class="btn btn-sm btn-primary">
             + Tambah Supplier
         </a>
+
     </div>
 
+</div>
     <div class="card-body">
-
         @if(session('success'))
             <div class="alert alert-success">{{ session('success') }}</div>
         @endif

@@ -21,9 +21,6 @@ html, body {
     overflow: hidden;
 }
 
-/* =============================================
-   HEADER TRANSAKSI
-   ============================================= */
 .trx-header {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
@@ -48,9 +45,6 @@ html, body {
 }
 .new-transaction-btn:hover { background: #218838; }
 
-/* =============================================
-   LAYOUT UTAMA
-   ============================================= */
 .pos-container {
     display: flex;
     gap: 10px;
@@ -59,9 +53,6 @@ html, body {
     min-height: 0;
 }
 
-/* =============================================
-   KOLOM KIRI
-   ============================================= */
 .pos-left {
     flex: 0 0 285px;
     background: #fff;
@@ -74,9 +65,6 @@ html, body {
     gap: 5px;
 }
 
-/* =============================================
-   KOLOM KANAN
-   ============================================= */
 .pos-right {
     flex: 1;
     background: #fff;
@@ -89,9 +77,6 @@ html, body {
     gap: 5px;
 }
 
-/* =============================================
-   TABEL UMUM
-   ============================================= */
 .pos-box      { border: 1px solid #ddd; border-radius: 5px; overflow: auto; }
 .pos-table    { margin: 0; font-size: 12px; }
 .pos-table th { background: #f5f5f5; position: sticky; top: 0; z-index: 1;
@@ -104,9 +89,6 @@ html, body {
 .locked      { background: #eee; cursor: not-allowed; }
 .member-info { font-size: 11px; color: #555; word-break: break-word; }
 
-/* =============================================
-   LABEL SECTION
-   ============================================= */
 .section-label {
     font-size: 12px;
     font-weight: 700;
@@ -115,227 +97,186 @@ html, body {
     flex-shrink: 0;
 }
 
-/* =============================================
-   FOKUS AKTIF
-   ============================================= */
 .input-active {
     border-color: #0d6efd !important;
     box-shadow: 0 0 0 2px rgba(13,110,253,.2) !important;
     background-color: #f0f6ff !important;
 }
 
-/* =============================================
-   KOTAK PENCARIAN — scroll horizontal + vertikal
-   ============================================= */
 #searchBox {
     border: 1px solid #ddd;
     border-radius: 5px 5px 0 0;
-    overflow-x: auto;   /* scroll kiri-kanan */
-    overflow-y: auto;   /* scroll atas-bawah */
-    max-height: calc(29px * 4 + 28px); /* header + 4 baris */
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(29px * 4 + 28px);
     flex-shrink: 0;
 }
-#searchBox table {
-    margin: 0;
-    font-size: 12px;
-    /* TIDAK pakai min-width agar bisa scroll alami */
-    white-space: nowrap;
-}
+#searchBox table { margin: 0; font-size: 12px; white-space: nowrap; }
 #searchBox thead th {
-    background: #f5f5f5;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    font-size: 12px;
-    padding: 4px 8px;
-    border-bottom: 2px solid #ddd;
-    white-space: nowrap;
+    background: #f5f5f5; position: sticky; top: 0; z-index: 2;
+    font-size: 12px; padding: 4px 8px;
+    border-bottom: 2px solid #ddd; white-space: nowrap;
 }
 #searchBox tbody td {
-    vertical-align: middle;
-    padding: 3px 8px;
-    font-size: 12px;
-    white-space: nowrap;
+    vertical-align: middle; padding: 3px 8px;
+    font-size: 12px; white-space: nowrap;
 }
 
-/* =============================================
-   HIGHLIGHT BARIS AKTIF
-   ============================================= */
-#searchResult tr.search-row-active td {
-    background-color: #0d6efd !important;
-    color: #fff !important;
-}
-#searchResult tr.search-row-active td span {
-    background: rgba(255,255,255,0.25) !important;
-    color: #fff !important;
-}
-#searchResult tr:hover td {
-    background-color: #e8f0fe;
-}
-#searchResult tr.search-row-active:hover td {
-    background-color: #0b5ed7 !important;
-}
+#searchResult tr.search-row-active td { background-color: #0d6efd !important; color: #fff !important; }
+#searchResult tr.search-row-active td span { background: rgba(255,255,255,0.25) !important; color: #fff !important; }
+#searchResult tr:hover td { background-color: #e8f0fe; }
+#searchResult tr.search-row-active:hover td { background-color: #0b5ed7 !important; }
 
-/* =============================================
-   HINT NAVIGASI KEYBOARD
-   ============================================= */
 .search-nav-hint {
-    display: none;
-    font-size: 10px;
-    color: #6c757d;
-    padding: 2px 6px;
-    background: #f8f9fa;
-    border: 1px solid #ddd;
-    border-top: none;
-    border-radius: 0 0 4px 4px;
-    text-align: center;
-    flex-shrink: 0;
+    display: none; font-size: 10px; color: #6c757d;
+    padding: 2px 6px; background: #f8f9fa; border: 1px solid #ddd;
+    border-top: none; border-radius: 0 0 4px 4px;
+    text-align: center; flex-shrink: 0;
 }
 .search-nav-hint.show { display: block; }
 
-/* =============================================
-   SCROLLBAR TIPIS PADA TABEL PENCARIAN
-   ============================================= */
 #searchBox::-webkit-scrollbar        { width: 5px; height: 5px; }
 #searchBox::-webkit-scrollbar-track  { background: #f1f1f1; }
 #searchBox::-webkit-scrollbar-thumb  { background: #bbb; border-radius: 3px; }
 #searchBox::-webkit-scrollbar-thumb:hover { background: #888; }
 
-/* =============================================
-   KERANJANG
-   ============================================= */
 .cart-section {
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
+    border: 1px solid #ddd; border-radius: 5px;
+    overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0;
 }
-.cart-table-header {
-    background: #f5f5f5;
-    border-bottom: 2px solid #ddd;
-    flex-shrink: 0;
-}
+.cart-table-header { background: #f5f5f5; border-bottom: 2px solid #ddd; flex-shrink: 0; }
 .cart-table-header table { margin: 0; width: 100%; table-layout: fixed; font-size: 12px; }
 .cart-table-header th    { font-weight: 600; padding: 5px 7px; }
-
-.cart-table-body {
-    overflow-y: auto;
-    max-height: calc(32px * 4);
-    flex-shrink: 0;
-}
+.cart-table-body { overflow-y: auto; max-height: calc(32px * 4); flex-shrink: 0; }
 .cart-table-body table { margin: 0; width: 100%; table-layout: fixed; font-size: 12px; }
 .cart-table-body td    { padding: 3px 6px; vertical-align: middle; }
 
-/* =============================================
-   FOOTER KERANJANG
-   ============================================= */
-.cart-footer {
-    border-top: 1px solid #ddd;
-    padding-top: 6px;
-    flex-shrink: 0;
-}
-.total-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-}
+.cart-footer { border-top: 1px solid #ddd; padding-top: 6px; flex-shrink: 0; }
+.total-row   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
 
-/* =============================================
-   BADGE PENDING
-   ============================================= */
-.trx-today-header {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    flex-shrink: 0;
-}
+.trx-today-header { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
 .pending-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #dc3545;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    border-radius: 20px;
-    padding: 2px 7px;
-    min-width: 20px;
-    height: 18px;
-    line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #dc3545; color: #fff; font-size: 10px; font-weight: 700;
+    border-radius: 20px; padding: 2px 7px; min-width: 20px; height: 18px; line-height: 1;
     animation: pulse-badge 1.5s infinite;
 }
 .pending-badge.hidden { display: none; }
-
 @keyframes pulse-badge {
     0%, 100% { opacity: 1; transform: scale(1); }
     50%       { opacity: .8; transform: scale(1.08); }
 }
 
-/* =============================================
-   MODAL PEMBAYARAN
-   ============================================= */
+/* ========== MODAL ========== */
 .modal-overlay {
     display: none; position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,.5); z-index: 9999;
+    background: rgba(0,0,0,.48); z-index: 9999;
     justify-content: center; align-items: center;
 }
 .modal-overlay.show { display: flex; }
 .modal-box {
-    background: #fff; border-radius: 10px; padding: 18px;
-    width: 360px; max-width: 95vw;
-    box-shadow: 0 10px 30px rgba(0,0,0,.3); font-size: 13px;
+    background: #fff; border-radius: 12px; padding: 22px 24px;
+    width: 400px; max-width: 95vw;
+    box-shadow: 0 16px 48px rgba(0,0,0,.25); font-size: 13px;
+    animation: modalIn .18s ease;
 }
-.modal-box h5          { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
-.modal-subtitle        { font-size: 11px; color: #6c757d; margin-bottom: 12px; }
-.modal-total-display   {
-    background: #f0f4ff; border: 1px solid #c8d8ff; border-radius: 6px;
-    padding: 7px 12px; margin-bottom: 12px;
-    display: flex; justify-content: space-between; align-items: center;
+@keyframes modalIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
 }
-.modal-total-display .label  { font-size: 11px; color: #6c757d; }
-.modal-total-display .amount { font-size: 16px; font-weight: 700; color: #0d6efd; }
-.payment-methods       { display: flex; gap: 6px; margin-bottom: 10px; }
-.payment-method-btn    {
-    flex: 1; padding: 7px 5px; border: 2px solid #ddd; border-radius: 6px;
-    background: #fff; cursor: pointer; text-align: center; transition: all .2s;
-    font-size: 11px; font-weight: 600; color: #333;
-}
-.payment-method-btn:hover    { border-color: #0d6efd; background: #f0f4ff; }
-.payment-method-btn.selected { border-color: #0d6efd; background: #e8f0fe; color: #0d6efd; }
-.payment-method-btn .icon    { font-size: 20px; display: block; margin-bottom: 3px; }
-.transfer-info         {
-    display: none; background: #fff3cd; border: 1px solid #ffc107;
-    border-radius: 5px; padding: 6px 8px; font-size: 11px; margin-bottom: 10px; color: #856404;
-}
-.transfer-info.show    { display: block; }
-.modal-input-group     { margin-bottom: 8px; }
-.modal-input-group label { font-size: 11px; font-weight: 600; margin-bottom: 3px; display: block; color: #333; }
-.modal-kembalian-row   {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 10px; padding: 6px 8px;
-    background: #f8fff8; border: 1px solid #d4edda; border-radius: 5px; font-size: 12px;
-}
-.modal-actions         { display: flex; gap: 6px; }
-.modal-actions button  {
-    flex: 1; padding: 8px; border: none; border-radius: 6px;
-    font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s;
-}
-.btn-cancel-modal  { background: #f8f9fa; color: #333; border: 1px solid #ddd !important; }
-.btn-cancel-modal:hover { background: #e9ecef; }
-.btn-confirm-pay   { background: #0d6efd; color: white; }
-.btn-confirm-pay:hover { background: #0b5ed7; }
+.modal-box h5    { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
+.modal-subtitle  { font-size: 11px; color: #888; margin-bottom: 14px; }
 
-/* Form controls */
+/* Total tagihan */
+.modal-total-display {
+    background: linear-gradient(135deg, #e8f0fe, #f0f6ff);
+    border: 1px solid #c8d8ff; border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.modal-total-display .label  { font-size: 11px; color: #6c757d; font-weight: 600; }
+.modal-total-display .amount { font-size: 20px; font-weight: 800; color: #0d6efd; }
+
+/* ===== COMBO LIST ===== */
+.combo-list-label {
+    font-size: 11px; font-weight: 700; color: #555;
+    margin-bottom: 7px; display: block; text-transform: uppercase; letter-spacing: .4px;
+}
+.combo-list {
+    border: 1.5px solid #e0e0e0; border-radius: 10px;
+    overflow: hidden; margin-bottom: 14px;
+}
+.combo-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; cursor: pointer; background: #fff;
+    transition: background .12s; border-bottom: 1px solid #f2f2f2;
+    position: relative; user-select: none;
+}
+.combo-item:last-child { border-bottom: none; }
+.combo-item:hover      { background: #f5f8ff; }
+.combo-item:focus      { outline: none; background: #eaf1ff; box-shadow: inset 0 0 0 2px #86b7fe; }
+.combo-item.selected   { background: #eef3ff; }
+.combo-item.selected::after {
+    content: '✓';
+    position: absolute; right: 14px;
+    font-size: 14px; font-weight: 800; color: #0d6efd;
+}
+.combo-item-icon  { font-size: 22px; line-height: 1; }
+.combo-item-title { font-size: 13px; font-weight: 700; color: #222; }
+.combo-item-desc  { font-size: 10px; color: #999; margin-top: 1px; }
+
+/* Peringatan non-cash */
+.payment-notice {
+    display: none; gap: 8px; align-items: flex-start;
+    background: #fffbe6; border: 1px solid #ffe58f;
+    border-radius: 7px; padding: 8px 11px;
+    font-size: 11px; color: #7a5400; margin-bottom: 12px;
+}
+.payment-notice.show { display: flex; }
+.payment-notice-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+/* Input bayar */
+.modal-input-group       { margin-bottom: 10px; }
+.modal-input-group label { font-size: 11px; font-weight: 700; margin-bottom: 4px; display: block; color: #444; }
+.modal-pay-input {
+    width: 100%; font-size: 16px; font-weight: 700; padding: 9px 12px;
+    border: 2px solid #dee2e6; border-radius: 8px; color: #222;
+    transition: border-color .15s;
+}
+.modal-pay-input:focus { border-color: #86b7fe; outline: none; box-shadow: 0 0 0 3px rgba(13,110,253,.12); }
+
+/* Kembalian */
+.modal-kembalian-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 13px; margin-bottom: 16px;
+    background: #f0fff4; border: 1.5px solid #b7ebc8; border-radius: 8px;
+}
+.modal-kembalian-row .label { font-size: 13px; font-weight: 700; color: #1a7336; }
+.modal-kembalian-row .value { font-size: 18px; font-weight: 800; color: #28a745; }
+
+/* Tombol */
+.modal-actions        { display: flex; gap: 8px; }
+.modal-actions button {
+    flex: 1; padding: 10px; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;
+}
+.btn-cancel-modal       { background: #f0f0f0; color: #555; }
+.btn-cancel-modal:hover { background: #e2e2e2; }
+.btn-confirm-pay        { background: #0d6efd; color: #fff; }
+.btn-confirm-pay:hover  { background: #0b5ed7; }
+.btn-confirm-pay:disabled { background: #9ab9f8; cursor: not-allowed; }
+
+/* MISC */
 .form-control-xs { font-size: 12px; padding: 3px 7px; height: 28px; }
 .form-control-xs:focus { outline: none; border-color: #86b7fe; box-shadow: 0 0 0 2px rgba(13,110,253,.15); }
 .alert-xs { font-size: 12px; padding: 4px 9px; margin-bottom: 0; border-radius: 4px; }
+.btn-qty  { padding: 1px 6px; font-size: 12px; line-height: 1.5; }
 
-/* Tombol qty */
-.btn-qty { padding: 1px 6px; font-size: 12px; line-height: 1.5; }
+#barcode.adding, #search.adding {
+    background-color: #fff8e1 !important;
+    border-color: #ffc107 !important;
+}
 </style>
 
 <div class="pos-wrapper">
@@ -369,7 +310,6 @@ html, body {
 
             <span class="section-label">Hasil Pencarian</span>
 
-            {{-- Kotak hasil: scroll vertikal (baris) + horizontal (kolom) --}}
             <div id="searchBox">
                 <table class="table table-sm table-bordered mb-0" id="searchTable">
                     <thead>
@@ -396,7 +336,6 @@ html, body {
                 </table>
             </div>
 
-            {{-- Hint navigasi keyboard --}}
             <div class="search-nav-hint" id="searchNavHint">
                 ↑↓ Pilih baris &nbsp;|&nbsp; ←→ Geser kolom &nbsp;|&nbsp; Enter Ambil &nbsp;|&nbsp; Esc Tutup
             </div>
@@ -415,8 +354,7 @@ html, body {
                 <span class="section-label">Transaksi Hari Ini</span>
                 @php $pendingCount = $todayTransactions->where('status','pending')->count(); @endphp
                 <span class="pending-badge {{ $pendingCount == 0 ? 'hidden' : '' }}"
-                      id="pendingBadge"
-                      title="{{ $pendingCount }} transaksi pending">
+                      id="pendingBadge" title="{{ $pendingCount }} transaksi pending">
                     {{ $pendingCount }} Pending
                 </span>
             </div>
@@ -430,15 +368,16 @@ html, body {
                     </thead>
                     <tbody>
                         @forelse($todayTransactions as $t)
-                        <tr style="font-size:11px; cursor:{{ $t->status=='pending' ? 'pointer' : 'default' }};"
-                            onclick="{{ $t->status=='pending' ? "openPending({$t->id})" : '' }}">
+                        <tr style="font-size:11px; cursor:pointer;"
+                            onclick="{{ $t->status=='pending' ? "openPending({$t->id})" : "openPaidTransaction({$t->id})" }}"
+                            title="{{ $t->status=='paid' ? 'Klik untuk buka kembali transaksi (butuh password)' : 'Klik untuk lanjutkan transaksi' }}">
                             <td>{{ $loop->iteration }}</td>
                             <td>{{ $t->trx_number }}</td>
                             <td>{{ $t->created_at->format('H:i') }}</td>
                             <td>Rp {{ number_format($t->total) }}</td>
                             <td>
                                 @if($t->status=='paid')
-                                    <span class="badge bg-success" style="font-size:10px;">Paid</span>
+                                    <span class="badge bg-success" style="font-size:10px;">✓ Paid</span>
                                 @else
                                     <span class="badge bg-warning text-dark" style="font-size:10px;">Pending</span>
                                 @endif
@@ -461,19 +400,13 @@ html, body {
                 <div class="cart-table-header">
                     <table class="table table-sm mb-0">
                         <colgroup>
-                            <col style="width:28px">
-                            <col>
-                            <col style="width:78px">
-                            <col style="width:125px">
-                            <col style="width:95px">
+                            <col style="width:28px"><col>
+                            <col style="width:78px"><col style="width:125px"><col style="width:95px">
                         </colgroup>
                         <thead>
                             <tr>
-                                <th>*</th>
-                                <th>Nama Produk</th>
-                                <th>Satuan</th>
-                                <th>Qty</th>
-                                <th class="text-end">Subtotal</th>
+                                <th>*</th><th>Nama Produk</th><th>Satuan</th>
+                                <th>Qty</th><th class="text-end">Subtotal</th>
                             </tr>
                         </thead>
                     </table>
@@ -482,11 +415,8 @@ html, body {
                 <div class="cart-table-body">
                     <table class="table table-bordered table-sm mb-0">
                         <colgroup>
-                            <col style="width:28px">
-                            <col>
-                            <col style="width:78px">
-                            <col style="width:125px">
-                            <col style="width:95px">
+                            <col style="width:28px"><col>
+                            <col style="width:78px"><col style="width:125px"><col style="width:95px">
                         </colgroup>
                         <tbody id="cartBody">
                             @php $total = 0; @endphp
@@ -573,45 +503,74 @@ html, body {
     </div>
 </div>
 
-{{-- ========== MODAL PAYMENT ========== --}}
+{{-- ========== MODAL PAYMENT — COMBO LIST ========== --}}
 <div class="modal-overlay" id="paymentModal">
     <div class="modal-box">
-        <h5>💳 Pilih Metode Pembayaran</h5>
-        <div class="modal-subtitle">Pilih cara pembayaran untuk transaksi ini</div>
 
+        <h5>💳 Pembayaran</h5>
+        <div class="modal-subtitle">Pilih metode, masukkan nominal, lalu proses bayar</div>
+
+        {{-- Total tagihan --}}
         <div class="modal-total-display">
             <span class="label">Total Tagihan</span>
             <span class="amount" id="modalTotalAmount">Rp 0</span>
         </div>
 
-        <div class="payment-methods">
-            <div class="payment-method-btn selected" id="btnCash" onclick="selectMethod('cash')">
-                <span class="icon">💵</span>Cash
+        {{-- ===== COMBO LIST METODE BAYAR ===== --}}
+        <span class="combo-list-label">Metode Pembayaran</span>
+        <div class="combo-list">
+
+            <div class="combo-item selected" data-method="cash" tabindex="0" onclick="selectMethod('cash')">
+                <span class="combo-item-icon">💵</span>
+                <div>
+                    <div class="combo-item-title">Cash / Tunai</div>
+                    <div class="combo-item-desc">Pembayaran langsung dengan uang tunai</div>
+                </div>
             </div>
-            <div class="payment-method-btn" id="btnTransfer" onclick="selectMethod('transfer')">
-                <span class="icon">🏦</span>Transfer
+
+            <div class="combo-item" data-method="transfer" tabindex="0" onclick="selectMethod('transfer')">
+                <span class="combo-item-icon">🏦</span>
+                <div>
+                    <div class="combo-item-title">Transfer Bank</div>
+                    <div class="combo-item-desc">BCA / BNI / Mandiri / BSI dan lainnya</div>
+                </div>
             </div>
+
+            <div class="combo-item" data-method="qris" tabindex="0" onclick="selectMethod('qris')">
+                <span class="combo-item-icon">📱</span>
+                <div>
+                    <div class="combo-item-title">QRIS</div>
+                    <div class="combo-item-desc">GoPay, OVO, Dana, ShopeePay, dll</div>
+                </div>
+            </div>
+
         </div>
 
-        <div class="transfer-info" id="transferInfo">
-            <strong>⚠️ Perhatian:</strong> Pastikan bukti transfer sudah diterima sebelum menyelesaikan transaksi.
+        {{-- Peringatan non-cash --}}
+        <div class="payment-notice" id="paymentNotice">
+            <span class="payment-notice-icon">⚠️</span>
+            <span id="paymentNoticeText"></span>
         </div>
 
+        {{-- Input jumlah bayar --}}
         <div class="modal-input-group">
-            <label for="modalPaid">Jumlah Bayar</label>
-            <input type="number" id="modalPaid" class="form-control form-control-sm"
-                   style="font-size:12px;" placeholder="Masukkan jumlah bayar">
+            <label for="modalPaid">Jumlah Bayar (Rp)</label>
+            <input type="number" id="modalPaid" class="modal-pay-input"
+                   placeholder="Masukkan jumlah bayar">
         </div>
 
+        {{-- Kembalian --}}
         <div class="modal-kembalian-row">
-            <span style="font-size:13px; font-weight:600;">Kembalian</span>
-            <span id="modalChangeText" class="big-total" style="color:#28a745; font-size:14px;">Rp 0</span>
+            <span class="label">Kembalian</span>
+            <span class="value" id="modalChangeText">Rp 0</span>
         </div>
 
+        {{-- Tombol aksi --}}
         <div class="modal-actions">
             <button class="btn-cancel-modal" onclick="closePaymentModal()">✕ Batal</button>
             <button class="btn-confirm-pay"  id="btnConfirmPay" onclick="confirmPay()">✓ Proses Bayar</button>
         </div>
+
     </div>
 </div>
 
@@ -637,222 +596,145 @@ let manualDiscountPercent = 0;
 let memberDiscount        = 0;
 let selectedPaymentMethod = 'cash';
 
+// FIX DOUBLE-ADD: dua flag pengaman
+let isAdding      = false;
+let isScanPending = false;
+
 // =============================================
-// NAVIGASI KEYBOARD HASIL PENCARIAN
-// selectedSearchIdx : indeks baris yang di-highlight (-1 = belum ada)
+// NAVIGASI KEYBOARD
 // =============================================
 let selectedSearchIdx = -1;
 
-/** Perbarui highlight visual */
 function updateSearchHighlight() {
     const rows = document.querySelectorAll('#searchResult tr[data-unit-id]');
-    rows.forEach((row, i) => {
-        row.classList.toggle('search-row-active', i === selectedSearchIdx);
-    });
-    // Auto-scroll vertikal agar baris aktif terlihat
-    if (selectedSearchIdx >= 0 && rows[selectedSearchIdx]) {
+    rows.forEach((row, i) => row.classList.toggle('search-row-active', i === selectedSearchIdx));
+    if (selectedSearchIdx >= 0 && rows[selectedSearchIdx])
         rows[selectedSearchIdx].scrollIntoView({ block: 'nearest' });
-    }
 }
-
-/** Tampilkan / sembunyikan hint navigasi */
 function showSearchHint(show) {
     document.getElementById('searchNavHint').classList.toggle('show', show);
 }
-
-/** Reset seleksi */
 function resetSearchSelection() {
-    selectedSearchIdx = -1;
-    updateSearchHighlight();
-    showSearchHint(false);
+    selectedSearchIdx = -1; updateSearchHighlight(); showSearchHint(false);
 }
 
-// =============================================
-// URUTAN NAVIGASI ENTER ANTAR FIELD
-// =============================================
 const NAV_ORDER = ['barcode','search','member','discount_rp','discount_percent','paid'];
 
 function focusNext(currentId) {
     const idx = NAV_ORDER.indexOf(currentId);
     if (idx === -1) return;
-    if (idx === NAV_ORDER.length - 1) {
-        document.getElementById('btnPay').click();
-        return;
-    }
+    if (idx === NAV_ORDER.length - 1) { document.getElementById('btnPay').click(); return; }
     const nextId = NAV_ORDER[idx + 1];
     const nextEl = document.getElementById(nextId);
     if (!nextEl) return;
-    if (nextEl.readOnly || nextEl.classList.contains('locked')) {
-        focusNext(nextId);
-        return;
-    }
-    nextEl.focus();
-    nextEl.select && nextEl.select();
-    highlightActive(nextId);
+    if (nextEl.readOnly || nextEl.classList.contains('locked')) { focusNext(nextId); return; }
+    nextEl.focus(); nextEl.select && nextEl.select(); highlightActive(nextId);
 }
 
 function highlightActive(activeId) {
-    NAV_ORDER.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.remove('input-active');
-    });
+    NAV_ORDER.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('input-active'); });
     const el = document.getElementById(activeId);
     if (el) el.classList.add('input-active');
 }
 
 // =============================================
-// ENTER DI BARCODE
+// BARCODE — FIX DOUBLE-ADD
 // =============================================
 document.getElementById('barcode').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
+    if (isScanPending || isAdding) return;
+
     const code = this.value.trim();
     if (code === '') { focusNext('barcode'); return; }
 
-    fetch('/pos/scan', {
-        method : 'POST', headers: jsonHeaders,
-        body   : JSON.stringify({ code: code, warehouse_id: getWarehouseId() })
+    isScanPending = true;
+    document.getElementById('barcode').classList.add('adding');
+    document.getElementById('search').classList.add('adding');
+    const barcodeEl = this;
+
+    fetch('/pos/scan', { method:'POST', headers:jsonHeaders,
+        body: JSON.stringify({ code, warehouse_id: getWarehouseId() })
     })
     .then(r => r.json())
     .then(r => {
+        isScanPending = false;
+        document.getElementById('barcode').classList.remove('adding');
+        document.getElementById('search').classList.remove('adding');
         if (!r.success) { alert(r.message); return; }
+        barcodeEl.value = '';
         add(r.id);
-        this.value = '';
-        this.focus();
-        highlightActive('barcode');
+        barcodeEl.focus(); highlightActive('barcode');
+    })
+    .catch(err => {
+        isScanPending = false;
+        document.getElementById('barcode').classList.remove('adding');
+        document.getElementById('search').classList.remove('adding');
+        console.error('Scan error:', err);
+        alert('Gagal scan barcode. Coba lagi.');
     });
 });
 document.getElementById('barcode').addEventListener('focus', () => highlightActive('barcode'));
 
 // =============================================
-// SEARCH — keydown: navigasi ↑↓ dan ←→ scroll
+// SEARCH
 // =============================================
+let isFromKeyboard = false;
+
 document.getElementById('search').addEventListener('keydown', function (e) {
-    const box      = document.getElementById('searchBox');
-    const rows     = document.querySelectorAll('#searchResult tr[data-unit-id]');
-    const rowCount = rows.length;
+    const box  = document.getElementById('searchBox');
+    const rows = document.querySelectorAll('#searchResult tr[data-unit-id]');
+    const rc   = rows.length;
 
-    // -------- ↓ Pilih baris berikutnya --------
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (rowCount === 0) return;
-        selectedSearchIdx = Math.min(selectedSearchIdx + 1, rowCount - 1);
-        updateSearchHighlight();
-        return;
-    }
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (rc) { selectedSearchIdx = Math.min(selectedSearchIdx+1, rc-1); updateSearchHighlight(); } return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); if (rc) { selectedSearchIdx = selectedSearchIdx <= 0 ? -1 : selectedSearchIdx-1; updateSearchHighlight(); } return; }
+    if (e.key === 'ArrowRight'){ e.preventDefault(); box.scrollLeft += 80; return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); box.scrollLeft -= 80; return; }
 
-    // -------- ↑ Pilih baris sebelumnya --------
-    if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (rowCount === 0) return;
-        if (selectedSearchIdx <= 0) {
-            selectedSearchIdx = -1; // kembali ke atas, batalkan highlight
-        } else {
-            selectedSearchIdx--;
-        }
-        updateSearchHighlight();
-        return;
-    }
-
-    // -------- → Scroll tabel ke KANAN --------
-    if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        box.scrollLeft += 80; // geser 80px ke kanan
-        return;
-    }
-
-    // -------- ← Scroll tabel ke KIRI --------
-    if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        box.scrollLeft -= 80; // geser 80px ke kiri
-        return;
-    }
-
-    // -------- Esc: tutup hasil pencarian --------
     if (e.key === 'Escape') {
         e.preventDefault();
-        document.getElementById('searchResult').innerHTML =
-            `<tr><td colspan="${4 + warehouseList.length}" class="text-center text-muted"
-                style="font-size:11px; padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
-        this.value = '';
-        resetSearchSelection();
-        return;
+        document.getElementById('searchResult').innerHTML = `<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+        this.value = ''; resetSearchSelection(); return;
     }
 
-    // -------- Enter: ambil baris yang dipilih --------
     if (e.key === 'Enter') {
         e.preventDefault();
-        const q = this.value.trim();
-
-        // Ada baris yang di-highlight → ambil
+        if (isScanPending || isAdding) return;
         if (selectedSearchIdx >= 0 && rows[selectedSearchIdx]) {
-            const unitId = rows[selectedSearchIdx].dataset.unitId;
-            addFromSearch(Number(unitId));
-            return;
+            isFromKeyboard = true; addFromSearch(Number(rows[selectedSearchIdx].dataset.unitId));
+            setTimeout(() => { isFromKeyboard = false; }, 300); return;
         }
-
-        // Tidak ada yang di-highlight tapi ada 1 hasil → ambil langsung
-        if (rowCount === 1) {
-            const unitId = rows[0].dataset.unitId;
-            addFromSearch(Number(unitId));
-            return;
-        }
-
-        // Tidak ada hasil / kosong → loncat ke member
-        if (q === '' || rowCount === 0) {
-            focusNext('search');
-        }
+        if (rc === 1) { isFromKeyboard = true; addFromSearch(Number(rows[0].dataset.unitId)); setTimeout(() => { isFromKeyboard = false; }, 300); return; }
+        if (this.value.trim() === '' || rc === 0) focusNext('search');
     }
 });
 
-// keyup: proses pencarian teks (abaikan tombol navigasi)
 document.getElementById('search').addEventListener('keyup', function (e) {
     if (['Enter','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Escape'].includes(e.key)) return;
-
     const q = this.value.trim();
     if (q.length < 2) {
-        document.getElementById('searchResult').innerHTML =
-            `<tr><td colspan="${4 + warehouseList.length}" class="text-center text-muted"
-                style="font-size:11px; padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
-        resetSearchSelection();
-        // Reset scroll ke kiri saat kosong
-        document.getElementById('searchBox').scrollLeft = 0;
-        return;
+        document.getElementById('searchResult').innerHTML = `<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+        resetSearchSelection(); document.getElementById('searchBox').scrollLeft = 0; return;
     }
-
     fetch(`/pos/search?q=${encodeURIComponent(q)}&warehouse_id=${getWarehouseId()}`)
         .then(r => r.json())
         .then(items => {
             selectedSearchIdx = -1;
-
             let html = '';
             items.forEach((p, i) => {
-                let stockCols = '';
-                if (p.stocks && p.stocks.length) {
-                    p.stocks.forEach(s => {
-                        const color = s > 0 ? '#155724' : '#721c24';
-                        const bg    = s > 0 ? '#d4edda' : '#f8d7da';
-                        stockCols += `<td style="text-align:center; min-width:58px;">
-                            <span style="background:${bg};color:${color};padding:1px 6px;
-                                border-radius:4px;font-size:11px;font-weight:600;">${s}</span>
-                        </td>`;
-                    });
-                }
-                html += `<tr style="cursor:pointer;" data-unit-id="${p.id}" onclick="addFromSearch(${p.id})">
+                let sc = '';
+                (p.stocks || []).forEach(s => {
+                    const col = s > 0 ? '#155724' : '#721c24', bg = s > 0 ? '#d4edda' : '#f8d7da';
+                    sc += `<td style="text-align:center;min-width:58px;"><span style="background:${bg};color:${col};padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;">${s}</span></td>`;
+                });
+                html += `<tr style="cursor:pointer;" data-unit-id="${p.id}" onclick="if(!isFromKeyboard) addFromSearch(${p.id})">
                     <td style="width:28px;">${i+1}</td>
-                    <td style="min-width:110px;">${p.barcode ?? '-'}</td>
+                    <td style="min-width:110px;">${p.barcode??'-'}</td>
                     <td style="min-width:140px;">${p.name}</td>
-                    <td style="min-width:50px;">${p.unit}</td>
-                    ${stockCols}
-                </tr>`;
+                    <td style="min-width:50px;">${p.unit}</td>${sc}</tr>`;
             });
-
-            const colCount = 4 + warehouseList.length;
-            document.getElementById('searchResult').innerHTML = html ||
-                `<tr><td colspan="${colCount}" class="text-center text-muted"
-                    style="font-size:11px; padding:6px;">Tidak ada hasil untuk "<strong>${q}</strong>"</td></tr>`;
-
-            // Reset scroll horizontal ke kiri setiap hasil baru
+            const cc = 4 + warehouseList.length;
+            document.getElementById('searchResult').innerHTML = html || `<tr><td colspan="${cc}" class="text-center text-muted" style="font-size:11px;padding:6px;">Tidak ada hasil untuk "<strong>${q}</strong>"</td></tr>`;
             document.getElementById('searchBox').scrollLeft = 0;
             showSearchHint(items.length > 0);
         });
@@ -860,176 +742,182 @@ document.getElementById('search').addEventListener('keyup', function (e) {
 
 document.getElementById('search').addEventListener('focus', function () {
     highlightActive('search');
-    if (document.querySelectorAll('#searchResult tr[data-unit-id]').length > 0) {
-        showSearchHint(true);
-    }
+    if (document.querySelectorAll('#searchResult tr[data-unit-id]').length > 0) showSearchHint(true);
 });
-
-document.getElementById('search').addEventListener('blur', function () {
-    setTimeout(() => showSearchHint(false), 200);
-});
+document.getElementById('search').addEventListener('blur', () => setTimeout(() => showSearchHint(false), 200));
 
 // =============================================
-// ENTER DI FIELD LAIN
+// FIELD LAIN
 // =============================================
 ['member','discount_rp','discount_percent','paid'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        focusNext(id);
-    });
+    el.addEventListener('keydown', e => { if (e.key !== 'Enter') return; e.preventDefault(); focusNext(id); });
     el.addEventListener('focus', () => highlightActive(id));
 });
 
-// Enter di modal paid
-document.getElementById('modalPaid').addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    confirmPay();
-});
-
-// Fokus awal ke barcode
-window.addEventListener('load', function () {
-    document.getElementById('barcode').focus();
-    highlightActive('barcode');
+document.getElementById('modalPaid').addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); confirmPay(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); closePaymentModal(); return; }
+    // Shift+Tab / ArrowUp dari input bayar → kembali ke combo item terakhir yang dipilih
+    if ((e.key === 'ArrowUp') || (e.key === 'Tab' && e.shiftKey)) {
+        e.preventDefault();
+        const idx   = COMBO_METHODS.indexOf(selectedPaymentMethod);
+        const items = document.querySelectorAll('.combo-item');
+        if (items[idx]) items[idx].focus();
+    }
 });
 
 // =============================================
-// BUAT TRANSAKSI BARU
+// KEYBOARD NAVIGASI COMBO LIST MODAL
+// ↑↓  → pindah metode bayar
+// Enter (di combo) → konfirmasi metode & pindah ke input bayar
+// Enter (di input bayar) → proses bayar
+// Esc  → tutup modal
 // =============================================
-function createNewTransaction() {
-    window.location.href = '/pos?new_transaction=1';
+const COMBO_METHODS = ['cash','transfer','qris'];
+
+function getComboIdx() {
+    return COMBO_METHODS.indexOf(selectedPaymentMethod);
 }
 
+function focusComboByIdx(idx) {
+    const items = document.querySelectorAll('.combo-item');
+    if (items[idx]) items[idx].focus();
+}
+
+// Keydown handler untuk setiap combo item
+document.querySelectorAll('.combo-item').forEach(function(item) {
+    item.addEventListener('keydown', function(e) {
+        const items = Array.from(document.querySelectorAll('.combo-item'));
+        const idx   = items.indexOf(this);
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const next = items[idx + 1];
+            if (next) { selectMethod(next.dataset.method); next.focus(); }
+            return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prev = items[idx - 1];
+            if (prev) { selectMethod(prev.dataset.method); prev.focus(); }
+            return;
+        }
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectMethod(this.dataset.method);
+            // Pindah ke input bayar
+            setTimeout(() => {
+                const inp = document.getElementById('modalPaid');
+                inp.focus(); inp.select && inp.select();
+            }, 50);
+            return;
+        }
+        if (e.key === 'Tab') {
+            // Biarkan tab berjalan natural ke modalPaid
+            return;
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closePaymentModal();
+        }
+    });
+});
+window.addEventListener('load', () => { document.getElementById('barcode').focus(); highlightActive('barcode'); });
+
 // =============================================
-// UNLOCK MEMBER
+// TRANSAKSI BARU
+// =============================================
+function createNewTransaction() { window.location.href = '/pos?new_transaction=1'; }
+
+// =============================================
+// UNLOCK
 // =============================================
 function unlockMember() {
     if (memberUnlocked) return;
-    const pwd = prompt("Masukkan password owner:");
-    if (!pwd) return;
-    fetch('/pos/override-owner', {
-        method:'POST', headers:jsonHeaders, body:JSON.stringify({ password: pwd })
-    }).then(r=>r.json()).then(r=>{
-        if (!r.success) { alert("Password salah"); return; }
-        memberUnlocked = true;
-        const el = document.getElementById('member');
-        el.readOnly = false;
-        el.classList.remove('locked');
-        el.focus();
-        highlightActive('member');
-    });
+    const pwd = prompt("Masukkan password owner:"); if (!pwd) return;
+    fetch('/pos/override-owner', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ password:pwd }) })
+        .then(r=>r.json()).then(r=>{
+            if (!r.success) { alert("Password salah"); return; }
+            memberUnlocked = true;
+            const el = document.getElementById('member');
+            el.readOnly = false; el.classList.remove('locked'); el.focus(); highlightActive('member');
+        });
 }
-
-// =============================================
-// UNLOCK DISKON Rp
-// =============================================
 function unlockDiscountRp() {
-    const el = document.getElementById('discount_rp');
-    if (!el.classList.contains('locked')) return;
-    const pwd = prompt("Masukkan password owner:");
-    if (!pwd) return;
-    fetch('/pos/override-owner', {
-        method:'POST', headers:jsonHeaders, body:JSON.stringify({ password: pwd })
-    }).then(r=>r.json()).then(r=>{
-        if (!r.success) { alert("Password salah"); return; }
-        el.readOnly = false;
-        el.classList.remove('locked');
-        el.focus();
-        highlightActive('discount_rp');
-    });
+    const el = document.getElementById('discount_rp'); if (!el.classList.contains('locked')) return;
+    const pwd = prompt("Masukkan password owner:"); if (!pwd) return;
+    fetch('/pos/override-owner', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ password:pwd }) })
+        .then(r=>r.json()).then(r=>{
+            if (!r.success) { alert("Password salah"); return; }
+            el.readOnly = false; el.classList.remove('locked'); el.focus(); highlightActive('discount_rp');
+        });
 }
-
-// =============================================
-// UNLOCK DISKON %
-// =============================================
 function unlockDiscountPercent() {
-    const el = document.getElementById('discount_percent');
-    if (!el.classList.contains('locked')) return;
-    const pwd = prompt("Masukkan password owner:");
-    if (!pwd) return;
-    fetch('/pos/override-owner', {
-        method:'POST', headers:jsonHeaders, body:JSON.stringify({ password: pwd })
-    }).then(r=>r.json()).then(r=>{
-        if (!r.success) { alert("Password salah"); return; }
-        el.readOnly = false;
-        el.classList.remove('locked');
-        el.focus();
-        highlightActive('discount_percent');
-    });
+    const el = document.getElementById('discount_percent'); if (!el.classList.contains('locked')) return;
+    const pwd = prompt("Masukkan password owner:"); if (!pwd) return;
+    fetch('/pos/override-owner', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ password:pwd }) })
+        .then(r=>r.json()).then(r=>{
+            if (!r.success) { alert("Password salah"); return; }
+            el.readOnly = false; el.classList.remove('locked'); el.focus(); highlightActive('discount_percent');
+        });
 }
 
 // =============================================
-// INPUT DISKON Rp
+// DISKON
 // =============================================
 document.getElementById('discount_rp').addEventListener('input', function () {
     const val = this.value.trim();
-    if (val === '' || Number(val) <= 0) {
-        manualDiscountRp = 0; this.value = '';
-    } else {
-        manualDiscountRp      = Number(val);
-        manualDiscountPercent = 0;
-        document.getElementById('discount_percent').value = '';
-    }
+    if (val === '' || Number(val) <= 0) { manualDiscountRp = 0; this.value = ''; }
+    else { manualDiscountRp = Number(val); manualDiscountPercent = 0; document.getElementById('discount_percent').value = ''; }
     applyDiscountLive();
 });
-
-// =============================================
-// INPUT DISKON %
-// =============================================
 document.getElementById('discount_percent').addEventListener('input', function () {
     const val = this.value.trim();
-    if (val === '' || Number(val) <= 0) {
-        manualDiscountPercent = 0; this.value = '';
-    } else {
-        manualDiscountPercent = Number(val);
-        manualDiscountRp      = 0;
-        document.getElementById('discount_rp').value = '';
-    }
+    if (val === '' || Number(val) <= 0) { manualDiscountPercent = 0; this.value = ''; }
+    else { manualDiscountPercent = Number(val); manualDiscountRp = 0; document.getElementById('discount_rp').value = ''; }
     applyDiscountLive();
 });
 
 // =============================================
-// ADD FROM SEARCH (klik atau keyboard)
+// ADD FROM SEARCH
 // =============================================
 function addFromSearch(id) {
+    if (isScanPending || isAdding) return;
     add(id);
     document.getElementById('search').value = '';
-    document.getElementById('searchResult').innerHTML =
-        `<tr><td colspan="${4 + warehouseList.length}" class="text-center text-muted"
-            style="font-size:11px; padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
-    resetSearchSelection();
-    document.getElementById('searchBox').scrollLeft = 0;
-    document.getElementById('barcode').focus();
-    highlightActive('barcode');
+    document.getElementById('searchResult').innerHTML = `<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+    resetSearchSelection(); document.getElementById('searchBox').scrollLeft = 0;
+    document.getElementById('barcode').focus(); highlightActive('barcode');
 }
 
 // =============================================
 // ADD ITEM
 // =============================================
 function add(id, overridePassword = null) {
-    fetch('/pos/add-item', {
-        method  : 'POST',
-        headers : jsonHeaders,
-        body    : JSON.stringify({
-            trx_id           : TRX,
-            product_unit_id  : id,
-            warehouse_id     : getWarehouseId(),
-            override_password: overridePassword
-        })
+    if (isAdding) return;
+    isAdding = true;
+    document.getElementById('barcode').classList.add('adding');
+    document.getElementById('search').classList.add('adding');
+
+    fetch('/pos/add-item', { method:'POST', headers:jsonHeaders,
+        body: JSON.stringify({ trx_id:TRX, product_unit_id:id, warehouse_id:getWarehouseId(), override_password:overridePassword })
     })
     .then(r => r.json())
     .then(r => {
-        if (r.need_override) {
-            const pwd = prompt("Stok tidak cukup!\nMasukkan password owner:");
-            if (!pwd) return;
-            add(id, pwd);
-            return;
-        }
+        isAdding = false;
+        document.getElementById('barcode').classList.remove('adding');
+        document.getElementById('search').classList.remove('adding');
+        if (r.need_override) { const pwd = prompt("Stok tidak cukup!\nMasukkan password owner:"); if (!pwd) return; add(id, pwd); return; }
         if (!r.success) { alert(r.message); return; }
         loadCart();
+    })
+    .catch(err => {
+        isAdding = false;
+        document.getElementById('barcode').classList.remove('adding');
+        document.getElementById('search').classList.remove('adding');
+        console.error(err); alert('Terjadi error saat menambah item. Coba lagi.');
     });
 }
 
@@ -1037,49 +925,33 @@ function add(id, overridePassword = null) {
 // LOAD CART
 // =============================================
 function loadCart() {
-    fetch(`/pos?trx_id=${TRX}`)
-        .then(r => r.text())
-        .then(html => {
-            const doc           = new DOMParser().parseFromString(html, 'text/html');
-            const totalEl       = doc.querySelector('#totalText');
-            const originalTotal = Math.round(Number(totalEl.dataset.total));
-
-            document.querySelector('#cartBody').innerHTML = doc.querySelector('#cartBody').innerHTML;
-            document.getElementById('totalText').dataset.original = originalTotal;
-            document.getElementById('totalText').dataset.total    = originalTotal;
-            document.getElementById('totalText').innerText        = 'Rp ' + originalTotal.toLocaleString('id-ID');
-
-            const newPendingBadge = doc.querySelector('#pendingBadge');
-            if (newPendingBadge) {
-                const badge = document.getElementById('pendingBadge');
-                badge.innerText = newPendingBadge.innerText;
-                badge.classList.toggle('hidden', newPendingBadge.classList.contains('hidden'));
-            }
-
-            applyDiscountLive();
-            updateKembalian();
-        });
+    fetch(`/pos?trx_id=${TRX}`).then(r => r.text()).then(html => {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const totalEl = doc.querySelector('#totalText');
+        const orig = Math.round(Number(totalEl.dataset.total));
+        document.querySelector('#cartBody').innerHTML = doc.querySelector('#cartBody').innerHTML;
+        document.getElementById('totalText').dataset.original = orig;
+        document.getElementById('totalText').dataset.total    = orig;
+        document.getElementById('totalText').innerText        = 'Rp ' + orig.toLocaleString('id-ID');
+        const nb = doc.querySelector('#pendingBadge');
+        if (nb) { const b = document.getElementById('pendingBadge'); b.innerText = nb.innerText; b.classList.toggle('hidden', nb.classList.contains('hidden')); }
+        applyDiscountLive(); updateKembalian();
+    });
 }
 
 // =============================================
 // DISKON LIVE
 // =============================================
 function applyDiscountLive() {
-    const totalEl    = document.getElementById('totalText');
-    const totalAwal  = Math.round(Number(totalEl.dataset.original));
-    let   totalAkhir = totalAwal;
-
-    if (manualDiscountRp > 0) {
-        totalAkhir = totalAwal - Math.round(manualDiscountRp);
-    } else if (manualDiscountPercent > 0) {
-        totalAkhir = totalAwal - Math.round(totalAwal * manualDiscountPercent / 100);
-    } else if (memberDiscount > 0) {
-        totalAkhir = totalAwal - Math.round(totalAwal * memberDiscount / 100);
-    }
-
-    if (totalAkhir < 0) totalAkhir = 0;
-    totalEl.innerText     = 'Rp ' + totalAkhir.toLocaleString('id-ID');
-    totalEl.dataset.total = totalAkhir;
+    const totalEl = document.getElementById('totalText');
+    const awal    = Math.round(Number(totalEl.dataset.original));
+    let   akhir   = awal;
+    if (manualDiscountRp > 0)      akhir = awal - Math.round(manualDiscountRp);
+    else if (manualDiscountPercent > 0) akhir = awal - Math.round(awal * manualDiscountPercent / 100);
+    else if (memberDiscount > 0)   akhir = awal - Math.round(awal * memberDiscount / 100);
+    if (akhir < 0) akhir = 0;
+    totalEl.innerText = 'Rp ' + akhir.toLocaleString('id-ID');
+    totalEl.dataset.total = akhir;
     updateKembalian();
 }
 
@@ -1088,44 +960,20 @@ function applyDiscountLive() {
 // =============================================
 function plusQty(id)  { updateQtyManual(id, getQty(id) + 1); }
 function minusQty(id) { updateQtyManual(id, Math.max(getQty(id) - 1, 1)); }
-function getQty(id) {
-    return Number(document.querySelector(`input[onchange="updateQtyManual(${id},this.value)"]`).value);
-}
+function getQty(id)   { return Number(document.querySelector(`input[onchange="updateQtyManual(${id},this.value)"]`).value); }
 
 function updateQtyManual(itemId, qty, overridePassword = null) {
-    fetch('/pos/update-qty-manual', {
-        method  : 'POST',
-        headers : jsonHeaders,
-        body    : JSON.stringify({
-            trx_id           : TRX,
-            item_id          : itemId,
-            qty              : qty,
-            warehouse_id     : getWarehouseId(),
-            override_password: overridePassword
-        })
-    })
-    .then(r => r.json())
-    .then(r => {
-        if (r.need_override) {
-            const pwd = prompt("Stok tidak cukup!\nMasukkan password owner:");
-            if (!pwd) return;
-            updateQtyManual(itemId, qty, pwd);
-            return;
-        }
+    fetch('/pos/update-qty-manual', { method:'POST', headers:jsonHeaders,
+        body: JSON.stringify({ trx_id:TRX, item_id:itemId, qty, warehouse_id:getWarehouseId(), override_password:overridePassword })
+    }).then(r => r.json()).then(r => {
+        if (r.need_override) { const pwd = prompt("Stok tidak cukup!\nMasukkan password owner:"); if (!pwd) return; updateQtyManual(itemId, qty, pwd); return; }
         loadCart();
     });
 }
 
 function updateUnit(itemId, unitId) {
-    fetch('/pos/update-unit', {
-        method  : 'POST',
-        headers : jsonHeaders,
-        body    : JSON.stringify({
-            trx_id         : TRX,
-            item_id        : itemId,
-            product_unit_id: unitId,
-            warehouse_id   : getWarehouseId()
-        })
+    fetch('/pos/update-unit', { method:'POST', headers:jsonHeaders,
+        body: JSON.stringify({ trx_id:TRX, item_id:itemId, product_unit_id:unitId, warehouse_id:getWarehouseId() })
     }).then(() => loadCart());
 }
 
@@ -1133,38 +981,18 @@ function updateUnit(itemId, unitId) {
 // REMOVE ITEM
 // =============================================
 function removeItemWithAuth(itemId, productName) {
-    const pwd = prompt("🔐 Masukkan password owner untuk menghapus item:");
-    if (!pwd) return;
-
-    fetch('/pos/override-owner', {
-        method  : 'POST',
-        headers : jsonHeaders,
-        body    : JSON.stringify({ password: pwd })
-    })
-    .then(r => r.json())
-    .then(r => {
-        if (!r.success) { alert("❌ Password salah! Tidak dapat menghapus item."); return; }
-        const ok = confirm(
-            "⚠️ Konfirmasi Hapus Item\n\nProduk : " + productName +
-            "\n\nApakah Anda yakin ingin menghapus item ini?\nTindakan ini tidak dapat dibatalkan."
-        );
-        if (!ok) return;
-
-        fetch('/pos/remove-item', {
-            method  : 'POST',
-            headers : jsonHeaders,
-            body    : JSON.stringify({ trx_id: TRX, item_id: itemId })
-        })
-        .then(res => res.json())
-        .then(res => {
-            if (res.success) loadCart();
-            else alert("Gagal menghapus item. Coba lagi.");
+    const pwd = prompt("🔐 Masukkan password owner untuk menghapus item:"); if (!pwd) return;
+    fetch('/pos/override-owner', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ password:pwd }) })
+        .then(r => r.json()).then(r => {
+            if (!r.success) { alert("❌ Password salah!"); return; }
+            if (!confirm("⚠️ Hapus item:\n" + productName + "\n\nYakin?")) return;
+            fetch('/pos/remove-item', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ trx_id:TRX, item_id:itemId }) })
+                .then(res => res.json()).then(res => { if (res.success) loadCart(); else alert("Gagal menghapus item."); });
         });
-    });
 }
 
 // =============================================
-// KEMBALIAN
+// KEMBALIAN MAIN
 // =============================================
 document.getElementById('paid').addEventListener('input', updateKembalian);
 function updateKembalian() {
@@ -1174,35 +1002,66 @@ function updateKembalian() {
 }
 
 // =============================================
-// MODAL PEMBAYARAN
+// COMBO LIST — PILIH METODE BAYAR
 // =============================================
 function selectMethod(method) {
     selectedPaymentMethod = method;
-    document.getElementById('btnCash').classList.toggle('selected', method === 'cash');
-    document.getElementById('btnTransfer').classList.toggle('selected', method === 'transfer');
-    document.getElementById('transferInfo').classList.toggle('show', method === 'transfer');
+
+    // Highlight baris terpilih
+    document.querySelectorAll('.combo-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.method === method);
+    });
+
+    // Tampilkan / sembunyikan notice
+    const notice     = document.getElementById('paymentNotice');
+    const noticeText = document.getElementById('paymentNoticeText');
+
+    const notices = {
+        transfer : 'Pastikan bukti <strong>transfer bank</strong> sudah diterima sebelum menyelesaikan transaksi.',
+        qris     : 'Pastikan notifikasi <strong>QRIS</strong> diterima terlebih dahulu sebelum proses bayar.',
+    };
+
+    if (notices[method]) {
+        noticeText.innerHTML = notices[method];
+        notice.querySelector('.payment-notice-icon').textContent = method === 'qris' ? '📱' : '⚠️';
+        notice.classList.add('show');
+    } else {
+        notice.classList.remove('show');
+    }
+
+    // Non-cash → auto-fill jumlah bayar = total (sudah lunas)
+    if (method !== 'cash') {
+        const total = Number(document.getElementById('totalText').dataset.total);
+        document.getElementById('modalPaid').value = total;
+        updateModalKembalian();
+    }
 }
 
+// =============================================
+// MODAL PAYMENT
+// =============================================
 function openPaymentModal() {
     const total   = Number(document.getElementById('totalText').dataset.total);
     const paidVal = document.getElementById('paid').value;
-    document.getElementById('modalPaid').value            = paidVal;
+
     document.getElementById('modalTotalAmount').innerText = 'Rp ' + total.toLocaleString('id-ID');
-    updateModalKembalian();
+    document.getElementById('modalPaid').value            = paidVal || '';
+
+    // Reset ke cash
     selectMethod('cash');
+    updateModalKembalian();
+
     document.getElementById('paymentModal').classList.add('show');
     setTimeout(() => {
-        document.getElementById('modalPaid').focus();
-        document.getElementById('modalPaid').select();
-    }, 100);
+        // Fokus ke combo item pertama (Cash), bukan langsung ke input bayar
+        const firstCombo = document.querySelector('.combo-item');
+        if (firstCombo) firstCombo.focus();
+    }, 150);
 }
 
 function closePaymentModal() {
     document.getElementById('paymentModal').classList.remove('show');
-    setTimeout(() => {
-        document.getElementById('paid').focus();
-        highlightActive('paid');
-    }, 50);
+    setTimeout(() => { document.getElementById('paid').focus(); highlightActive('paid'); }, 50);
 }
 
 document.getElementById('modalPaid').addEventListener('input', updateModalKembalian);
@@ -1212,10 +1071,7 @@ function updateModalKembalian() {
     document.getElementById('modalChangeText').innerText = 'Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID');
 }
 
-document.getElementById('paymentModal').addEventListener('click', function (e) {
-    if (e.target === this) closePaymentModal();
-});
-
+document.getElementById('paymentModal').addEventListener('click', function (e) { if (e.target === this) closePaymentModal(); });
 document.getElementById('btnPay').addEventListener('click', openPaymentModal);
 
 // =============================================
@@ -1229,31 +1085,22 @@ async function confirmPay() {
     const strukWindow   = window.open('', '_blank');
 
     try {
-        const res = await fetch('/pos/pay', {
-            method  : 'POST',
-            headers : jsonHeaders,
-            body    : JSON.stringify({
-                trx_id         : TRX,
-                paid           : bayar,
-                member_id      : memberId,
-                payment_method : paymentMethod,
-                frontend_total : total
-            })
+        const res = await fetch('/pos/pay', { method:'POST', headers:jsonHeaders,
+            body: JSON.stringify({ trx_id:TRX, paid:bayar, member_id:memberId, payment_method:paymentMethod, frontend_total:total })
         });
         const r = await res.json();
 
         if (r.success) {
             if (r.paid_off) {
                 closePaymentModal();
-                const methodLabel = paymentMethod === 'cash' ? '💵 Cash' : '🏦 Transfer';
-                alert('Transaksi lunas!\nMetode: ' + methodLabel +
+                const labels = { cash:'💵 Cash / Tunai', transfer:'🏦 Transfer Bank', qris:'📱 QRIS' };
+                alert('✅ Transaksi lunas!\nMetode   : ' + (labels[paymentMethod] || paymentMethod) +
                       '\nKembalian: Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID'));
                 strukWindow.location.href = `/transactions/${r.trx_id}/struk`;
                 setTimeout(() => { window.location.href = '/pos?new_transaction=1'; }, 500);
             } else {
                 alert('Transaksi pending, sisa: Rp ' + (total - bayar).toLocaleString('id-ID'));
-                strukWindow.close();
-                closePaymentModal();
+                strukWindow.close(); closePaymentModal();
             }
         } else {
             alert(r.message || 'Gagal menyimpan transaksi');
@@ -1266,68 +1113,39 @@ async function confirmPay() {
 }
 
 // =============================================
-// MEMBER SEARCH & SELECT
+// MEMBER
 // =============================================
 const memberBox  = document.getElementById('memberResult');
 const memberInfo = document.getElementById('memberInfo');
 
 document.getElementById('member').addEventListener('keyup', function (e) {
-    if (!memberUnlocked) return;
-    if (e.key === 'Enter') return;
-    const q = this.value;
-    if (q.length < 2) { memberBox.innerHTML = ''; return; }
-    fetch(`/pos/search-member?q=${q}`)
-        .then(r => r.json())
-        .then(items => {
-            memberBox.innerHTML = '';
-            items.forEach(m => {
-                memberBox.innerHTML += `<div class="p-1 border-bottom" style="cursor:pointer;font-size:12px;"
-                    onclick="selectMember(${m.id})">
-                    <strong>${m.name}</strong> — <small class="text-muted">${m.phone}</small>
-                </div>`;
-            });
-        });
+    if (!memberUnlocked || e.key === 'Enter') return;
+    const q = this.value; if (q.length < 2) { memberBox.innerHTML = ''; return; }
+    fetch(`/pos/search-member?q=${q}`).then(r=>r.json()).then(items => {
+        memberBox.innerHTML = '';
+        items.forEach(m => { memberBox.innerHTML += `<div class="p-1 border-bottom" style="cursor:pointer;font-size:12px;" onclick="selectMember(${m.id})"><strong>${m.name}</strong> — <small class="text-muted">${m.phone}</small></div>`; });
+    });
 });
 
 function selectMember(id) {
-    manualDiscountRp      = 0;
-    manualDiscountPercent = 0;
-
-    fetch(`/pos/get-member?id=${id}`)
-        .then(r => r.json())
-        .then(m => {
-            const memberEl            = document.getElementById('member');
-            memberEl.value            = m.name;
-            memberEl.dataset.memberId = m.id;
-            memberBox.innerHTML       = '';
-
-            memberDiscount = Number(m.discount || 0);
-            document.getElementById('discount_rp').value      = '';
-            document.getElementById('discount_percent').value = memberDiscount > 0 ? memberDiscount : '';
-
-            const discPctEl = document.getElementById('discount_percent');
-            discPctEl.readOnly = false;
-            discPctEl.classList.remove('locked');
-
-            memberInfo.innerHTML = `<strong>Nama:</strong> ${m.name} | <strong>Level:</strong> ${m.level} | <strong>Disc:</strong> ${m.discount}% | <strong>Poin:</strong> ${m.points}`;
-
-            applyDiscountLive();
-
-            fetch('/pos/set-member', {
-                method:'POST', headers:jsonHeaders,
-                body: JSON.stringify({ trx_id: TRX, member_id: m.id })
-            }).then(() => {
-                fetch('/pos/set-discount', {
-                    method:'POST', headers:jsonHeaders,
-                    body: JSON.stringify({ trx_id: TRX, discount: getFinalDiscount() })
-                }).then(() => loadCart());
-            });
-        });
+    manualDiscountRp = manualDiscountPercent = 0;
+    fetch(`/pos/get-member?id=${id}`).then(r=>r.json()).then(m => {
+        const el = document.getElementById('member');
+        el.value = m.name; el.dataset.memberId = m.id; memberBox.innerHTML = '';
+        memberDiscount = Number(m.discount || 0);
+        document.getElementById('discount_rp').value      = '';
+        document.getElementById('discount_percent').value = memberDiscount > 0 ? memberDiscount : '';
+        const dp = document.getElementById('discount_percent'); dp.readOnly = false; dp.classList.remove('locked');
+        memberInfo.innerHTML = `<strong>Nama:</strong> ${m.name} | <strong>Level:</strong> ${m.level} | <strong>Disc:</strong> ${m.discount}% | <strong>Poin:</strong> ${m.points}`;
+        applyDiscountLive();
+        fetch('/pos/set-member', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ trx_id:TRX, member_id:m.id }) })
+            .then(() => fetch('/pos/set-discount', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ trx_id:TRX, discount:getFinalDiscount() }) }))
+            .then(() => loadCart());
+    });
 }
 
 function getFinalDiscount() {
-    const total = Number(document.getElementById('totalText').dataset.original || 0);
-    if (total <= 0) return 0;
+    const total = Number(document.getElementById('totalText').dataset.original || 0); if (total <= 0) return 0;
     if (manualDiscountPercent > 0) return manualDiscountPercent;
     if (manualDiscountRp      > 0) return (manualDiscountRp / total) * 100;
     if (memberDiscount        > 0) return memberDiscount;
@@ -1336,9 +1154,43 @@ function getFinalDiscount() {
 
 function openPending(trxId) {
     if (!trxId) return;
-    if (confirm("Lanjutkan transaksi ini?")) {
-        window.location.href = `/pos?trx_id=${trxId}`;
-    }
+    if (confirm("Lanjutkan transaksi ini?")) window.location.href = `/pos?trx_id=${trxId}`;
+}
+
+// =============================================
+// BUKA KEMBALI TRANSAKSI PAID
+// Minta password → reopen di server (stok dikembalikan,
+// status → pending) → redirect ke POS dengan trx_id
+// =============================================
+function openPaidTransaction(trxId) {
+    if (!trxId) return;
+
+    const pwd = prompt("🔐 Masukkan password owner untuk membuka kembali transaksi ini:");
+    if (!pwd) return;
+
+    // Tampilkan loading di kursor
+    document.body.style.cursor = 'wait';
+
+    fetch('/pos/reopen-transaction', {
+        method : 'POST',
+        headers: jsonHeaders,
+        body   : JSON.stringify({ trx_id: trxId, password: pwd })
+    })
+    .then(r => r.json())
+    .then(r => {
+        document.body.style.cursor = '';
+        if (!r.success) {
+            alert("❌ " + (r.message || "Gagal membuka transaksi"));
+            return;
+        }
+        // Sukses → redirect ke POS dengan transaksi yang sudah terbuka
+        window.location.href = `/pos?trx_id=${r.trx_id}`;
+    })
+    .catch(err => {
+        document.body.style.cursor = '';
+        console.error(err);
+        alert("Terjadi error. Coba lagi.");
+    });
 }
 </script>
 

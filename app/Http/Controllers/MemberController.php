@@ -13,7 +13,7 @@ class MemberController extends Controller
     =============================== */
     public function index()
     {
-        $members = Member::orderBy('name')->paginate(10); 
+        $members = Member::orderBy('name')->paginate(10);
         return view('members.index', compact('members'));
     }
 
@@ -36,8 +36,18 @@ class MemberController extends Controller
             'address' => 'nullable|string|max:255',
             'level' => 'required|in:Basic,Silver,Gold',
             'discount' => 'nullable|numeric|min:0|max:100',
-            'status' => 'required|in:aktif,nonaktif'
+            'status' => 'required|in:aktif,nonaktif',
+            'has_card' => 'required|in:yes,no',
+            'barcode' => 'nullable|string|unique:members'
         ]);
+
+        if ($request->has_card == 'no') {
+            do {
+                $barcode = 'MBR' . rand(10000000, 99999999);
+            } while (Member::where('barcode', $barcode)->exists());
+        } else {
+            $barcode = $request->barcode;
+        }
 
         Member::create([
             'name' => $request->name,
@@ -47,7 +57,8 @@ class MemberController extends Controller
             'total_spent' => 0,
             'level' => $request->level,
             'discount' => $request->discount ?? 0,
-            'status' => $request->status
+            'status' => $request->status,
+            'barcode' => $barcode
         ]);
 
         return redirect()->route('members.index')
@@ -78,7 +89,8 @@ class MemberController extends Controller
             'level' => 'required|in:Basic,Silver,Gold',
             'discount' => 'nullable|numeric|min:0|max:100',
             'total_spent' => 'nullable|numeric|min:0',
-            'points' => 'nullable|integer|min:0'
+            'points' => 'nullable|integer|min:0',
+            'barcode' => 'nullable|string|unique:members,barcode,' . $member->id,
         ]);
 
         $member->update([
@@ -90,6 +102,7 @@ class MemberController extends Controller
             'discount' => $request->discount ?? $member->discount, // tetap aman
             'total_spent' => $request->total_spent ?? $member->total_spent,
             'points' => $request->points ?? $member->points,
+            'barcode' => $request->barcode ?? $member->barcode,
         ]);
 
         return redirect()->route('members.index')
@@ -110,38 +123,38 @@ class MemberController extends Controller
        TAMBAH POIN DARI TRANSAKSI
     =============================== */
     public function addPoint(Transaction $trx)
-{
-    if (!$trx->member_id) return;
+    {
+        if (!$trx->member_id) return;
 
-    $member = $trx->member;
+        $member = $trx->member;
 
-    // Tambah total_spent
-    $member->total_spent += $trx->total;
+        // Tambah total_spent
+        $member->total_spent += $trx->total;
 
-    // Hitung poin (1 point per 1000 rupiah)
-    $member->points += floor($trx->total / 1000);
+        // Hitung poin (1 point per 1000 rupiah)
+        $member->points += floor($trx->total / 1000);
 
-    // Update level otomatis tanpa menimpa diskon manual
-    if ($member->discount == 0) {
-        if ($member->total_spent >= 5000000) {
-            $member->level = 'Gold';
-            $member->discount = 5;
-        } elseif ($member->total_spent >= 1000000) {
-            $member->level = 'Silver';
-            $member->discount = 2;
+        // Update level otomatis tanpa menimpa diskon manual
+        if ($member->discount == 0) {
+            if ($member->total_spent >= 5000000) {
+                $member->level = 'Gold';
+                $member->discount = 5;
+            } elseif ($member->total_spent >= 1000000) {
+                $member->level = 'Silver';
+                $member->discount = 2;
+            } else {
+                $member->level = 'Basic';
+                $member->discount = 0;
+            }
         } else {
-            $member->level = 'Basic';
-            $member->discount = 0;
+            // Jika ada diskon manual, level tetap update, tapi diskon tidak diubah
+            if ($member->total_spent >= 5000000) $member->level = 'Gold';
+            elseif ($member->total_spent >= 1000000) $member->level = 'Silver';
+            else $member->level = 'Basic';
         }
-    } else {
-        // Jika ada diskon manual, level tetap update, tapi diskon tidak diubah
-        if ($member->total_spent >= 5000000) $member->level = 'Gold';
-        elseif ($member->total_spent >= 1000000) $member->level = 'Silver';
-        else $member->level = 'Basic';
-    }
 
-    $member->save();
-}
+        $member->save();
+    }
 
     /* ===============================
        REDEEM POIN
@@ -158,5 +171,11 @@ class MemberController extends Controller
         $member->decrement('points', $request->points);
 
         return response()->json(['success' => true]);
+    }
+
+    public function printBarcode($id)
+    {
+        $member = Member::findOrFail($id);
+        return view('members.barcode', compact('member'));
     }
 }

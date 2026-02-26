@@ -33,7 +33,6 @@
                                    class="form-control form-control-lg" 
                                    name="name"
                                    value="{{ old('name') }}"
-                                   placeholder="Masukkan nama lengkap"
                                    required>
                         </div>
 
@@ -44,7 +43,6 @@
                                    class="form-control form-control-lg" 
                                    name="phone"
                                    value="{{ old('phone') }}"
-                                   placeholder="0812xxxxxxx"
                                    required>
                         </div>
 
@@ -53,8 +51,25 @@
                             <label class="form-label fw-bold">Alamat</label>
                             <textarea class="form-control"
                                       name="address"
-                                      rows="3"
-                                      placeholder="Masukkan alamat lengkap">{{ old('address') }}</textarea>
+                                      rows="3">{{ old('address') }}</textarea>
+                        </div>
+
+                        {{-- STATUS KARTU --}}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Kartu Member</label>
+                            <select name="has_card" id="has_card" class="form-control form-select" required>
+                                <option value="no">Belum punya kartu (Generate otomatis)</option>
+                                <option value="yes">Sudah punya kartu</option>
+                            </select>
+                        </div>
+
+                        {{-- INPUT BARCODE --}}
+                        <div class="mb-3" id="barcode_input" style="display:none;">
+                            <label class="form-label fw-bold">Kode Barcode</label>
+                            <input type="text"
+                                   class="form-control"
+                                   name="barcode"
+                                   placeholder="Scan / input barcode kartu">
                         </div>
 
                         {{-- LEVEL --}}
@@ -62,9 +77,9 @@
                             <label class="form-label fw-bold">Level Member</label>
                             <select name="level" class="form-control form-select" required>
                                 <option value="">-- Pilih Level --</option>
-                                <option value="Basic" {{ old('level') == 'Basic' ? 'selected' : '' }}>Basic</option>
-                                <option value="Silver" {{ old('level') == 'Silver' ? 'selected' : '' }}>Silver</option>
-                                <option value="Gold" {{ old('level') == 'Gold' ? 'selected' : '' }}>Gold</option>
+                                <option value="Basic">Basic</option>
+                                <option value="Silver">Silver</option>
+                                <option value="Gold">Gold</option>
                             </select>
                         </div>
 
@@ -78,26 +93,22 @@
                                    min="0"
                                    max="100"
                                    step="0.01">
-                            <small class="text-muted">
-                                Isi manual jika ingin override diskon level
-                            </small>
                         </div>
 
                         {{-- STATUS --}}
                         <div class="mb-3">
                             <label class="form-label fw-bold">Status</label>
                             <select name="status" class="form-control form-select" required>
-                                <option value="aktif" selected>Aktif</option>
+                                <option value="aktif">Aktif</option>
                                 <option value="nonaktif">Nonaktif</option>
                             </select>
                         </div>
 
-                        {{-- SUBMIT --}}
-                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-2">
+                        <button type="submit" class="btn btn-primary w-100 mb-2">
                             Simpan Member
                         </button>
 
-                        <a href="{{ route('members.index') }}" class="btn btn-secondary btn-lg w-100">
+                        <a href="{{ route('members.index') }}" class="btn btn-secondary w-100">
                             ← Kembali
                         </a>
 
@@ -109,4 +120,12 @@
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('has_card').addEventListener('change', function() {
+    let barcodeField = document.getElementById('barcode_input');
+    barcodeField.style.display = this.value === 'yes' ? 'block' : 'none';
+});
+</script>
+
 @endsection

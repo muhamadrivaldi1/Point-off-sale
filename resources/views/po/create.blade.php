@@ -426,13 +426,13 @@
 
     {{-- ===== PANEL KANAN ===== --}}
     <div class="panel-right">
-
+{{-- 
         <div class="preview-area">
             <div class="text-center">
                 <i class="bi bi-image fs-1 opacity-25 d-block mb-1"></i>
                 <span class="opacity-50">Preview Barang</span>
             </div>
-        </div>
+        </div> --}}
 
         {{-- Form tambah item --}}
         @if($po->status === 'draft')

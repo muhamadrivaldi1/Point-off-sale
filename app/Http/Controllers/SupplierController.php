@@ -7,15 +7,39 @@ use App\Models\Supplier;
 
 class SupplierController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $suppliers = Supplier::orderBy('kode_supplier','asc')->paginate(10);
+        $query = Supplier::query();
+
+        // Search jika ada input
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nama_supplier', 'like', '%' . $request->search . '%')
+                    ->orWhere('kode_supplier', 'like', '%' . $request->search . '%')
+                    ->orWhere('npwp', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        $suppliers = $query
+            ->orderBy('kode_supplier', 'asc')
+            ->paginate(10)
+            ->withQueryString(); // supaya search tetap saat pagination
+
         return view('suppliers.index', compact('suppliers'));
     }
 
     public function create()
     {
-        return view('suppliers.create');
+        $last = Supplier::latest('id')->first();
+
+        if (!$last) {
+            $kode_supplier = 'SUP001';
+        } else {
+            $number = (int) substr($last->kode_supplier, 3);
+            $kode_supplier = 'SUP' . str_pad($number + 1, 3, '0', STR_PAD_LEFT);
+        }
+
+        return view('suppliers.create', compact('kode_supplier'));
     }
 
     public function store(Request $request)

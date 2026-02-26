@@ -12,11 +12,21 @@ class Supplier extends Model
     protected $table = 'suppliers';
 
     protected $fillable = [
-        'kode_supplier',
-        'nama_supplier',
-        'alamat',
-        'telepon',
-    ];
+    'kode_supplier',
+    'nama_supplier',
+    'npwp',
+    'alamat',
+    'telepon',
+    'telepon2',
+    'fax',
+    'email',
+    'bank',
+    'nomor_rekening',
+    'cp',
+    'jabatan_cp',
+    'telepon_cp',
+    'nomor_seri_fp',
+];
 
     // Relasi ke purchase_orders
     public function purchaseOrders()

@@ -149,6 +149,7 @@ Route::middleware('auth')->group(function () {
     */
     Route::resource('members', MemberController::class);
     Route::post('/members/redeem', [MemberController::class, 'redeem'])->name('members.redeem');
+    Route::get('/members/{id}/barcode', [MemberController::class, 'printBarcode'])->name('members.printBarcode');
 
     /*
     |--------------------------------------------------------------------------
