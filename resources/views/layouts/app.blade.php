@@ -23,7 +23,6 @@
 @php
     $user = auth()->user();
     
-    // Pastikan permission dimuat ulang dari database agar sinkron
     if($user) {
         $user->loadMissing('directPermissions');
     }
@@ -39,15 +38,9 @@
         function hasAkses($permName) {
             $u = auth()->user();
             if (!$u) return false;
-            
-            // Owner selalu bisa melihat semua
             if ($u->role === 'owner') return true;
-            
-            // Kasir Full Akses juga bisa melihat semua
             if ($u->role === 'kasir' && $u->kasir_level === 'full') return true;
 
-            // Pengecekan Case-Insensitive untuk nama permission
-            // Disesuaikan dengan data DB Anda: akses_pos, akses_stok, dll.
             return $u->directPermissions->contains(function($p) use ($permName) {
                 return strtolower(trim($p->name)) === strtolower(trim($permName));
             });
@@ -145,7 +138,7 @@
     {{-- MAIN CONTENT --}}
     <div class="flex-grow-1 d-flex flex-column" style="min-width: 0;">
         <nav class="navbar navbar-expand navbar-light bg-white shadow-sm px-4">
-            <span class="navbar-brand mb-0 h1 fs-6 text-muted">Dashboard / @yield('title')</span>
+            {{-- BAGIAN Dashboard / @yield('title') SUDAH DIHAPUS --}}
             <ul class="navbar-nav ms-auto align-items-center">
                 <li class="nav-item me-3"><span class="badge bg-primary">{{ strtoupper($user->role) }}</span></li>
                 <li class="nav-item dropdown">
