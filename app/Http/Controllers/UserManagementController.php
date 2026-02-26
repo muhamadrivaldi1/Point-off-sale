@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Permission;
+use App\Models\CashierSession; // Pastikan ini di-import
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth; // Tambahkan ini agar Auth::id() dikenali
 
 class UserManagementController extends Controller
 {
@@ -42,11 +44,9 @@ class UserManagementController extends Controller
                 'kasir_level' => ($request->role === 'kasir') ? $request->kasir_level : null,
             ]);
 
-            // Sync Role
             $role = Role::firstOrCreate(['name' => $request->role]);
             $user->roles()->sync([$role->id]);
 
-            // Sync Permissions
             if ($request->role === 'owner' || $request->kasir_level === 'full') {
                 $allPermissions = Permission::pluck('id')->toArray();
                 $user->directPermissions()->sync($allPermissions);
@@ -58,6 +58,14 @@ class UserManagementController extends Controller
         return redirect()->route('users.index')->with('success', 'User berhasil ditambahkan');
     }
 
+    public function edit($id)
+    {
+        $user = User::with('directPermissions')->findOrFail($id);
+        $permissions = Permission::orderBy('name')->get();
+        
+        return view('users.edit', compact('user', 'permissions'));
+    }
+
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
@@ -67,7 +75,7 @@ class UserManagementController extends Controller
             'email'       => "required|email|unique:users,email,{$user->id}",
             'password'    => 'nullable|string|min:6',
             'role'        => 'required|in:owner,kasir',
-            'kasir_level' => 'required_if:role,kasir|nullable|in:full,custom', // Fix typo kasir_levela
+            'kasir_level' => 'required_if:role,kasir|nullable|in:full,custom',
         ]);
 
         DB::transaction(function () use ($request, $user) {
@@ -82,11 +90,9 @@ class UserManagementController extends Controller
             $user->kasir_level = ($request->role === 'kasir') ? $request->kasir_level : null;
             $user->save();
 
-            // Sync Role
             $role = Role::firstOrCreate(['name' => $request->role]);
             $user->roles()->sync([$role->id]);
 
-            // Sync Permissions
             if ($request->role === 'owner' || $request->kasir_level === 'full') {
                 $allPermissions = Permission::pluck('id')->toArray();
                 $user->directPermissions()->sync($allPermissions);
@@ -102,26 +108,29 @@ class UserManagementController extends Controller
     {
         $user = User::findOrFail($id);
 
-        // 1. Validasi agar Owner tidak bisa dihapus
+        // 1. Cek Owner
         if ($user->role === 'owner') {
             return back()->with('error', 'Owner tidak bisa dihapus');
         }
 
+        // 2. Cek Diri Sendiri (Menggunakan Auth Facade agar lebih aman)
+        if (Auth::id() == $user->id) {
+            return back()->with('error', 'Anda tidak bisa menghapus akun sendiri yang sedang digunakan');
+        }
+
         try {
             DB::transaction(function () use ($user) {
-                // 2. Lepas relasi di tabel pivot (Roles & Permissions)
+                // Lepas relasi pivot
                 $user->roles()->detach();
                 $user->directPermissions()->detach();
 
-                // 3. Hapus data di tabel yang menyebabkan error (Cashier Sessions)
-                // Anda bisa menghapus datanya atau mengeset user_id menjadi null
-                \App\Models\CashierSession::where('user_id', $user->id)->delete();
+                // Hapus data sesi kasir
+                CashierSession::where('user_id', $user->id)->delete();
 
-                // 4. Baru hapus user-nya
                 $user->delete();
             });
 
-            return back()->with('success', 'User dan data sesi berhasil dihapus permanen');
+            return back()->with('success', 'User berhasil dihapus');
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal menghapus user: ' . $e->getMessage());
         }
