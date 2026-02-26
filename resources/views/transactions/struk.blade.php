@@ -48,7 +48,6 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
     <div class="text-center">
         <strong>MINIMARKET MAJU JAYA</strong><br>
         Jl. Contoh No. 123<br>
-        Telp: 0851-8322-7741
     </div>
 
     <hr>
@@ -99,17 +98,12 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
 
     {{-- RINGKASAN PEMBAYARAN --}}
     @php
-        // Hitung diskon persen dari data transaksi
-        // $trx->discount = nilai rupiah diskon yang disimpan di DB
         $diskonRupiah = $trx->discount ?? 0;
-
-        // Hitung % diskon dari subtotal
         $diskonPersen = 0;
         if($subtotalBersih > 0 && $diskonRupiah > 0){
             $diskonPersen = round(($diskonRupiah / $subtotalBersih) * 100, 2);
         }
 
-        // Jika ada member dengan diskon, pakai diskon member sebagai acuan %
         if($trx->member && $trx->member->discount > 0 && $diskonRupiah > 0){
             $diskonPersen = $trx->member->discount;
         }
@@ -172,7 +166,9 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
         <small>
             BARANG YANG SUDAH DIBELI<br>
             TIDAK DAPAT DITUKAR / DIKEMBALIKAN
-        </small>
+        </small><br>
+        Telp: 0851-8322-7741<br>
+        Programmer
     </div>
 
 </div>
