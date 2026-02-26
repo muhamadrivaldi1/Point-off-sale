@@ -3,23 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <title>@yield('title','POS System')</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { background: #f4f6f9; overflow-x: hidden; }
-        .sidebar { width: 240px; min-height: 100vh; background: #212529; transition: all 0.3s; }
-        .sidebar a { color: #adb5bd; text-decoration: none; padding: 10px 15px; display: block; font-size: 0.9rem; }
-        .sidebar a:hover { background: #343a40; color: #fff; padding-left: 20px; transition: 0.2s; }
-        .sidebar .nav-header { font-size: 0.75rem; color: #6c757d; padding: 15px 15px 5px; text-transform: uppercase; font-weight: bold; }
-        .collapse-inner a { padding-left: 35px; font-size: 0.85rem; }
-        .content { padding: 20px; }
-        hr.sidebar-divider { margin: 10px 15px; border-color: rgba(255,255,255,0.1); }
-    </style>
-</head>
-<body>
 
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {{-- Bootstrap CSS --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    {{-- Bootstrap Icons --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    {{-- Chart.js --}}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { background: #f4f6f9; }
+        .sidebar {
+            width: 240px;
+            min-height: 100vh;
+            background: #212529;
+        }
+        .sidebar a {
+            color: #adb5bd;
+            text-decoration: none;
+            padding: 10px 15px;
+            display: block;
+        }
+        .sidebar a:hover,
+        .sidebar a.active {
+            background: #343a40;
+            color: #fff;
+        }
+        .content { padding: 20px; }
+        .card-chart { height: 220px; }
+    </style>
+
+    @stack('styles')
 @php
     $user = auth()->user();
     
