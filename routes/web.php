@@ -107,6 +107,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/pos/search-member', [PosController::class, 'searchMember']);
     Route::get('/pos/get-member', [PosController::class, 'getMember']);
     Route::post('/pos/cleanup-empty', [PosController::class, 'cleanupEmptyPending']);
+    Route::post('/pos/reopen-transaction', [PosController::class, 'reopenTransaction']);
 
 
     /*

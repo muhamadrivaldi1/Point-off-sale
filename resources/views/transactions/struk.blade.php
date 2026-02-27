@@ -38,8 +38,19 @@
     .d-print-none { display: none !important; }
 }
 .text-center { text-align: center; }
-.text-end { text-align: right; }
+.text-end    { text-align: right; }
 hr { border-top: 1px dashed #000; margin: 4px 0; }
+
+/* Kotak peringatan kredit */
+.kredit-box {
+    border: 1px solid #000;
+    padding: 4px 5px;
+    margin: 4px 0;
+    text-align: center;
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: .3px;
+}
 </style>
 
 <div class="struk">
@@ -53,6 +64,17 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
     <hr>
 
     {{-- INFO TRANSAKSI --}}
+    @php
+        $isKredit = $trx->payment_method === 'kredit' || $trx->status === 'kredit';
+
+        $metodeLable = match($trx->payment_method) {
+            'transfer' => 'Transfer Bank',
+            'qris'     => 'QRIS',
+            'kredit'   => 'KREDIT',
+            default    => 'Cash / Tunai',
+        };
+    @endphp
+
     <div>
         No&nbsp;&nbsp;: {{ $trx->trx_number }}<br>
         Tgl&nbsp;&nbsp;: {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
@@ -61,8 +83,9 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
             Member: {{ $trx->member->name }}<br>
             Level : {{ $trx->member->level }}<br>
         @endif
-        @if(!empty($trx->payment_method))
-            Bayar : {{ $trx->payment_method === 'transfer' ? 'Transfer' : 'Cash' }}<br>
+        Bayar : {{ $metodeLable }}<br>
+        @if($isKredit)
+            Status: *** BELUM LUNAS ***<br>
         @endif
     </div>
 
@@ -76,13 +99,14 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
     <table style="width:100%">
         @foreach($trx->items as $item)
             @php
-                $hargaSatuan = $item->price;
-                $qty         = $item->qty;
+                $hargaSatuan  = $item->price;
+                $qty          = $item->qty;
                 $subtotalItem = $hargaSatuan * $qty;
                 $subtotalBersih += $subtotalItem;
             @endphp
             <tr>
-                <td colspan="3">{{ $item->unit->product->name }}
+                <td colspan="3">
+                    {{ $item->unit->product->name }}
                     <small>({{ $item->unit->unit_name }})</small>
                 </td>
             </tr>
@@ -100,16 +124,19 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
     @php
         $diskonRupiah = $trx->discount ?? 0;
         $diskonPersen = 0;
-        if($subtotalBersih > 0 && $diskonRupiah > 0){
+        if ($subtotalBersih > 0 && $diskonRupiah > 0) {
             $diskonPersen = round(($diskonRupiah / $subtotalBersih) * 100, 2);
         }
-
-        if($trx->member && $trx->member->discount > 0 && $diskonRupiah > 0){
+        if ($trx->member && $trx->member->discount > 0 && $diskonRupiah > 0) {
             $diskonPersen = $trx->member->discount;
         }
 
         $totalBayar = $subtotalBersih - $diskonRupiah;
-        if($totalBayar < 0) $totalBayar = 0;
+        if ($totalBayar < 0) $totalBayar = 0;
+
+        $sudahBayar = $isKredit ? 0 : ($trx->paid ?? 0);
+        $kembalian  = $isKredit ? 0 : max($trx->change ?? 0, 0);
+        $sisaHutang = $isKredit ? $totalBayar : 0;
     @endphp
 
     <table style="width:100%">
@@ -122,11 +149,9 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
         <tr>
             <td>
                 Diskon
-                @if($diskonPersen > 0)
-                    ({{ $diskonPersen }}%)
-                @endif
+                @if($diskonPersen > 0)({{ $diskonPersen }}%)@endif
                 @if($trx->member && $trx->member->discount > 0)
-                    <small>[Member {{ $trx->member->level }}]</small>
+                    <small>[{{ $trx->member->level }}]</small>
                 @endif
             </td>
             <td class="text-end">-{{ number_format($diskonRupiah) }}</td>
@@ -134,22 +159,44 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
         @endif
 
         <tr>
-            <td><strong>Total Bayar</strong></td>
+            <td><strong>Total</strong></td>
             <td class="text-end"><strong>{{ number_format($totalBayar) }}</strong></td>
         </tr>
 
-        <tr>
-            <td>Bayar</td>
-            <td class="text-end">{{ number_format($trx->paid) }}</td>
-        </tr>
-
-        <tr>
-            <td>Kembali</td>
-            <td class="text-end">{{ number_format(max($trx->change, 0)) }}</td>
-        </tr>
+        @if($isKredit)
+            {{-- Kredit: tampilkan sisa hutang --}}
+            <tr>
+                <td>Dibayar</td>
+                <td class="text-end">{{ number_format(0) }}</td>
+            </tr>
+            <tr>
+                <td><strong>Sisa Hutang</strong></td>
+                <td class="text-end"><strong>{{ number_format($sisaHutang) }}</strong></td>
+            </tr>
+        @else
+            {{-- Bayar biasa --}}
+            <tr>
+                <td>Dibayar</td>
+                <td class="text-end">{{ number_format($sudahBayar) }}</td>
+            </tr>
+            <tr>
+                <td>Kembali</td>
+                <td class="text-end">{{ number_format($kembalian) }}</td>
+            </tr>
+        @endif
     </table>
 
-    @if($trx->member)
+    {{-- Kotak peringatan khusus kredit --}}
+    @if($isKredit)
+    <hr>
+    <div class="kredit-box">
+        *** NOTA KREDIT / HUTANG ***<br>
+        Harap dilunasi secepatnya<br>
+        Total: Rp {{ number_format($totalBayar) }}
+    </div>
+    @endif
+
+    @if($trx->member && !$isKredit)
     <hr>
     <div>
         Poin Didapat : +{{ floor($subtotalBersih / 10000) }} pts<br>
@@ -163,10 +210,18 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
     <div class="text-center">
         TERIMA KASIH 🙏<br>
         ATAS KUNJUNGAN ANDA<br>
-        <small>
-            BARANG YANG SUDAH DIBELI<br>
-            TIDAK DAPAT DITUKAR / DIKEMBALIKAN
-        </small><br>
+        @if($isKredit)
+            <small>
+                NOTA INI SEBAGAI BUKTI HUTANG<br>
+                HARAP DISIMPAN BAIK-BAIK
+            </small>
+        @else
+            <small>
+                BARANG YANG SUDAH DIBELI<br>
+                TIDAK DAPAT DITUKAR / DIKEMBALIKAN
+            </small>
+        @endif
+        <br>
         Telp: 0851-8322-7741<br>
         Programmer
     </div>
@@ -180,8 +235,7 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
 </div>
 
 <script>
-    // Auto print saat halaman dibuka
-    window.onload = function(){ window.print(); }
+    window.onload = function () { window.print(); }
 </script>
 
 @endsection

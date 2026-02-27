@@ -177,7 +177,7 @@ html, body {
 .modal-overlay.show { display: flex; }
 .modal-box {
     background: #fff; border-radius: 12px; padding: 22px 24px;
-    width: 400px; max-width: 95vw;
+    width: 420px; max-width: 95vw;
     box-shadow: 0 16px 48px rgba(0,0,0,.25); font-size: 13px;
     animation: modalIn .18s ease;
 }
@@ -222,6 +222,12 @@ html, body {
     position: absolute; right: 14px;
     font-size: 14px; font-weight: 800; color: #0d6efd;
 }
+/* Kredit: warna beda saat selected */
+.combo-item[data-method="kredit"].selected { background: #fff8e6; }
+.combo-item[data-method="kredit"].selected::after { color: #e67e00; }
+.combo-item[data-method="kredit"]:hover { background: #fff8e6; }
+.combo-item[data-method="kredit"]:focus { box-shadow: inset 0 0 0 2px #ffc069; }
+
 .combo-item-icon  { font-size: 22px; line-height: 1; }
 .combo-item-title { font-size: 13px; font-weight: 700; color: #222; }
 .combo-item-desc  { font-size: 10px; color: #999; margin-top: 1px; }
@@ -229,14 +235,15 @@ html, body {
 /* Peringatan non-cash */
 .payment-notice {
     display: none; gap: 8px; align-items: flex-start;
-    background: #fffbe6; border: 1px solid #ffe58f;
     border-radius: 7px; padding: 8px 11px;
-    font-size: 11px; color: #7a5400; margin-bottom: 12px;
+    font-size: 11px; margin-bottom: 12px;
 }
 .payment-notice.show { display: flex; }
+.payment-notice.notice-warning  { background: #fffbe6; border: 1px solid #ffe58f; color: #7a5400; }
+.payment-notice.notice-kredit   { background: #fff3e0; border: 1px solid #ffcc80; color: #7a3b00; }
 .payment-notice-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
 
-/* Input bayar */
+/* Input bayar — disembunyikan saat kredit */
 .modal-input-group       { margin-bottom: 10px; }
 .modal-input-group label { font-size: 11px; font-weight: 700; margin-bottom: 4px; display: block; color: #444; }
 .modal-pay-input {
@@ -245,6 +252,7 @@ html, body {
     transition: border-color .15s;
 }
 .modal-pay-input:focus { border-color: #86b7fe; outline: none; box-shadow: 0 0 0 3px rgba(13,110,253,.12); }
+.modal-pay-input:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; }
 
 /* Kembalian */
 .modal-kembalian-row {
@@ -254,6 +262,10 @@ html, body {
 }
 .modal-kembalian-row .label { font-size: 13px; font-weight: 700; color: #1a7336; }
 .modal-kembalian-row .value { font-size: 18px; font-weight: 800; color: #28a745; }
+/* Kredit — warna oranye */
+.modal-kembalian-row.kredit-mode { background: #fff3e0; border-color: #ffcc80; }
+.modal-kembalian-row.kredit-mode .label { color: #8a3d00; }
+.modal-kembalian-row.kredit-mode .value { font-size: 14px; color: #e67e00; }
 
 /* Tombol */
 .modal-actions        { display: flex; gap: 8px; }
@@ -266,6 +278,8 @@ html, body {
 .btn-confirm-pay        { background: #0d6efd; color: #fff; }
 .btn-confirm-pay:hover  { background: #0b5ed7; }
 .btn-confirm-pay:disabled { background: #9ab9f8; cursor: not-allowed; }
+.btn-confirm-pay.kredit-btn        { background: #e67e00; }
+.btn-confirm-pay.kredit-btn:hover  { background: #c46a00; }
 
 /* MISC */
 .form-control-xs { font-size: 12px; padding: 3px 7px; height: 28px; }
@@ -378,6 +392,8 @@ html, body {
                             <td>
                                 @if($t->status=='paid')
                                     <span class="badge bg-success" style="font-size:10px;">✓ Paid</span>
+                                @elseif($t->status=='kredit')
+                                    <span class="badge bg-warning text-dark" style="font-size:10px;">💳 Kredit</span>
                                 @else
                                     <span class="badge bg-warning text-dark" style="font-size:10px;">Pending</span>
                                 @endif
@@ -544,24 +560,33 @@ html, body {
                 </div>
             </div>
 
+            {{-- ★ BARU: Kredit --}}
+            <div class="combo-item" data-method="kredit" tabindex="0" onclick="selectMethod('kredit')">
+                <span class="combo-item-icon">📋</span>
+                <div>
+                    <div class="combo-item-title">Kredit / Hutang</div>
+                    <div class="combo-item-desc">Pembayaran ditangguhkan — catat sebagai piutang</div>
+                </div>
+            </div>
+
         </div>
 
-        {{-- Peringatan non-cash --}}
+        {{-- Peringatan / info metode --}}
         <div class="payment-notice" id="paymentNotice">
-            <span class="payment-notice-icon">⚠️</span>
+            <span class="payment-notice-icon" id="paymentNoticeIcon"></span>
             <span id="paymentNoticeText"></span>
         </div>
 
-        {{-- Input jumlah bayar --}}
-        <div class="modal-input-group">
+        {{-- Input jumlah bayar (disembunyikan saat Kredit) --}}
+        <div class="modal-input-group" id="paidInputGroup">
             <label for="modalPaid">Jumlah Bayar (Rp)</label>
             <input type="number" id="modalPaid" class="modal-pay-input"
                    placeholder="Masukkan jumlah bayar">
         </div>
 
-        {{-- Kembalian --}}
-        <div class="modal-kembalian-row">
-            <span class="label">Kembalian</span>
+        {{-- Kembalian / info kredit --}}
+        <div class="modal-kembalian-row" id="modalKembalianRow">
+            <span class="label" id="modalKembalianLabel">Kembalian</span>
             <span class="value" id="modalChangeText">Rp 0</span>
         </div>
 
@@ -724,7 +749,8 @@ document.getElementById('search').addEventListener('keyup', function (e) {
             items.forEach((p, i) => {
                 let sc = '';
                 (p.stocks || []).forEach(s => {
-                    const col = s > 0 ? '#155724' : '#721c24', bg = s > 0 ? '#d4edda' : '#f8d7da';
+                    // Stok 0 tampil abu-abu (bukan merah), karena tetap bisa ditambahkan
+                    const col = s > 0 ? '#155724' : '#666', bg = s > 0 ? '#d4edda' : '#e9ecef';
                     sc += `<td style="text-align:center;min-width:58px;"><span style="background:${bg};color:${col};padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;">${s}</span></td>`;
                 });
                 html += `<tr style="cursor:pointer;" data-unit-id="${p.id}" onclick="if(!isFromKeyboard) addFromSearch(${p.id})">
@@ -759,7 +785,6 @@ document.getElementById('search').addEventListener('blur', () => setTimeout(() =
 document.getElementById('modalPaid').addEventListener('keydown', e => {
     if (e.key === 'Enter')  { e.preventDefault(); confirmPay(); return; }
     if (e.key === 'Escape') { e.preventDefault(); closePaymentModal(); return; }
-    // Shift+Tab / ArrowUp dari input bayar → kembali ke combo item terakhir yang dipilih
     if ((e.key === 'ArrowUp') || (e.key === 'Tab' && e.shiftKey)) {
         e.preventDefault();
         const idx   = COMBO_METHODS.indexOf(selectedPaymentMethod);
@@ -770,23 +795,9 @@ document.getElementById('modalPaid').addEventListener('keydown', e => {
 
 // =============================================
 // KEYBOARD NAVIGASI COMBO LIST MODAL
-// ↑↓  → pindah metode bayar
-// Enter (di combo) → konfirmasi metode & pindah ke input bayar
-// Enter (di input bayar) → proses bayar
-// Esc  → tutup modal
 // =============================================
-const COMBO_METHODS = ['cash','transfer','qris'];
+const COMBO_METHODS = ['cash','transfer','qris','kredit'];
 
-function getComboIdx() {
-    return COMBO_METHODS.indexOf(selectedPaymentMethod);
-}
-
-function focusComboByIdx(idx) {
-    const items = document.querySelectorAll('.combo-item');
-    if (items[idx]) items[idx].focus();
-}
-
-// Keydown handler untuk setiap combo item
 document.querySelectorAll('.combo-item').forEach(function(item) {
     item.addEventListener('keydown', function(e) {
         const items = Array.from(document.querySelectorAll('.combo-item'));
@@ -807,15 +818,12 @@ document.querySelectorAll('.combo-item').forEach(function(item) {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             selectMethod(this.dataset.method);
-            // Pindah ke input bayar
-            setTimeout(() => {
-                const inp = document.getElementById('modalPaid');
-                inp.focus(); inp.select && inp.select();
-            }, 50);
-            return;
-        }
-        if (e.key === 'Tab') {
-            // Biarkan tab berjalan natural ke modalPaid
+            if (this.dataset.method !== 'kredit') {
+                setTimeout(() => {
+                    const inp = document.getElementById('modalPaid');
+                    inp.focus(); inp.select && inp.select();
+                }, 50);
+            }
             return;
         }
         if (e.key === 'Escape') {
@@ -824,6 +832,7 @@ document.querySelectorAll('.combo-item').forEach(function(item) {
         }
     });
 });
+
 window.addEventListener('load', () => { document.getElementById('barcode').focus(); highlightActive('barcode'); });
 
 // =============================================
@@ -1012,27 +1021,57 @@ function selectMethod(method) {
         el.classList.toggle('selected', el.dataset.method === method);
     });
 
-    // Tampilkan / sembunyikan notice
-    const notice     = document.getElementById('paymentNotice');
-    const noticeText = document.getElementById('paymentNoticeText');
+    const notice      = document.getElementById('paymentNotice');
+    const noticeText  = document.getElementById('paymentNoticeText');
+    const noticeIcon  = document.getElementById('paymentNoticeIcon');
+    const paidGroup   = document.getElementById('paidInputGroup');
+    const kembalianRow = document.getElementById('modalKembalianRow');
+    const kembalianLabel = document.getElementById('modalKembalianLabel');
+    const modalPaid   = document.getElementById('modalPaid');
+    const confirmBtn  = document.getElementById('btnConfirmPay');
+    const total       = Number(document.getElementById('totalText').dataset.total);
 
-    const notices = {
-        transfer : 'Pastikan bukti <strong>transfer bank</strong> sudah diterima sebelum menyelesaikan transaksi.',
-        qris     : 'Pastikan notifikasi <strong>QRIS</strong> diterima terlebih dahulu sebelum proses bayar.',
-    };
+    // Reset semua state dulu
+    notice.className = 'payment-notice';
+    paidGroup.style.display = '';
+    modalPaid.disabled = false;
+    kembalianRow.className = 'modal-kembalian-row';
+    kembalianLabel.textContent = 'Kembalian';
+    confirmBtn.className = 'btn-confirm-pay';
+    confirmBtn.textContent = '✓ Proses Bayar';
 
-    if (notices[method]) {
-        noticeText.innerHTML = notices[method];
-        notice.querySelector('.payment-notice-icon').textContent = method === 'qris' ? '📱' : '⚠️';
-        notice.classList.add('show');
+    if (method === 'kredit') {
+        // === KREDIT: sembunyikan input bayar, tampilkan info khusus ===
+        noticeIcon.textContent = '📋';
+        noticeText.innerHTML   = 'Transaksi akan dicatat sebagai <strong>piutang / kredit</strong>. Stok tetap dikurangi. Pembayaran dapat dilakukan kemudian.';
+        notice.classList.add('show', 'notice-kredit');
+
+        paidGroup.style.display = 'none'; // sembunyikan input bayar
+        modalPaid.value         = 0;
+
+        kembalianRow.classList.add('kredit-mode');
+        kembalianLabel.textContent = 'Status';
+        document.getElementById('modalChangeText').textContent = '⏳ Belum Dibayar';
+
+        confirmBtn.classList.add('kredit-btn');
+        confirmBtn.textContent = '📋 Simpan Kredit';
+
+    } else if (method === 'transfer') {
+        noticeIcon.textContent = '⚠️';
+        noticeText.innerHTML   = 'Pastikan bukti <strong>transfer bank</strong> sudah diterima sebelum menyelesaikan transaksi.';
+        notice.classList.add('show', 'notice-warning');
+        modalPaid.value = total;
+        updateModalKembalian();
+
+    } else if (method === 'qris') {
+        noticeIcon.textContent = '📱';
+        noticeText.innerHTML   = 'Pastikan notifikasi <strong>QRIS</strong> diterima terlebih dahulu sebelum proses bayar.';
+        notice.classList.add('show', 'notice-warning');
+        modalPaid.value = total;
+        updateModalKembalian();
+
     } else {
-        notice.classList.remove('show');
-    }
-
-    // Non-cash → auto-fill jumlah bayar = total (sudah lunas)
-    if (method !== 'cash') {
-        const total = Number(document.getElementById('totalText').dataset.total);
-        document.getElementById('modalPaid').value = total;
+        // cash — bersih, tidak ada notice
         updateModalKembalian();
     }
 }
@@ -1047,13 +1086,11 @@ function openPaymentModal() {
     document.getElementById('modalTotalAmount').innerText = 'Rp ' + total.toLocaleString('id-ID');
     document.getElementById('modalPaid').value            = paidVal || '';
 
-    // Reset ke cash
     selectMethod('cash');
     updateModalKembalian();
 
     document.getElementById('paymentModal').classList.add('show');
     setTimeout(() => {
-        // Fokus ke combo item pertama (Cash), bukan langsung ke input bayar
         const firstCombo = document.querySelector('.combo-item');
         if (firstCombo) firstCombo.focus();
     }, 150);
@@ -1066,6 +1103,7 @@ function closePaymentModal() {
 
 document.getElementById('modalPaid').addEventListener('input', updateModalKembalian);
 function updateModalKembalian() {
+    if (selectedPaymentMethod === 'kredit') return; // jangan update saat kredit
     const total = Number(document.getElementById('totalText').dataset.total);
     const bayar = Number(document.getElementById('modalPaid').value || 0);
     document.getElementById('modalChangeText').innerText = 'Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID');
@@ -1079,10 +1117,13 @@ document.getElementById('btnPay').addEventListener('click', openPaymentModal);
 // =============================================
 async function confirmPay() {
     const total         = Number(document.getElementById('totalText').dataset.total);
-    const bayar         = Number(document.getElementById('modalPaid').value || 0);
-    const memberId      = document.getElementById('member').dataset.memberId || null;
     const paymentMethod = selectedPaymentMethod;
-    const strukWindow   = window.open('', '_blank');
+
+    // Kredit: langsung proses tanpa input bayar
+    const bayar = paymentMethod === 'kredit' ? 0 : Number(document.getElementById('modalPaid').value || 0);
+
+    const memberId    = document.getElementById('member').dataset.memberId || null;
+    const strukWindow = window.open('', '_blank');
 
     try {
         const res = await fetch('/pos/pay', { method:'POST', headers:jsonHeaders,
@@ -1091,11 +1132,17 @@ async function confirmPay() {
         const r = await res.json();
 
         if (r.success) {
-            if (r.paid_off) {
+            if (r.paid_off || r.is_kredit) {
                 closePaymentModal();
-                const labels = { cash:'💵 Cash / Tunai', transfer:'🏦 Transfer Bank', qris:'📱 QRIS' };
-                alert('✅ Transaksi lunas!\nMetode   : ' + (labels[paymentMethod] || paymentMethod) +
-                      '\nKembalian: Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID'));
+
+                if (r.is_kredit) {
+                    alert('📋 Transaksi disimpan sebagai KREDIT!\nTotal tagihan: Rp ' + total.toLocaleString('id-ID'));
+                } else {
+                    const labels = { cash:'💵 Cash / Tunai', transfer:'🏦 Transfer Bank', qris:'📱 QRIS' };
+                    alert('✅ Transaksi lunas!\nMetode   : ' + (labels[paymentMethod] || paymentMethod) +
+                          '\nKembalian: Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID'));
+                }
+
                 strukWindow.location.href = `/transactions/${r.trx_id}/struk`;
                 setTimeout(() => { window.location.href = '/pos?new_transaction=1'; }, 500);
             } else {
@@ -1158,9 +1205,7 @@ function openPending(trxId) {
 }
 
 // =============================================
-// BUKA KEMBALI TRANSAKSI PAID
-// Minta password → reopen di server (stok dikembalikan,
-// status → pending) → redirect ke POS dengan trx_id
+// BUKA KEMBALI TRANSAKSI PAID / KREDIT
 // =============================================
 function openPaidTransaction(trxId) {
     if (!trxId) return;
@@ -1168,7 +1213,6 @@ function openPaidTransaction(trxId) {
     const pwd = prompt("🔐 Masukkan password owner untuk membuka kembali transaksi ini:");
     if (!pwd) return;
 
-    // Tampilkan loading di kursor
     document.body.style.cursor = 'wait';
 
     fetch('/pos/reopen-transaction', {
@@ -1183,7 +1227,6 @@ function openPaidTransaction(trxId) {
             alert("❌ " + (r.message || "Gagal membuka transaksi"));
             return;
         }
-        // Sukses → redirect ke POS dengan transaksi yang sudah terbuka
         window.location.href = `/pos?trx_id=${r.trx_id}`;
     })
     .catch(err => {
