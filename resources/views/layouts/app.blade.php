@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>@yield('title','POS System')</title>
+
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     {{-- Bootstrap CSS --}}
@@ -36,177 +37,277 @@
         .card-chart { height: 220px; }
     </style>
 
+    @stack('styles')
+</head>
+<body>
+
+{{-- ================= GLOBAL USER + SESSION + PERMISSION ================= --}}
 @php
     $user = auth()->user();
-    
-    if($user) {
-        $user->loadMissing('directPermissions');
+
+    // Load permission sekali saja (hemat query & anti error)
+    if ($user && method_exists($user, 'directPermissions')) {
+        try {
+            $user->loadMissing('directPermissions');
+        } catch (\Exception $e) {}
     }
 
+    // Cek sesi kasir aktif
     $openSession = null;
-    if($user && $user->role === 'kasir') {
-        $openSession = \App\Models\CashierSession::where('user_id', $user->id)
-            ->where('status', 'open')
-            ->first();
+    if ($user && $user->role === 'kasir') {
+        try {
+            $openSession = \App\Models\CashierSession::where('user_id', $user->id)
+                ->where('status', 'open')
+                ->first();
+        } catch (\Exception $e) {
+            $openSession = null;
+        }
     }
 
+    // Helper akses menu
     if (!function_exists('hasAkses')) {
+
         function hasAkses($permName) {
+
             $u = auth()->user();
             if (!$u) return false;
+
+            // Owner = full akses
             if ($u->role === 'owner') return true;
+
+            // Kasir Full = full akses
             if ($u->role === 'kasir' && $u->kasir_level === 'full') return true;
 
-            return $u->directPermissions->contains(function($p) use ($permName) {
+            // Kalau tidak punya relasi permission → tolak
+            if (!method_exists($u, 'directPermissions')) return false;
+
+            // Load kalau belum
+            if (!$u->relationLoaded('directPermissions')) {
+                try {
+                    $u->load('directPermissions');
+                } catch (\Exception $e) {
+                    return false;
+                }
+            }
+
+            // Cek permission
+            return $u->directPermissions->contains(function ($p) use ($permName) {
                 return strtolower(trim($p->name)) === strtolower(trim($permName));
             });
         }
     }
 @endphp
-
-</head>
-<body>
-
+{{-- ====================================================================== --}}
 <div class="d-flex">
 
     {{-- SIDEBAR --}}
-    <div class="sidebar shadow">
-        <div class="text-white text-center py-4 fw-bold border-bottom">
-            <i class="bi bi-shop me-2"></i> POS SYSTEM
+    <div class="sidebar">
+        <div class="text-white text-center py-3 fw-bold border-bottom">
+            <i class="bi bi-shop"></i> POS SYSTEM
         </div>
 
-        <div class="py-2">
-            <a href="/dashboard"><i class="bi bi-speedometer2 me-2"></i> Dashboard</a>
-            
-            <hr class="sidebar-divider">
+        {{-- COMMON --}}
+        <a href="/dashboard">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
 
-            {{-- KASIR --}}
-            @if(hasAkses('akses_pos') || hasAkses('akses_transaksi'))
-            <div class="nav-header">Kasir</div>
-            @if(hasAkses('akses_pos')) 
-                <a href="/pos"><i class="bi bi-cash-stack me-2"></i> POS / Kasir</a> 
-            @endif
-            @if(hasAkses('akses_transaksi')) 
-                <a href="/transactions"><i class="bi bi-receipt me-2"></i> Transaksi</a> 
-            @endif
-            @endif
+        {{-- ================= KASIR ================= --}}
+        @if(auth()->check() && auth()->user()->role === 'kasir')
 
-            {{-- MASTER DATA --}}
-            @php
-                $showMaster = 
-                    hasAkses('akses_produk') || 
-                    hasAkses('akses_supplier') || 
-                    hasAkses('akses_member') || 
-                    hasAkses('kelola_user') ||
-                    hasAkses('akses_gudang'); // 🔥 TAMBAHAN
-            @endphp
-
-            @if($showMaster)
-            <div class="nav-header">Master Data</div>
-
-            <a class="d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#menuMaster">
-                <span><i class="bi bi-folder me-2"></i> Database</span>
-                <i class="bi bi-chevron-down small"></i>
+            <a href="/pos">
+                <i class="bi bi-cash-stack"></i> POS / Kasir
             </a>
 
-            <div class="collapse show ps-2" id="menuMaster">
-                <div class="collapse-inner">
-
-                    @if(hasAkses('akses_produk'))
-                        <a href="/products"><i class="bi bi-box-seam me-2"></i> Produk</a>
-                    @endif
-
-                    @if(hasAkses('akses_supplier'))
-                        <a href="/suppliers"><i class="bi bi-truck me-2"></i> Supplier</a>
-                    @endif
-
-                    @if(hasAkses('akses_member'))
-                        <a href="/members"><i class="bi bi-people me-2"></i> Member</a>
-                    @endif
-
-                    {{-- 🔥 GUDANG MASUK --}}
-                    @if(hasAkses('akses_gudang'))
-                        <a href="{{ route('warehouses.index') }}">
-                            <i class="bi bi-building me-2"></i> Gudang
-                        </a>
-                    @endif
-
-                    @if(hasAkses('kelola_user'))
-                        <a href="/users"><i class="bi bi-people-fill me-2"></i> Kelola User</a>
-                    @endif
-
-                </div>
-            </div>
-            @endif
-
-            {{-- OPERASIONAL --}}
-            @php
-                $showOps = hasAkses('akses_stok') || hasAkses('akses_pembelian') || hasAkses('akses_sesi_kasir') || hasAkses('akses_retur');
-            @endphp
-
-            @if($showOps)
-            <div class="nav-header">Operasional</div>
-
-            <a class="d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#menuOps">
-                <span><i class="bi bi-gear me-2"></i> Manajemen</span>
-                <i class="bi bi-chevron-down small"></i>
+            <a href="/transactions">
+                <i class="bi bi-receipt"></i> Transaksi
             </a>
 
-            <div class="collapse show ps-2" id="menuOps">
-                <div class="collapse-inner">
-                    @if(hasAkses('akses_stok')) <a href="/stocks">Stok</a> @endif
-                    @if(hasAkses('akses_pembelian')) <a href="{{ route('po.index') }}">Pembelian</a> @endif
-                    @if(hasAkses('akses_sesi_kasir')) <a href="{{ route('cashier.sessions') }}">Sesi Kasir</a> @endif
-                    @if(hasAkses('akses_retur')) <a href="/returns">Retur</a> @endif
-                </div>
-            </div>
-            @endif
+            <a href="{{ route('cashier.sessions') }}">
+                <i class="bi bi-table"></i> Sesi Kasir
+            </a>
 
-            {{-- LAPORAN --}}
-            @if(hasAkses('akses_laporan'))
-            <div class="nav-header">Laporan</div>
-            <a href="/reports/sales"><i class="bi bi-graph-up me-2"></i> Penjualan</a>
-            <a href="/reports/stock"><i class="bi bi-bar-chart me-2"></i> Stok</a>
-            @endif
+            <a href="/returns">
+                <i class="bi bi-arrow-counterclockwise"></i> Retur Barang
+            </a>
+           <hr class="text-white" style="border-width: 3px; border-color: white;">
+           
+            {{-- <a href="/members">
+                <i class="bi bi-people"></i> Member
+            </a> --}}
 
-        </div>
+          @if($openSession)
+            <form action="{{ route('cashier.close') }}" method="POST" class="px-3">
+                @csrf
+                <button type="submit" class="btn btn-link text-warning p-0">
+                    <i class="bi bi-door-closed"></i> Tutup Sesi Kasir
+                </button>
+            </form>
+        @else
+            <a href="{{ route('cashier.open.form') }}" class="text-success">
+                <i class="bi bi-door-open"></i> Buka Sesi Kasir
+            </a>
+        @endif
+        @endif
+
+        {{-- ================= OWNER ================= --}}
+       @if(auth()->check() && auth()->user()->role === 'owner')
+
+    <a href="/pos">
+        <i class="bi bi-cash-stack"></i> POS / Kasir
+    </a>
+
+    {{-- ================= DATA MASTER DROPDOWN ================= --}}
+    <a class="d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse"
+       href="#menuMaster"
+       role="button"
+       aria-expanded="false"
+       aria-controls="menuMaster">
+        <span><i class="bi bi-folder"></i> Data Master</span>
+        <i class="bi bi-chevron-down"></i>
+    </a>
+
+    <div class="collapse ps-3" id="menuMaster">
+
+        <a href="/products">
+            <i class="bi bi-box-seam"></i> Produk
+        </a>
+
+        <a href="/suppliers">
+            <i class="bi bi-truck"></i> Supplier
+        </a>
+
+        <a href="/members">
+            <i class="bi bi-people"></i> Member
+        </a>
+
+        <a href="/master/harga">
+            <i class="bi bi-tags"></i> Harga
+        </a>
+
+        <a href="{{ route('warehouses.index') }}">
+            <i class="bi bi-building"></i> Gudang
+        </a>
+
+       @if(auth()->user()->role === 'owner')
+    <a href="/users">
+        <i class="bi bi-people-fill"></i> Kelola User
+    </a>
+@endif
+{{-- oke --}}
+
+    </div>
+
+    {{-- ================= OPERASIONAL ================= --}}
+    <a class="d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse"
+       href="#menuOperasional"
+       role="button">
+        <span><i class="bi bi-gear"></i> Operasional</span>
+        <i class="bi bi-chevron-down"></i>
+    </a>
+
+    <div class="collapse ps-3" id="menuOperasional">
+
+        <a href="/stocks">
+            <i class="bi bi-archive"></i> Stok
+        </a>
+
+        <a href="/transactions">
+            <i class="bi bi-receipt"></i> Transaksi
+        </a>
+
+        <a href="/returns">
+            <i class="bi bi-arrow-counterclockwise"></i> Retur Barang
+        </a>
+
+        <a href="{{ route('po.index') }}">
+            <i class="bi bi-cart-fill"></i> Pembelian
+        </a>
+
+         <a href="{{ route('cashier.sessions') }}">
+                <i class="bi bi-table"></i> Sesi Kasir
+        </a>
+
+    </div>
+
+    {{-- ================= LAPORAN ================= --}}
+    <a class="d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse"
+       href="#menuLaporan"
+       role="button">
+        <span><i class="bi bi-graph-up"></i> Laporan</span>
+        <i class="bi bi-chevron-down"></i>
+    </a>
+
+    <div class="collapse ps-3" id="menuLaporan">
+
+        <a href="/reports/sales">
+            <i class="bi bi-graph-up"></i> Penjualan
+        </a>
+
+        <a href="/reports/stock">
+            <i class="bi bi-bar-chart"></i> Stok
+        </a>
+
+    </div>
+
+@endif
+
     </div>
 
     {{-- MAIN --}}
-    <div class="flex-grow-1 d-flex flex-column">
+    <div class="flex-grow-1">
 
-        <nav class="navbar navbar-expand navbar-light bg-white shadow-sm px-4">
-            <ul class="navbar-nav ms-auto align-items-center">
-                <li class="nav-item me-3">
-                    <span class="badge bg-primary">{{ strtoupper($user->role) }}</span>
-                </li>
+        {{-- TOPBAR --}}
+        <nav class="navbar navbar-light bg-white shadow-sm px-4 d-flex justify-content-between">
+    <span class="navbar-text">
+        Login sebagai:
+        <strong>{{ auth()->user()->name }}</strong>
+        <span class="badge bg-secondary ms-2">
+            {{ strtoupper(auth()->user()->role) }}
+        </span>
+    </span>
 
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
-                        <span class="fw-bold small me-2">{{ $user->name }}</span>
-                        <i class="bi bi-person-circle fs-4"></i>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
-                        <li><a class="dropdown-item" href="/profile">Profil</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="dropdown-item text-danger">Keluar</button>
-                            </form>
-                        </li>
-                    </ul>
-                </li>
-            </ul>
-        </nav>
+    {{-- USER DROPDOWN --}}
+    <div class="dropdown">
+        <button
+            class="btn btn-sm btn-light dropdown-toggle"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+        >
+            <i class="bi bi-person-circle fs-5"></i>
+        </button>
 
-        <div class="content flex-grow-1">
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li>
+                <a class="dropdown-item" href="/profile">
+                    <i class="bi bi-person me-2"></i> Profil
+                </a>
+            </li>
+
+            <li><hr class="dropdown-divider"></li>
+
+            <li>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="dropdown-item text-danger">
+                        <i class="bi bi-box-arrow-right me-2"></i> Logout
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </div>
+</nav>
+        {{-- CONTENT --}}
+        <div class="content">
             @yield('content')
         </div>
-
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+@stack('scripts')
 </body>
 </html>
