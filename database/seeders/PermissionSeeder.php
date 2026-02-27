@@ -20,7 +20,8 @@ class PermissionSeeder extends Seeder
             'akses_pembelian', 
             'akses_sesi_kasir', 
             'akses_retur', 
-            'akses_laporan'
+            'akses_laporan',
+            'akses_gudang'
         ];
 
         foreach ($permissions as $perm) {
