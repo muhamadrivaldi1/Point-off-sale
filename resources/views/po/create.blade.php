@@ -70,13 +70,6 @@
         box-shadow: 0 0 0 2px rgba(13,110,253,.15);
     }
 
-    /* Highlight kredit */
-    .kredit-highlight {
-        border-color: #fd7e14 !important;
-        background: #fff8f2 !important;
-        box-shadow: 0 0 0 2px rgba(253,126,20,.18) !important;
-    }
-
     /* Badge nomor berubah */
     .nomor-badge {
         display: inline-block;
@@ -243,16 +236,6 @@
         border-radius: 3px;
         font-size: 0.72rem;
     }
-
-    /* Hint teks di bawah field jk_waktu dan jatuh tempo saat kredit */
-    .kredit-hint {
-        display: none;
-        font-size: 0.68rem;
-        color: #fd7e14;
-        margin-top: 1px;
-        grid-column: 2;
-    }
-    .kredit-hint.show { display: block; }
 </style>
 @endpush
 
@@ -285,6 +268,7 @@
                     Edit PO
                 @endif
             </span>
+            {{-- Badge status --}}
             <span class="badge
                 @if($po->status === 'draft') bg-secondary
                 @elseif($po->status === 'approved') bg-success
@@ -297,10 +281,13 @@
 
         <div class="po-form-body">
 
+            {{-- Form header: simpan ke store (baru) atau updateHeader (edit) --}}
             @if($po->supplier_id)
+                {{-- PO sudah punya supplier = sudah pernah disimpan → updateHeader --}}
                 <form method="POST" action="{{ route('po.updateHeader', $po->id) }}" id="form-header">
                 @csrf
             @else
+                {{-- PO baru (draft kosong) → store --}}
                 <form method="POST" action="{{ route('po.store') }}" id="form-header">
                 @csrf
             @endif
@@ -319,6 +306,7 @@
                 </select>
             </div>
 
+            {{-- NOMOR TRANSAKSI (auto-update prefix via JS) --}}
             <div class="field-row">
                 <label>
                     Nomor Transaksi
@@ -333,7 +321,7 @@
 
             <div class="field-row">
                 <label>Tanggal Transaksi</label>
-                <input type="date" name="tanggal" id="field-tanggal" class="form-control"
+                <input type="date" name="tanggal" class="form-control"
                        value="{{ $po->tanggal?->format('Y-m-d') ?? date('Y-m-d') }}"
                        {{ $po->status !== 'draft' ? 'readonly' : '' }} required>
             </div>
@@ -359,6 +347,7 @@
                 </select>
             </div>
 
+            {{-- Field-field yang disabled saat jenis = PO --}}
             <div class="field-row">
                 <label>Nomor Faktur</label>
                 <input type="text" name="nomor_faktur" id="field-nomor-faktur"
@@ -375,7 +364,6 @@
                        {{ $po->status !== 'draft' ? 'readonly' : '' }}>
             </div>
 
-            {{-- ===== JENIS PEMBAYARAN ===== --}}
             <div class="field-row">
                 <label>Jenis Pembayaran</label>
                 <select name="jenis_pembayaran" id="field-jenis-pembayaran"
@@ -386,28 +374,20 @@
                 </select>
             </div>
 
-            {{-- ===== JK. WAKTU ===== --}}
-            <div class="field-row" id="row-jk-waktu">
-                <label>
-                    Jk. Waktu (hari)
-                    <span id="kredit-badge" style="display:none;font-size:0.65rem;background:#fd7e14;color:#fff;padding:1px 5px;border-radius:3px;margin-left:3px;">Kredit</span>
-                </label>
+            <div class="field-row">
+                <label>Jk. Waktu (hari)</label>
                 <input type="number" name="jk_waktu" id="field-jk-waktu"
                        class="form-control"
                        value="{{ $po->jk_waktu ?? 0 }}" min="0"
-                       {{ $po->status !== 'draft' ? 'readonly' : '' }}
-                       placeholder="Isi hari kredit...">
-                <span class="kredit-hint" id="hint-jk-waktu">⬆ Isi jangka waktu kredit (hari)</span>
+                       {{ $po->status !== 'draft' ? 'readonly' : '' }}>
             </div>
 
-            {{-- ===== JATUH TEMPO ===== --}}
             <div class="field-row">
                 <label>Jatuh Tempo</label>
                 <input type="date" name="tanggal_jatuh_tempo" id="field-tanggal-jatuh-tempo"
                        class="form-control"
                        value="{{ $po->tanggal_jatuh_tempo?->format('Y-m-d') }}"
                        {{ $po->status !== 'draft' ? 'readonly' : '' }}>
-                <span class="kredit-hint" id="hint-jatuh-tempo">⬆ Otomatis dihitung dari jangka waktu</span>
             </div>
 
             <div class="field-row">
@@ -454,6 +434,7 @@
             </div>
         </div>
 
+        {{-- Form tambah item --}}
         @if($po->status === 'draft')
         <div class="item-form-area">
             <form method="POST" action="{{ route('po.addItem', $po->id) }}" id="form-item">
@@ -522,6 +503,7 @@
         </div>
         @endif
 
+        {{-- Tabel detail item --}}
         <div class="detail-items-wrap">
             <div style="overflow-y:auto;flex:1">
                 <table class="table table-sm table-hover mb-0">
@@ -690,161 +672,146 @@
 
     </div>{{-- end panel-right --}}
 
-</div>
+</div>{{-- end po-wrapper --}}
 
 @endsection
 
 @push('scripts')
 <script>
-// ============================================================
-// ELEMEN
-// ============================================================
+
+// =============================
+// ELEMENT
+// =============================
 const jenisSelect       = document.getElementById('jenis_transaksi');
 const poNumberInput     = document.getElementById('po_number');
 const nomorBadge        = document.getElementById('nomor-badge');
 const jenisBayarSelect  = document.getElementById('field-jenis-pembayaran');
 const jkWaktuInput      = document.getElementById('field-jk-waktu');
 const jatuhTempoInput   = document.getElementById('field-tanggal-jatuh-tempo');
-const tanggalInput      = document.getElementById('field-tanggal');
-const kreditBadge       = document.getElementById('kredit-badge');
-const hintJkWaktu       = document.getElementById('hint-jk-waktu');
-const hintJatuhTempo    = document.getElementById('hint-jatuh-tempo');
 
-// Field yang di-disable saat jenis = PO
-const fieldsDisabledWhenPO = [
+// Field yang harus hilang saat PO
+const advancedFields = [
     'field-nomor-faktur',
     'field-tanggal-faktur',
     'field-jenis-pembayaran',
     'field-jk-waktu',
     'field-tanggal-jatuh-tempo',
     'field-ppn',
-    'field-bulan-lapor',
+    'field-bulan-lapor'
 ];
 
-// ============================================================
-// GANTI PREFIX NOMOR saat jenis_transaksi berubah
-// ============================================================
+// =============================
+// FIX NOMOR PREFIX
+// =============================
 function updateNomor(jenis) {
-    const currentVal = poNumberInput.value;
-    const parts      = currentVal.split('-');
-    const angka      = parts.slice(1).join('-');
+
+    let currentVal = poNumberInput.value;
+
+    if (!currentVal || currentVal.indexOf('-') === -1) {
+        const now = new Date();
+        const timestamp =
+            now.getFullYear().toString() +
+            (now.getMonth()+1).toString().padStart(2,'0') +
+            now.getDate().toString().padStart(2,'0') +
+            now.getHours().toString().padStart(2,'0') +
+            now.getMinutes().toString().padStart(2,'0') +
+            now.getSeconds().toString().padStart(2,'0');
+
+        currentVal = 'PR-' + timestamp;
+    }
+
+    const angka = currentVal.split('-').slice(1).join('-');
 
     if (jenis === 'PO') {
-        poNumberInput.value    = 'PO-' + angka;
+        poNumberInput.value = 'PO-' + angka;
         nomorBadge.textContent = 'PO';
         nomorBadge.className   = 'nomor-badge po';
     } else {
-        poNumberInput.value    = 'PR-' + angka;
+        poNumberInput.value = 'PR-' + angka;
         nomorBadge.textContent = 'PR';
         nomorBadge.className   = 'nomor-badge pr';
     }
 }
 
-function toggleFields(jenis) {
+// =============================
+// TOGGLE FIELD PO MODE
+// =============================
+function togglePOFields(jenis) {
+
     const isPO = jenis === 'PO';
-    fieldsDisabledWhenPO.forEach(id => {
+
+    advancedFields.forEach(id => {
+
         const el = document.getElementById(id);
-        if (el) {
-            el.disabled      = isPO;
-            el.style.opacity = isPO ? '0.45' : '1';
+        if (!el) return;
+
+        const wrapper = el.closest('.field-row');
+
+        if (isPO) {
+            el.disabled = true;
+            if(wrapper) wrapper.style.display = 'none';
+        } else {
+            el.disabled = false;
+            if(wrapper) wrapper.style.display = '';
         }
+
     });
+
 }
 
+// =============================
+// AUTO JATUH TEMPO (KREDIT)
+// =============================
+function autoJatuhTempo() {
+
+    if (!jenisBayarSelect || !jkWaktuInput || !jatuhTempoInput) return;
+
+    if (jenisBayarSelect.value !== 'Kredit') {
+        jatuhTempoInput.value = '';
+        return;
+    }
+
+    const hari = parseInt(jkWaktuInput.value);
+
+    if (isNaN(hari) || hari <= 0) return;
+
+    const tanggal = new Date();
+    tanggal.setDate(tanggal.getDate() + hari);
+
+    jatuhTempoInput.value = tanggal.toISOString().split('T')[0];
+}
+
+// =============================
+// EVENT
+// =============================
 jenisSelect.addEventListener('change', function () {
     updateNomor(this.value);
-    toggleFields(this.value);
+    togglePOFields(this.value);
 });
 
-toggleFields(jenisSelect.value);
-
-// ============================================================
-// HITUNG JATUH TEMPO dari tanggal transaksi + jk_waktu
-// ============================================================
-function hitungJatuhTempo() {
-    const hari = parseInt(jkWaktuInput.value);
-    if (isNaN(hari) || hari < 0) return;
-
-    // Pakai tanggal transaksi sebagai basis, bukan hari ini
-    const baseTanggal = tanggalInput.value
-        ? new Date(tanggalInput.value)
-        : new Date();
-
-    baseTanggal.setDate(baseTanggal.getDate() + hari);
-    jatuhTempoInput.value = baseTanggal.toISOString().split('T')[0];
-}
-
-// ============================================================
-// HANDLER JENIS PEMBAYARAN
-// Saat pilih "Kredit":
-//   1. Highlight field jk_waktu & jatuh_tempo
-//   2. Tampilkan hint dan badge
-//   3. Auto-fokus ke jk_waktu
-//   4. Jika jk_waktu masih 0, kosongkan supaya user isi sendiri
-// Saat pilih selain Kredit:
-//   1. Hapus highlight & hint
-//   2. Reset jk_waktu = 0, kosongkan jatuh_tempo
-// ============================================================
-function onJenisBayarChange(val) {
-    const isKredit = val === 'Kredit';
-
-    // Toggle badge & hint
-    kreditBadge.style.display = isKredit ? 'inline' : 'none';
-    hintJkWaktu.classList.toggle('show', isKredit);
-    hintJatuhTempo.classList.toggle('show', isKredit);
-
-    if (isKredit) {
-        // Highlight field
-        jkWaktuInput.classList.add('kredit-highlight');
-        jatuhTempoInput.classList.add('kredit-highlight');
-
-        // Kosongkan jk_waktu jika masih 0 agar user sadar harus isi
-        if (!jkWaktuInput.value || jkWaktuInput.value === '0') {
-            jkWaktuInput.value = '';
-        }
-
-        // Fokus ke jk_waktu setelah render
-        setTimeout(() => {
-            jkWaktuInput.focus();
-            jkWaktuInput.select();
-        }, 50);
-
-    } else {
-        // Bersihkan highlight
-        jkWaktuInput.classList.remove('kredit-highlight');
-        jatuhTempoInput.classList.remove('kredit-highlight');
-
-        // Reset nilai
-        jkWaktuInput.value    = '0';
-        jatuhTempoInput.value = '';
-    }
-}
-
-// Listener perubahan jenis bayar
 if (jenisBayarSelect) {
-    jenisBayarSelect.addEventListener('change', function () {
-        onJenisBayarChange(this.value);
-    });
+    jenisBayarSelect.addEventListener('change', autoJatuhTempo);
 }
 
-// Listener jk_waktu: hitung otomatis jatuh tempo saat diketik
 if (jkWaktuInput) {
-    jkWaktuInput.addEventListener('input', hitungJatuhTempo);
-    jkWaktuInput.addEventListener('change', hitungJatuhTempo);
+    jkWaktuInput.addEventListener('input', autoJatuhTempo);
 }
 
-// Jika tanggal transaksi berubah & jk_waktu terisi, recalculate
-if (tanggalInput) {
-    tanggalInput.addEventListener('change', function () {
-        if (jkWaktuInput.value && jkWaktuInput.value !== '0') {
-            hitungJatuhTempo();
-        }
-    });
-}
+// =============================
+// INIT LOAD
+// =============================
+document.addEventListener("DOMContentLoaded", function(){
 
-// ============================================================
+    updateNomor(jenisSelect.value);
+    togglePOFields(jenisSelect.value);
+    autoJatuhTempo();
+
+});
+
+
+// =============================
 // HITUNG SUBTOTAL
-// ============================================================
+// =============================
 function hitungSubtotal() {
     const qty      = parseFloat(document.getElementById('input_qty').value)   || 0;
     const price    = parseFloat(document.getElementById('input_price').value) || 0;
@@ -860,11 +827,5 @@ function onProdukChange(selectEl) {
     hitungSubtotal();
 }
 
-// ============================================================
-// Inisialisasi state awal (saat halaman load)
-// ============================================================
-if (jenisBayarSelect) {
-    onJenisBayarChange(jenisBayarSelect.value);
-}
 </script>
 @endpush

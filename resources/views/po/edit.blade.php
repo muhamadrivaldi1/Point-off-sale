@@ -83,13 +83,6 @@
     .nomor-badge.pr { background: #d1ecf1; color: #0c5460; }
     .nomor-badge.po { background: #fff3cd; color: #856404; }
 
-    /* Highlight kredit */
-    .kredit-field {
-        border-color: #fd7e14 !important;
-        background: #fffbeb !important;
-        box-shadow: 0 0 0 2px rgba(253,126,20,.15) !important;
-    }
-
     /* Tabel transaksi bawah kiri */
     .table-transaksi-wrap {
         border-top: 1px solid #dee2e6;
@@ -304,6 +297,11 @@
         align-items: center;
         gap: 3px;
     }
+
+    #row-jk .form-control {
+        border-color: #ffc107 !important;
+        background: #fffbeb !important;
+    }
 </style>
 @endpush
 
@@ -322,12 +320,11 @@
 </div>
 @endif
 
+{{-- Simpan nomor asli untuk JS (hanya bagian angkanya) --}}
 @php
-    $nomorParts = explode('-', $po->po_number, 2);
-    $nomorAngka = $nomorParts[1] ?? now()->format('YmdHis');
-    $jenisAwal  = $po->jenis_transaksi ?? 'Pembelian';
-    $isDraft    = $po->status === 'draft';
-    $jenisBayar = old('jenis_pembayaran', $po->jenis_pembayaran ?? 'Cash');
+    $nomorParts   = explode('-', $po->po_number, 2);
+    $nomorAngka   = $nomorParts[1] ?? now()->format('YmdHis');
+    $jenisAwal    = $po->jenis_transaksi ?? 'Pembelian';
 @endphp
 
 <div class="po-wrapper">
@@ -351,7 +348,7 @@
 
         <div class="po-form-body">
 
-            @if($isDraft)
+            @if($po->status === 'draft')
             <form method="POST" action="{{ route('po.updateHeader', $po->id) }}" id="form-header">
             @csrf
             @endif
@@ -361,47 +358,54 @@
                     <label>Jenis Transaksi</label>
                     <select name="jenis_transaksi" id="jenis_transaksi"
                             class="form-select"
-                            {{ !$isDraft ? 'disabled' : '' }}>
-                        <option value="Pembelian" {{ $jenisAwal === 'Pembelian' ? 'selected' : '' }}>PR — Pembelian Reguler</option>
-                        <option value="PO"        {{ $jenisAwal === 'PO'        ? 'selected' : '' }}>PO — Private Order</option>
+                            {{ $po->status !== 'draft' ? 'disabled' : '' }}>
+                        <option value="Pembelian" {{ $jenisAwal === 'Pembelian' ? 'selected' : '' }}>
+                            PR — Pembelian Reguler
+                        </option>
+                        <option value="PO" {{ $jenisAwal === 'PO' ? 'selected' : '' }}>
+                            PO — Private Order
+                        </option>
                     </select>
                 </div>
 
-                {{-- NOMOR TRANSAKSI --}}
+                {{-- NOMOR TRANSAKSI — prefix ikut jenis_transaksi --}}
                 <div class="field-row">
                     <label>
                         Nomor Transaksi
-                        @if($isDraft)
-                            <span id="nomor-badge" class="nomor-badge {{ $jenisAwal === 'PO' ? 'po' : 'pr' }}">
+                        @if($po->status === 'draft')
+                            <span id="nomor-badge"
+                                  class="nomor-badge {{ $jenisAwal === 'PO' ? 'po' : 'pr' }}">
                                 {{ $jenisAwal === 'PO' ? 'PO' : 'PR' }}
                             </span>
                         @endif
                     </label>
                     <input type="text" name="po_number" id="po_number"
                            class="form-control ro"
-                           value="{{ $po->po_number }}" readonly>
+                           value="{{ $po->po_number }}"
+                           readonly>
                 </div>
 
                 <div class="field-row">
                     <label>Tanggal Transaksi</label>
                     <input type="date" name="tanggal" id="tanggal_transaksi"
-                           class="form-control {{ !$isDraft ? 'ro' : '' }}"
-                           value="{{ old('tanggal', $po->tanggal?->format('Y-m-d') ?? date('Y-m-d')) }}"
-                           {{ !$isDraft ? 'readonly' : '' }} required>
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
+                           value="{{ $po->tanggal?->format('Y-m-d') ?? date('Y-m-d') }}"
+                           {{ $po->status !== 'draft' ? 'readonly' : '' }} required>
                 </div>
 
                 <div class="field-row">
                     <label>Gudang</label>
                     <input type="text" name="gudang"
-                           class="form-control {{ !$isDraft ? 'ro' : '' }}"
-                           value="{{ old('gudang', $po->gudang ?? 'Gudang Utama') }}"
-                           {{ !$isDraft ? 'readonly' : '' }}>
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
+                           value="{{ old('gudang', $po->gudang ?? '') }}"
+                           placeholder="Gudang Utama"
+                           {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                 </div>
 
                 <div class="field-row">
                     <label>Nama Supplier</label>
                     <select name="supplier_id" class="form-select"
-                            {{ !$isDraft ? 'disabled' : '' }} required>
+                            {{ $po->status !== 'draft' ? 'disabled' : '' }} required>
                         <option value="">-- Pilih --</option>
                         @foreach($suppliers as $sup)
                             <option value="{{ $sup->id }}"
@@ -412,62 +416,57 @@
                     </select>
                 </div>
 
+                {{-- Field yang disabled saat jenis = PO --}}
                 <div class="field-row">
                     <label>Nomor Faktur</label>
                     <input type="text" name="nomor_faktur" id="field-nomor-faktur"
-                           class="form-control {{ !$isDraft ? 'ro' : '' }}"
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
                            value="{{ old('nomor_faktur', $po->nomor_faktur) }}"
-                           {{ !$isDraft ? 'readonly' : '' }}>
+                           {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                 </div>
 
                 <div class="field-row">
                     <label>Tanggal Faktur</label>
                     <input type="date" name="tanggal_faktur" id="field-tanggal-faktur"
-                           class="form-control {{ !$isDraft ? 'ro' : '' }}"
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
                            value="{{ old('tanggal_faktur', $po->tanggal_faktur?->format('Y-m-d')) }}"
-                           {{ !$isDraft ? 'readonly' : '' }}>
+                           {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                 </div>
 
-                {{-- JENIS PEMBAYARAN --}}
                 <div class="field-row">
                     <label>Jenis Pembayaran</label>
                     <select name="jenis_pembayaran" id="jenis_pembayaran"
-                            class="form-select" {{ !$isDraft ? 'disabled' : '' }}>
-                        <option value="Cash"     {{ $jenisBayar === 'Cash'     ? 'selected' : '' }}>Cash</option>
-                        <option value="Kredit"   {{ $jenisBayar === 'Kredit'   ? 'selected' : '' }}>Kredit</option>
-                        <option value="Transfer" {{ $jenisBayar === 'Transfer' ? 'selected' : '' }}>Transfer</option>
+                            class="form-select"
+                            {{ $po->status !== 'draft' ? 'disabled' : '' }}>
+                        <option value="Cash"     {{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Cash'     ? 'selected' : '' }}>Cash</option>
+                        <option value="Kredit"   {{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Kredit'   ? 'selected' : '' }}>Kredit</option>
+                        <option value="Transfer" {{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Transfer' ? 'selected' : '' }}>Transfer</option>
                     </select>
                 </div>
 
-                {{-- JK WAKTU + JATUH TEMPO — hanya tampil saat Kredit --}}
+                {{-- JK Waktu — tampil hanya saat Kredit --}}
                 <div class="field-row" id="row-jk"
-                     style="{{ $jenisBayar === 'Kredit' ? '' : 'display:none' }}">
-                    <label>
-                        Jk. Waktu
-                        <span style="font-size:0.65rem;background:#fd7e14;color:#fff;padding:1px 5px;border-radius:3px;margin-left:2px;">Kredit</span>
-                    </label>
+                     style="{{ old('jenis_pembayaran', $po->jenis_pembayaran) === 'Kredit' ? '' : 'display:none' }}">
+                    <label>Jk. Waktu</label>
                     <div class="d-flex gap-1 align-items-center">
-                        {{-- Input jk_waktu: disabled saat tersembunyi agar tidak ikut submit --}}
                         <input type="number" name="jk_waktu" id="jk_waktu"
-                               class="form-control text-center kredit-field" style="width:55px"
+                               class="form-control text-center" style="width:55px"
                                value="{{ old('jk_waktu', $po->jk_waktu ?? 30) }}"
                                min="1" placeholder="30"
-                               {{ !$isDraft ? 'readonly' : '' }}
-                               {{ $jenisBayar !== 'Kredit' ? 'disabled' : '' }}>
+                               {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                         <span style="font-size:0.72rem;color:#6c757d;white-space:nowrap">hari</span>
-                        {{-- Jatuh tempo: readonly, dihitung otomatis --}}
                         <input type="date" name="tanggal_jatuh_tempo" id="tgl_jatuh_tempo"
-                               class="form-control kredit-field" style="flex:1"
+                               class="form-control ro" style="flex:1"
                                value="{{ old('tanggal_jatuh_tempo', $po->tanggal_jatuh_tempo?->format('Y-m-d')) }}"
-                               {{ !$isDraft ? 'readonly' : '' }}
-                               {{ $jenisBayar !== 'Kredit' ? 'disabled' : '' }}>
+                               readonly>
                     </div>
                 </div>
 
                 <div class="field-row">
                     <label>Faktur Pajak</label>
                     <select name="ppn" id="field-ppn"
-                            class="form-select" {{ !$isDraft ? 'disabled' : '' }}>
+                            class="form-select"
+                            {{ $po->status !== 'draft' ? 'disabled' : '' }}>
                         <option value="0"   {{ old('ppn', $po->ppn) == 0   ? 'selected' : '' }}>0% (Non PPN)</option>
                         <option value="11"  {{ old('ppn', $po->ppn) == 11  ? 'selected' : '' }}>11% (PPN)</option>
                         <option value="1.1" {{ old('ppn', $po->ppn) == 1.1 ? 'selected' : '' }}>1.1% (Final)</option>
@@ -477,9 +476,9 @@
                 <div class="field-row">
                     <label>Bulan Lapor</label>
                     <input type="month" name="bulan_lapor" id="field-bulan-lapor"
-                           class="form-control {{ !$isDraft ? 'ro' : '' }}"
+                           class="form-control {{ $po->status !== 'draft' ? 'ro' : '' }}"
                            value="{{ old('bulan_lapor', $po->bulan_lapor ?? '') }}"
-                           {{ !$isDraft ? 'readonly' : '' }}>
+                           {{ $po->status !== 'draft' ? 'readonly' : '' }}>
                 </div>
 
                 <div class="field-row">
@@ -488,7 +487,7 @@
                            value="{{ ucfirst($po->status) }}" readonly>
                 </div>
 
-            @if($isDraft)
+            @if($po->status === 'draft')
             </form>
             @endif
 
@@ -554,7 +553,7 @@
         </div>
 
         {{-- Form tambah item --}}
-        @if($isDraft)
+        @if($po->status === 'draft')
         <div class="item-form-area">
             <form method="POST" action="{{ route('po.addItem', $po->id) }}" id="form-item">
             @csrf
@@ -648,7 +647,7 @@
                             <th class="text-end" width="110">Subtotal</th>
                             <th>Bonus</th>
                             <th class="text-end" width="70">Jml Bonus</th>
-                            @if($isDraft)
+                            @if($po->status === 'draft')
                             <th width="30"></th>
                             @endif
                         </tr>
@@ -679,7 +678,7 @@
                                     <span class="text-muted">-</span>
                                 @endif
                             </td>
-                            @if($isDraft)
+                            @if($po->status === 'draft')
                             <td class="text-center">
                                 <form method="POST" action="{{ route('po.deleteItem', $item->id) }}"
                                       onsubmit="return confirm('Hapus item ini?')">
@@ -693,7 +692,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="{{ $isDraft ? 9 : 8 }}" class="text-center text-muted py-3">
+                            <td colspan="9" class="text-center text-muted py-3">
                                 <i class="bi bi-inbox me-1"></i> Belum ada item
                             </td>
                         </tr>
@@ -773,7 +772,7 @@
 
         {{-- Action Bar --}}
         <div class="action-bar">
-            @if($isDraft)
+            @if($po->status === 'draft')
                 <button type="submit" form="form-header" class="btn btn-primary btn-sm">
                     <i class="bi bi-save me-1"></i> Simpan
                 </button>
@@ -814,63 +813,67 @@
 @push('scripts')
 <script>
 // ============================================================
-// CONFIG
+// DATA dari PHP
 // ============================================================
-const nomorAngka = @json($nomorAngka);
-const isDraft    = @json($isDraft);
+const nomorAngka = @json($nomorAngka);   // bagian angka dari nomor, e.g. "20240601120000"
+const isDraft    = @json($po->status === 'draft');
 
 // ============================================================
-// ELEMEN
+// GANTI PREFIX NOMOR saat jenis_transaksi berubah
+// PR-xxx = Pembelian Reguler
+// PO-xxx = Private Order
 // ============================================================
-const jenisSelect    = document.getElementById('jenis_transaksi');
-const poNumberInput  = document.getElementById('po_number');
-const nomorBadge     = document.getElementById('nomor-badge');
-const jenisBayarSel  = document.getElementById('jenis_pembayaran');
-const rowJk          = document.getElementById('row-jk');
-const jkWaktuInput   = document.getElementById('jk_waktu');
-const tglJatuhTempo  = document.getElementById('tgl_jatuh_tempo');
-const tglTransaksi   = document.getElementById('tanggal_transaksi');
+const jenisSelect   = document.getElementById('jenis_transaksi');
+const poNumberInput = document.getElementById('po_number');
+const nomorBadge    = document.getElementById('nomor-badge');
 
-// Field yang di-nonaktifkan saat jenis = PO
+// Field yang di-disable saat jenis = PO
 const fieldsDisabledWhenPO = [
     'field-nomor-faktur',
     'field-tanggal-faktur',
     'jenis_pembayaran',
+    'jk_waktu',
+    'tgl_jatuh_tempo',
     'field-ppn',
     'field-bulan-lapor',
 ];
 
-// ============================================================
-// GANTI PREFIX NOMOR
-// ============================================================
 function updateNomor(jenis) {
     if (!poNumberInput || !isDraft) return;
-    const parts = poNumberInput.value.split('-');
-    const angka = parts.slice(1).join('-') || nomorAngka;
-    const prefix = jenis === 'PO' ? 'PO' : 'PR';
-    poNumberInput.value = prefix + '-' + angka;
-    if (nomorBadge) {
-        nomorBadge.textContent = prefix;
-        nomorBadge.className   = 'nomor-badge ' + prefix.toLowerCase();
+
+    // Ambil bagian angka dari nomor yang sekarang ada di input
+    const currentVal = poNumberInput.value;
+    const parts      = currentVal.split('-');
+    const angka      = parts.slice(1).join('-') || nomorAngka;
+
+    if (jenis === 'PO') {
+        poNumberInput.value    = 'PO-' + angka;
+        if (nomorBadge) {
+            nomorBadge.textContent = 'PO';
+            nomorBadge.className   = 'nomor-badge po';
+        }
+    } else {
+        poNumberInput.value    = 'PR-' + angka;
+        if (nomorBadge) {
+            nomorBadge.textContent = 'PR';
+            nomorBadge.className   = 'nomor-badge pr';
+        }
     }
 }
 
-// ============================================================
-// TOGGLE FIELDS SAAT JENIS = PO
-// ============================================================
 function toggleFieldsForJenis(jenis) {
     if (!isDraft) return;
     const isPO = jenis === 'PO';
     fieldsDisabledWhenPO.forEach(id => {
         const el = document.getElementById(id);
-        if (!el) return;
-        el.disabled      = isPO;
-        el.style.opacity = isPO ? '0.45' : '1';
+        if (el) {
+            el.disabled      = isPO;
+            el.style.opacity = isPO ? '0.45' : '1';
+        }
     });
-    // Jika PO, paksa sembunyikan row kredit
-    if (isPO && rowJk) {
-        rowJk.style.display = 'none';
-        setKreditInputsDisabled(true);
+    // Sembunyikan row-jk juga saat PO
+    if (isPO) {
+        document.getElementById('row-jk').style.display = 'none';
     }
 }
 
@@ -878,85 +881,45 @@ if (jenisSelect && isDraft) {
     jenisSelect.addEventListener('change', function () {
         updateNomor(this.value);
         toggleFieldsForJenis(this.value);
-        // Reset jenis pembayaran ke Cash saat ganti ke PO
-        if (this.value === 'PO' && jenisBayarSel) {
-            jenisBayarSel.value = 'Cash';
-        }
     });
+    // Inisialisasi saat load
     toggleFieldsForJenis(jenisSelect.value);
 }
 
 // ============================================================
-// ENABLE / DISABLE INPUT KREDIT
-// Penting: input disabled tidak ikut submit form
+// JENIS PEMBAYARAN → tampil / sembunyikan JK Waktu
 // ============================================================
-function setKreditInputsDisabled(disabled) {
-    if (jkWaktuInput)  { jkWaktuInput.disabled  = disabled || !isDraft; }
-    if (tglJatuhTempo) { tglJatuhTempo.disabled = disabled; }
-}
+const jenisBayarSel = document.getElementById('jenis_pembayaran');
+jenisBayarSel?.addEventListener('change', function () {
+    const isKredit = this.value === 'Kredit';
+    document.getElementById('row-jk').style.display = isKredit ? '' : 'none';
+    if (isKredit) hitungJatuhTempo();
+});
 
 // ============================================================
-// TAMPIL / SEMBUNYIKAN ROW JK WAKTU
-// ============================================================
-function toggleRowKredit(isKredit) {
-    if (!rowJk) return;
-    rowJk.style.display = isKredit ? '' : 'none';
-    setKreditInputsDisabled(!isKredit);
-
-    if (isKredit && isDraft) {
-        // Hitung jatuh tempo jika jk_waktu sudah ada nilainya
-        hitungJatuhTempo();
-        // Auto-fokus ke jk_waktu
-        setTimeout(() => {
-            if (jkWaktuInput) { jkWaktuInput.focus(); jkWaktuInput.select(); }
-        }, 50);
-    }
-}
-
-if (jenisBayarSel && isDraft) {
-    jenisBayarSel.addEventListener('change', function () {
-        toggleRowKredit(this.value === 'Kredit');
-    });
-}
-
-// ============================================================
-// HITUNG JATUH TEMPO otomatis
-// Basis: tanggal transaksi + jk_waktu (hari)
+// HITUNG JATUH TEMPO otomatis dari jk_waktu
 // ============================================================
 function hitungJatuhTempo() {
-    if (!jkWaktuInput || !tglJatuhTempo) return;
-    const hari = parseInt(jkWaktuInput.value) || 0;
-    const tgl  = tglTransaksi?.value;
-    if (!tgl || hari <= 0) return;
-
-    const d = new Date(tgl);
+    const tgl  = document.getElementById('tanggal_transaksi')?.value;
+    const hari = parseInt(document.getElementById('jk_waktu')?.value) || 30;
+    if (!tgl) return;
+    const d  = new Date(tgl);
     d.setDate(d.getDate() + hari);
     const yy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
-    tglJatuhTempo.value = `${yy}-${mm}-${dd}`;
+    document.getElementById('tgl_jatuh_tempo').value = `${yy}-${mm}-${dd}`;
 }
 
-// Hitung ulang saat jk_waktu diketik
-jkWaktuInput?.addEventListener('input', hitungJatuhTempo);
-jkWaktuInput?.addEventListener('change', hitungJatuhTempo);
-
-// Hitung ulang saat tanggal transaksi berubah (jika mode kredit)
-tglTransaksi?.addEventListener('change', function () {
-    if (jenisBayarSel?.value === 'Kredit') hitungJatuhTempo();
+document.getElementById('jk_waktu')?.addEventListener('input', hitungJatuhTempo);
+document.getElementById('tanggal_transaksi')?.addEventListener('change', function () {
+    if (document.getElementById('jenis_pembayaran')?.value === 'Kredit') hitungJatuhTempo();
 });
 
-// ============================================================
-// INISIALISASI saat halaman load
-// ============================================================
-(function init() {
-    const isKredit = jenisBayarSel?.value === 'Kredit';
-
-    // Pastikan row-jk dan disabled state sesuai kondisi awal
-    toggleRowKredit(isKredit);
-
-    // Jika kredit dan jatuh tempo belum terisi, hitung otomatis
-    if (isKredit && tglJatuhTempo && !tglJatuhTempo.value) {
+// Init jatuh tempo saat load
+(function () {
+    const jenis = document.getElementById('jenis_pembayaran')?.value;
+    if (jenis === 'Kredit' && !document.getElementById('tgl_jatuh_tempo')?.value) {
         hitungJatuhTempo();
     }
 })();
@@ -967,16 +930,14 @@ tglTransaksi?.addEventListener('change', function () {
 function hitungSubtotal() {
     const qty   = parseFloat(document.getElementById('input_qty')?.value)   || 0;
     const price = parseFloat(document.getElementById('input_price')?.value) || 0;
-    const el    = document.getElementById('preview_subtotal');
-    if (el) el.value = (qty * price).toLocaleString('id-ID', { minimumFractionDigits: 0 });
+    document.getElementById('preview_subtotal').value =
+        (qty * price).toLocaleString('id-ID', { minimumFractionDigits: 0 });
 }
 
 function onProdukChange(sel) {
     const opt = sel.options[sel.selectedIndex];
-    const satEl = document.getElementById('preview_satuan');
-    const prEl  = document.getElementById('input_price');
-    if (satEl) satEl.value = opt.dataset.satuan || '';
-    if (prEl)  prEl.value  = opt.dataset.harga  || 0;
+    document.getElementById('preview_satuan').value = opt.dataset.satuan || '';
+    document.getElementById('input_price').value    = opt.dataset.harga  || 0;
     hitungSubtotal();
 }
 </script>
