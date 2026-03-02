@@ -228,7 +228,8 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
         </div>
     </div><br><br>
     <small class="text-center" style="display:block; margin-top:2px;">
-        TOKO IRFON - KAB. MINAHASA SELATAN
+        TOKO IRFON<br>
+        KAB. MINAHASA SELATAN
     </small>
 
 </div>
