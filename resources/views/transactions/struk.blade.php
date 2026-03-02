@@ -14,6 +14,7 @@
     font-family: monospace;
     font-size: 11px;
     box-shadow: 0 0 8px rgba(0,0,0,.15);
+    text-align: left;
 }
 
 /* ================= PRINT ================= */
@@ -27,8 +28,9 @@
     .struk, .struk * { visibility: visible; }
     .struk {
         position: absolute;
-        left: 0;
+        left: 50%;
         top: 0;
+        transform: translateX(-50%);
         width: 58mm;
         max-width: 58mm;
         padding: 6px;
@@ -51,14 +53,27 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
     font-size: 11px;
     letter-spacing: .3px;
 }
+
+/* Footer Tanda Terima & Hormat Kami */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    font-style: normal;
+    margin-top: 4px;
+}
+.footer .left { text-align: left; }
+.footer .right { text-align: right; }
 </style>
 
 <div class="struk">
 
     {{-- HEADER --}}
     <div class="text-center">
-        <strong>MINIMARKET MAJU JAYA</strong><br>
-        Jl. Contoh No. 123<br>
+        <strong>PT. IRFON TUMPAAN ESA</strong><br>
+        JAGA III, TUMPAAN, KEC. TUMPAN<br>
+        KAB>MINAHASA SELATAN<br>
+        NPWP: 92.346.873.0-824.000<br>
+        HP. 0857-573-27027<br>
     </div>
 
     <hr>
@@ -164,7 +179,6 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
         </tr>
 
         @if($isKredit)
-            {{-- Kredit: tampilkan sisa hutang --}}
             <tr>
                 <td>Dibayar</td>
                 <td class="text-end">{{ number_format(0) }}</td>
@@ -174,7 +188,6 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
                 <td class="text-end"><strong>{{ number_format($sisaHutang) }}</strong></td>
             </tr>
         @else
-            {{-- Bayar biasa --}}
             <tr>
                 <td>Dibayar</td>
                 <td class="text-end">{{ number_format($sudahBayar) }}</td>
@@ -186,7 +199,6 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
         @endif
     </table>
 
-    {{-- Kotak peringatan khusus kredit --}}
     @if($isKredit)
     <hr>
     <div class="kredit-box">
@@ -204,38 +216,43 @@ hr { border-top: 1px dashed #000; margin: 4px 0; }
     </div>
     @endif
 
-    <hr>
+    <hr><br>
 
     {{-- FOOTER --}}
-    <div class="text-center">
-        TERIMA KASIH 🙏<br>
-        ATAS KUNJUNGAN ANDA<br>
-        @if($isKredit)
-            <small>
-                NOTA INI SEBAGAI BUKTI HUTANG<br>
-                HARAP DISIMPAN BAIK-BAIK
-            </small>
-        @else
-            <small>
-                BARANG YANG SUDAH DIBELI<br>
-                TIDAK DAPAT DITUKAR / DIKEMBALIKAN
-            </small>
-        @endif
-        <br>
-        Telp: 0851-8322-7741<br>
-        Programmer
-    </div>
+    <div class="footer">
+        <div class="left">
+            Tanda Terima
+        </div>
+        <div class="right">
+            Hormat Kami
+        </div>
+    </div><br><br>
+    <small class="text-center" style="display:block; margin-top:2px;">
+        TOKO IRFON - KAB. MINAHASA SELATAN
+    </small>
 
 </div>
 
-{{-- TOMBOL PRINT --}}
+{{-- TOMBOL PRINT UNTUK DEBUG --}}
 <div class="text-center mt-3 d-print-none">
     <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Print Struk</button>
     <button onclick="window.close()" class="btn btn-secondary btn-sm ms-2">✕ Tutup</button>
 </div>
 
 <script>
-    window.onload = function () { window.print(); }
+    window.onload = function () { 
+        window.print();
+
+        // otomatis fokus ke body untuk tangkap Enter/Esc
+        document.body.focus();
+
+        // jika tekan Enter atau Esc, kembali ke kasir
+        document.body.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === 'Escape') {
+                window.close(); // bisa diganti ke redirect kasir jika perlu
+            }
+        });
+    }
 </script>
 
 @endsection
