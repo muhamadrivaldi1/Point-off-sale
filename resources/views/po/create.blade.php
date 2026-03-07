@@ -326,18 +326,29 @@
                        {{ $po->status !== 'draft' ? 'readonly' : '' }} required>
             </div>
 
-            <div class="field-row">
-                <label>Gudang</label>
-                <input type="text" name="gudang" class="form-control"
-                       value="{{ $po->gudang ?? 'Gudang Utama' }}"
-                       {{ $po->status !== 'draft' ? 'readonly' : '' }}>
-            </div>
+           <div class="field-row">
+            <label>Gudang</label>
+            @if($po->status !== 'draft')
+                <input type="text" class="form-control" readonly
+                    value="{{ $po->warehouse->name ?? $po->gudang ?? '-' }}">
+            @else
+                <select name="gudang" class="form-select">
+                    <option value="">-- Pilih Gudang --</option>
+                    @foreach(\App\Models\Warehouse::orderBy('name')->get() as $wh)
+                        <option value="{{ $wh->name }}"
+                            {{ ($po->gudang ?? '') === $wh->name ? 'selected' : '' }}>
+                            {{ $wh->name }}
+                        </option>
+                    @endforeach
+                </select>
+            @endif
+        </div>
 
             <div class="field-row">
                 <label>Nama Supplier</label>
                 <select name="supplier_id" class="form-select"
                     {{ $po->status !== 'draft' ? 'disabled' : '' }} required>
-                    <option value="">-- Pilih --</option>
+                    <option value="">-- Pilih Supplier --</option>
                     @foreach($suppliers as $sup)
                         <option value="{{ $sup->id }}"
                             {{ ($po->supplier_id ?? '') == $sup->id ? 'selected' : '' }}>
