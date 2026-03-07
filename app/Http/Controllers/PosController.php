@@ -10,9 +10,12 @@ use App\Models\ProductPrice;
 use App\Models\CashierSession;
 use App\Models\Member;
 use App\Models\Warehouse;
+use App\Models\User;
+use App\Models\KreditPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class PosController extends Controller
 {
@@ -156,9 +159,9 @@ class PosController extends Controller
         $units = ProductUnit::with('product')
             ->where(function ($query) use ($keyword) {
                 $query->where('barcode', 'like', "%{$keyword}%")
-                      ->orWhereHas('product', function ($q) use ($keyword) {
-                          $q->where('name', 'like', "%{$keyword}%");
-                      });
+                    ->orWhereHas('product', function ($q) use ($keyword) {
+                        $q->where('name', 'like', "%{$keyword}%");
+                    });
             })
             ->limit(20)
             ->get();
@@ -575,7 +578,6 @@ class PosController extends Controller
 
             DB::commit();
             return response()->json(['success' => true, 'paid_off' => true, 'trx_id' => $trx->id]);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -733,5 +735,157 @@ class PosController extends Controller
             ->delete();
 
         return response()->json(['success' => true, 'deleted' => $deleted]);
+    }
+    // ── 1. Tampilkan halaman kredit ──────────────────────
+    public function showKredit($trx_id)
+    {
+        $trx = Transaction::with([
+            'items.unit.product.units',
+            'member',
+            'payments',
+        ])->findOrFail($trx_id);
+
+        abort_if(!in_array($trx->status, ['kredit', 'paid']), 404);
+
+        $totalTerbayar = $trx->payments->sum('amount');
+        $sisa          = max($trx->total - $totalTerbayar, 0);
+
+        return view('pos.kredit', compact('trx', 'totalTerbayar', 'sisa'));
+    }
+
+
+    // ── 2. Simpan catatan kredit ─────────────────────────
+    public function saveKreditNotes(Request $request)
+    {
+        $request->validate([
+            'trx_id' => 'required|exists:transactions,id',
+            'notes'  => 'nullable|string|max:1000',
+        ]);
+
+        $trx = Transaction::findOrFail($request->trx_id);
+        $trx->update(['notes' => $request->notes]);
+
+        return redirect()
+            ->route('pos.kredit.show', $trx->id)
+            ->with('success', 'Pembayaran berhasil disimpan');
+    }
+
+
+    // ── 3. Lunasi kredit (full) ──────────────────────────
+    public function lunasiKredit(Request $request)
+    {
+        $request->validate([
+            'trx_id'   => 'required|exists:transactions,id',
+            'password' => 'required|string',
+            'method'   => 'required|in:cash,transfer,qris',
+            'note'     => 'nullable|string|max:500',
+        ]);
+
+        $owner = User::where('role', 'owner')->first();
+
+        if (!$owner || !Hash::check($request->password, $owner->password)) {
+            return back()->with('error', 'Password owner salah!');
+        }
+
+        $trx = Transaction::with('payments')->findOrFail($request->trx_id);
+
+        if ($trx->status !== 'kredit') {
+            return back()->with('error', 'Transaksi bukan kredit atau sudah lunas.');
+        }
+
+        $totalTerbayar = $trx->payments->sum('amount');
+        $sisa          = max($trx->total - $totalTerbayar, 0);
+
+        KreditPayment::create([
+            'transaction_id' => $trx->id,
+            'amount'         => $sisa,
+            'method'         => $request->method,
+            'note'           => $request->note,
+            'paid_at'        => now(),
+            'created_by'     => auth()->id(),
+        ]);
+
+        $trx->update([
+            'status'         => 'paid',
+            'payment_method' => $request->method,
+            'paid_at'        => now(),
+        ]);
+
+        return redirect()
+            ->route('pos.kredit', $trx->id)
+            ->with('success', 'Kredit berhasil dilunasi');
+    }
+
+
+    // ── 4. Bayar sebagian (partial) ──────────────────────
+    public function partialPayKredit(Request $request)
+{
+    $request->validate([
+        'trx_id'   => 'required|exists:transactions,id',
+        'password' => 'required|string',
+        'amount'   => 'required|numeric|min:1',
+        'method'   => 'required|in:cash,transfer,qris',
+        'note'     => 'nullable|string|max:500',
+    ]);
+
+    $owner = User::where('role','owner')->first();
+
+    if(!$owner || !Hash::check($request->password,$owner->password)){
+        return back()->with('error','Password owner salah!');
+    }
+
+    DB::transaction(function() use($request){
+
+        $trx = Transaction::with('payments')->lockForUpdate()->findOrFail($request->trx_id);
+
+        if($trx->status !== 'kredit'){
+            abort(400,'Transaksi bukan kredit');
+        }
+
+        $totalTerbayar = $trx->payments->sum('amount');
+        $sisa          = max($trx->total - $totalTerbayar,0);
+
+        $amountPaid = min($request->amount,$sisa);
+
+        KreditPayment::create([
+            'transaction_id' => $trx->id,
+            'amount'         => $amountPaid,
+            'method'         => $request->method,
+            'note'           => $request->note,
+            'paid_at'        => now(),
+            'created_by'     => auth()->id(),
+        ]);
+
+        $totalBaru = $trx->payments()->sum('amount') + $amountPaid;
+        $sisaBaru  = max($trx->total - $totalBaru,0);
+
+        if($sisaBaru <= 0){
+            $trx->update([
+                'status' => 'paid',
+                'payment_method'=>$request->method,
+                'paid_at'=>now()
+            ]);
+        }
+
+    });
+
+    return redirect()
+        ->route('pos.kredit.show',$request->trx_id)
+        ->with('success','Pembayaran berhasil disimpan');
+    }
+
+    public function kreditIndex()
+{
+    $kredits = Transaction::with('member','payments')
+        ->where('status','kredit')
+        ->latest()
+        ->get();
+
+    return view('pos.kredit_index',compact('kredits'));
+    }
+
+    public function printKredit($trx_id)
+    {
+    return redirect()->to('/transactions/'.$trx_id.'/struk');   
     }
 }

@@ -1126,37 +1126,39 @@ async function confirmPay() {
     const strukWindow = window.open('', '_blank');
 
     try {
-        const res = await fetch('/pos/pay', { method:'POST', headers:jsonHeaders,
-            body: JSON.stringify({ trx_id:TRX, paid:bayar, member_id:memberId, payment_method:paymentMethod, frontend_total:total })
-        });
-        const r = await res.json();
+    const res = await fetch('/pos/pay', { method:'POST', headers:jsonHeaders,
+        body: JSON.stringify({ trx_id:TRX, paid:bayar, member_id:memberId, payment_method:paymentMethod, frontend_total:total })
+    });
+    const r = await res.json();
 
-        if (r.success) {
-            if (r.paid_off || r.is_kredit) {
-                closePaymentModal();
-
-                if (r.is_kredit) {
-                    alert('📋 Transaksi disimpan sebagai KREDIT!\nTotal tagihan: Rp ' + total.toLocaleString('id-ID'));
-                } else {
-                    const labels = { cash:'💵 Cash / Tunai', transfer:'🏦 Transfer Bank', qris:'📱 QRIS' };
-                    alert('✅ Transaksi lunas!\nMetode   : ' + (labels[paymentMethod] || paymentMethod) +
-                          '\nKembalian: Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID'));
-                }
-
-                strukWindow.location.href = `/transactions/${r.trx_id}/struk`;
-                setTimeout(() => { window.location.href = '/pos?new_transaction=1'; }, 500);
-            } else {
-                alert('Transaksi pending, sisa: Rp ' + (total - bayar).toLocaleString('id-ID'));
-                strukWindow.close(); closePaymentModal();
-            }
-        } else {
-            alert(r.message || 'Gagal menyimpan transaksi');
+    if (r.success) {
+        if (r.is_kredit) {
             strukWindow.close();
+            closePaymentModal();
+            window.location.href = `/pos/kredit/${r.trx_id}`;
+            return;
         }
-    } catch (err) {
-        alert('Terjadi error: ' + err.message);
+
+        if (r.paid_off) {
+            closePaymentModal();
+            const labels = { cash:'💵 Cash / Tunai', transfer:'🏦 Transfer Bank', qris:'📱 QRIS' };
+            alert('✅ Transaksi lunas!\nMetode   : ' + (labels[paymentMethod] || paymentMethod) +
+                  '\nKembalian: Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID'));
+            strukWindow.location.href = `/transactions/${r.trx_id}/struk`;
+            setTimeout(() => { window.location.href = '/pos?new_transaction=1'; }, 500);
+        } else {
+            alert('Transaksi pending, sisa: Rp ' + (total - bayar).toLocaleString('id-ID'));
+            strukWindow.close();
+            closePaymentModal();
+        }
+    } else {
+        alert(r.message || 'Gagal menyimpan transaksi');
         strukWindow.close();
     }
+} catch (err) {
+    alert('Terjadi error: ' + err.message);
+    strukWindow.close();
+}
 }
 
 // =============================================

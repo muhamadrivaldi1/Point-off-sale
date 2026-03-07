@@ -51,16 +51,47 @@ Route::middleware('auth')->group(function () {
         // Other master routes (if any) can go here
     });
 
+    // kredit
+    Route::middleware(['auth'])->prefix('pos/kredit')->name('pos.kredit.')->group(function () {
+
+        // Halaman detail kredit
+        Route::get('{trx_id}', [PosController::class, 'showKredit'])->name('show');
+
+        // Simpan catatan kredit
+        Route::post('notes', [PosController::class, 'saveKreditNotes'])->name('notes');
+
+        // Lunasi penuh
+        Route::post('lunasi', [PosController::class, 'lunasiKredit'])->name('lunasi');
+
+        // Bayar sebagian
+        Route::post('partial', [PosController::class, 'partialPayKredit'])->name('partial');
+    });
+
+    Route::middleware(['auth'])->prefix('pos/kredit')->name('pos.kredit.')->group(function () {
+
+        // daftar kredit
+        Route::get('/', [PosController::class, 'kreditIndex'])->name('index');
+
+        // detail kredit
+        Route::get('{trx_id}', [PosController::class, 'showKredit'])->name('show');
+
+        // bayar cicilan
+        Route::post('partial', [PosController::class, 'partialPayKredit'])->name('partial');
+
+        // print struk kredit
+        Route::get('print/{trx_id}', [PosController::class, 'printKredit'])->name('print');
+    });
+
+
     Route::middleware(['auth'])->group(function () {
 
-    Route::get('/users',            [UserManagementController::class, 'index'])->name('users.index');
-    Route::get('/users/create',     [UserManagementController::class, 'create'])->name('users.create');
-    Route::post('/users',           [UserManagementController::class, 'store'])->name('users.store');
-    Route::get('/users/{id}/edit',  [UserManagementController::class, 'edit'])->name('users.edit');
-    Route::put('/users/{id}',       [UserManagementController::class, 'update'])->name('users.update');
-    Route::delete('/users/{id}',    [UserManagementController::class, 'destroy'])->name('users.delete');
-
-});
+        Route::get('/users',            [UserManagementController::class, 'index'])->name('users.index');
+        Route::get('/users/create',     [UserManagementController::class, 'create'])->name('users.create');
+        Route::post('/users',           [UserManagementController::class, 'store'])->name('users.store');
+        Route::get('/users/{id}/edit',  [UserManagementController::class, 'edit'])->name('users.edit');
+        Route::put('/users/{id}',       [UserManagementController::class, 'update'])->name('users.update');
+        Route::delete('/users/{id}',    [UserManagementController::class, 'destroy'])->name('users.delete');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -224,6 +255,8 @@ Route::middleware('auth')->group(function () {
             ->name('warehouses.setActive');
     });
 
+    Route::get('/struk/setting', [App\Http\Controllers\StrukSettingController::class, 'index'])->name('struk.setting');
+    Route::post('/struk/setting', [App\Http\Controllers\StrukSettingController::class, 'update'])->name('struk.setting.update');
 
     Route::post('/cashier/opening-balance/update', [CashierSessionController::class, 'updateOpeningBalance'])->name('cashier.updateOpeningBalance'); // bisa tambah middleware role jika perlu
 });

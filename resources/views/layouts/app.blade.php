@@ -107,6 +107,12 @@ function hasAkses($perm) {
 <a href="/transactions"><i class="bi bi-receipt"></i> Transaksi</a>
 @endif
 
+@if(hasAkses('akses_kredit'))
+<a href="{{ route('pos.kredit.index') }}">
+<i class="bi bi-credit-card"></i> Kredit
+</a>
+@endif
+
 @if(hasAkses('akses_sesi_kasir'))
 <a href="{{ route('cashier.sessions') }}"><i class="bi bi-table"></i> Sesi Kasir</a>
 @endif
@@ -186,6 +192,18 @@ data-bs-toggle="collapse" href="#menuOperasional">
 
 @if(hasAkses('akses_transaksi'))
 <a href="/transactions"><i class="bi bi-receipt"></i> Transaksi</a>
+@endif
+
+@if(hasAkses('akses_kredit'))
+<a href="{{ route('pos.kredit.index') }}">
+<i class="bi bi-credit-card"></i> Kredit
+</a>
+@endif
+
+@if(hasAkses('kelola_struk'))
+<a href="/struk/setting">
+    <i class="bi bi-receipt-cutoff"></i> Kelola Struk
+</a>
 @endif
 
 @if(hasAkses('akses_retur'))
