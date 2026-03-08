@@ -172,6 +172,8 @@ Route::middleware('auth')->group(function () {
             ->name('transactions.destroy');
         Route::get('/{id}/struk', [TransactionController::class, 'struk'])
             ->name('transactions.struk');
+        Route::get('/pos/kredit/print/{id}', [PosController::class, 'printKredit'])
+            ->name('print.kredit');
     });
 
     /*

@@ -75,6 +75,7 @@ html, body {
     flex-direction: column;
     overflow: hidden;
     gap: 5px;
+    min-height: 0;
 }
 
 .pos-box      { border: 1px solid #ddd; border-radius: 5px; overflow: auto; }
@@ -151,8 +152,11 @@ html, body {
 .cart-table-body table { margin: 0; width: 100%; table-layout: fixed; font-size: 12px; }
 .cart-table-body td    { padding: 3px 6px; vertical-align: middle; }
 
-.cart-footer { border-top: 1px solid #ddd; padding-top: 6px; flex-shrink: 0; }
-.total-row   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.cart-footer { border-top: 1px solid #ddd; padding-top: 6px; flex: 1; overflow-y: auto; min-height: 0; padding-right: 4px; }
+.cart-footer::-webkit-scrollbar        { width: 5px; }
+.cart-footer::-webkit-scrollbar-track  { background: #f1f1f1; }
+.cart-footer::-webkit-scrollbar-thumb  { background: #ccc; border-radius: 3px; }
+.total-row   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
 
 .trx-today-header { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
 .pending-badge {
@@ -167,119 +171,191 @@ html, body {
     50%       { opacity: .8; transform: scale(1.08); }
 }
 
-/* ========== MODAL ========== */
-.modal-overlay {
-    display: none; position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,.48); z-index: 9999;
-    justify-content: center; align-items: center;
+/* ===== PAYMENT METHOD SELECT ===== */
+.method-select {
+    width: 100%;
+    font-size: 12px;
+    padding: 5px 8px;
+    border: 1.5px solid #dee2e6;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color .2s;
 }
-.modal-overlay.show { display: flex; }
-.modal-box {
-    background: #fff; border-radius: 12px; padding: 22px 24px;
-    width: 420px; max-width: 95vw;
-    box-shadow: 0 16px 48px rgba(0,0,0,.25); font-size: 13px;
-    animation: modalIn .18s ease;
-}
-@keyframes modalIn {
-    from { transform: translateY(-20px); opacity: 0; }
-    to   { transform: translateY(0);     opacity: 1; }
-}
-.modal-box h5    { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
-.modal-subtitle  { font-size: 11px; color: #888; margin-bottom: 14px; }
+.method-select:focus { border-color: #0d6efd; outline: none; box-shadow: 0 0 0 2px rgba(13,110,253,.15); }
 
-/* Total tagihan */
-.modal-total-display {
-    background: linear-gradient(135deg, #e8f0fe, #f0f6ff);
-    border: 1px solid #c8d8ff; border-radius: 8px;
-    padding: 10px 14px; margin-bottom: 16px;
-    display: flex; justify-content: space-between; align-items: center;
+/* ===== PANEL NOTICE ===== */
+.panel-notice {
+    background: #fffbe6;
+    border: 1px solid #ffe58f;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: #7a5400;
+    margin-bottom: 5px;
 }
-.modal-total-display .label  { font-size: 11px; color: #6c757d; font-weight: 600; }
-.modal-total-display .amount { font-size: 20px; font-weight: 800; color: #0d6efd; }
 
-/* ===== COMBO LIST ===== */
-.combo-list-label {
-    font-size: 11px; font-weight: 700; color: #555;
-    margin-bottom: 7px; display: block; text-transform: uppercase; letter-spacing: .4px;
+/* ===== PANEL KREDIT — FULL ===== */
+.kredit-panel-full {
+    background: linear-gradient(135deg, #fff8f0, #fff3e0);
+    border: 2px solid #ffcc80;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 5px;
+    animation: slideDown .2s ease;
 }
-.combo-list {
-    border: 1.5px solid #e0e0e0; border-radius: 10px;
-    overflow: hidden; margin-bottom: 14px;
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
-.combo-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 11px 14px; cursor: pointer; background: #fff;
-    transition: background .12s; border-bottom: 1px solid #f2f2f2;
-    position: relative; user-select: none;
-}
-.combo-item:last-child { border-bottom: none; }
-.combo-item:hover      { background: #f5f8ff; }
-.combo-item:focus      { outline: none; background: #eaf1ff; box-shadow: inset 0 0 0 2px #86b7fe; }
-.combo-item.selected   { background: #eef3ff; }
-.combo-item.selected::after {
-    content: '✓';
-    position: absolute; right: 14px;
-    font-size: 14px; font-weight: 800; color: #0d6efd;
-}
-/* Kredit: warna beda saat selected */
-.combo-item[data-method="kredit"].selected { background: #fff8e6; }
-.combo-item[data-method="kredit"].selected::after { color: #e67e00; }
-.combo-item[data-method="kredit"]:hover { background: #fff8e6; }
-.combo-item[data-method="kredit"]:focus { box-shadow: inset 0 0 0 2px #ffc069; }
 
-.combo-item-icon  { font-size: 22px; line-height: 1; }
-.combo-item-title { font-size: 13px; font-weight: 700; color: #222; }
-.combo-item-desc  { font-size: 10px; color: #999; margin-top: 1px; }
-
-/* Peringatan non-cash */
-.payment-notice {
-    display: none; gap: 8px; align-items: flex-start;
-    border-radius: 7px; padding: 8px 11px;
-    font-size: 11px; margin-bottom: 12px;
+/* Header kredit */
+.kredit-header {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 7px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed #ffcc80;
 }
-.payment-notice.show { display: flex; }
-.payment-notice.notice-warning  { background: #fffbe6; border: 1px solid #ffe58f; color: #7a5400; }
-.payment-notice.notice-kredit   { background: #fff3e0; border: 1px solid #ffcc80; color: #7a3b00; }
-.payment-notice-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.kredit-header-icon { font-size: 16px; }
+.kredit-header-title { font-size: 12px; font-weight: 800; color: #c45c00; }
+.kredit-header-sub   { font-size: 10px; color: #a06000; margin-top: 1px; }
 
-/* Input bayar — disembunyikan saat kredit */
-.modal-input-group       { margin-bottom: 10px; }
-.modal-input-group label { font-size: 11px; font-weight: 700; margin-bottom: 4px; display: block; color: #444; }
-.modal-pay-input {
-    width: 100%; font-size: 16px; font-weight: 700; padding: 9px 12px;
-    border: 2px solid #dee2e6; border-radius: 8px; color: #222;
+/* Total baris */
+.kredit-total-banner {
+    background: #fff;
+    border: 1.5px solid #ffb347;
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 7px;
+}
+.kredit-total-banner .ktb-label  { font-size: 11px; color: #7a3b00; font-weight: 600; }
+.kredit-total-banner .ktb-amount { font-size: 15px; font-weight: 900; color: #e67e00; }
+
+/* Grid form kredit */
+.kredit-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+.kredit-form-grid .kfg-full { grid-column: 1 / -1; }
+
+.kredit-field label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #7a3b00;
+    display: block;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+.kredit-field input,
+.kredit-field select,
+.kredit-field textarea {
+    width: 100%;
+    font-size: 12px;
+    padding: 3px 7px;
+    border: 1.5px solid #ffcc80;
+    border-radius: 6px;
+    background: #fffdf9;
+    color: #333;
     transition: border-color .15s;
+    outline: none;
 }
-.modal-pay-input:focus { border-color: #86b7fe; outline: none; box-shadow: 0 0 0 3px rgba(13,110,253,.12); }
-.modal-pay-input:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; }
+.kredit-field input:focus,
+.kredit-field select:focus,
+.kredit-field textarea:focus {
+    border-color: #e67e00;
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(230,126,0,.15);
+}
+.kredit-field textarea { resize: none; height: 38px; font-family: inherit; }
 
-/* Kembalian */
-.modal-kembalian-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 9px 13px; margin-bottom: 16px;
-    background: #f0fff4; border: 1.5px solid #b7ebc8; border-radius: 8px;
+/* Jatuh tempo chips */
+.jatuh-tempo-chips {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    margin-top: 3px;
 }
-.modal-kembalian-row .label { font-size: 13px; font-weight: 700; color: #1a7336; }
-.modal-kembalian-row .value { font-size: 18px; font-weight: 800; color: #28a745; }
-/* Kredit — warna oranye */
-.modal-kembalian-row.kredit-mode { background: #fff3e0; border-color: #ffcc80; }
-.modal-kembalian-row.kredit-mode .label { color: #8a3d00; }
-.modal-kembalian-row.kredit-mode .value { font-size: 14px; color: #e67e00; }
+.jt-chip {
+    background: #fff;
+    border: 1.5px solid #ffcc80;
+    border-radius: 20px;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #8a4000;
+    cursor: pointer;
+    transition: all .12s;
+    white-space: nowrap;
+}
+.jt-chip:hover  { background: #ffe0b2; border-color: #e67e00; }
+.jt-chip.active { background: #e67e00; border-color: #e67e00; color: #fff; }
 
-/* Tombol */
-.modal-actions        { display: flex; gap: 8px; }
-.modal-actions button {
-    flex: 1; padding: 10px; border: none; border-radius: 8px;
-    font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;
+/* Info jatuh tempo */
+.jt-info {
+    background: #fff8e6;
+    border: 1px solid #ffe0b2;
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: #7a3b00;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 3px;
 }
-.btn-cancel-modal       { background: #f0f0f0; color: #555; }
-.btn-cancel-modal:hover { background: #e2e2e2; }
-.btn-confirm-pay        { background: #0d6efd; color: #fff; }
-.btn-confirm-pay:hover  { background: #0b5ed7; }
-.btn-confirm-pay:disabled { background: #9ab9f8; cursor: not-allowed; }
-.btn-confirm-pay.kredit-btn        { background: #e67e00; }
-.btn-confirm-pay.kredit-btn:hover  { background: #c46a00; }
+.jt-info .jt-date { font-weight: 700; color: #c45c00; }
+
+/* Angsuran info */
+.angsuran-info {
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #1b5e20;
+    margin-top: 3px;
+    display: none;
+}
+
+/* Warning jatuh tempo sudah lewat */
+.jt-warning {
+    background: #fff3e0;
+    border: 1px solid #ffb74d;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 10px;
+    color: #e65100;
+    margin-top: 4px;
+}
+
+/* KREDIT SUCCESS */
+.kredit-success-box {
+    background: linear-gradient(135deg, #fff8f0, #fff3e0);
+    border: 2px solid #e67e00;
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+}
+.kredit-success-box .ks-icon  { font-size: 28px; margin-bottom: 4px; }
+.kredit-success-box .ks-title { font-weight: 800; color: #e67e00; font-size: 14px; margin-bottom: 2px; }
+.kredit-success-box .ks-trx   { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+.kredit-success-box .ks-total { font-size: 12px; color: #7a3b00; margin-bottom: 6px; }
+.kredit-success-box .ks-due   { font-size: 11px; background:#fff8e6; border:1px solid #ffe0b2;
+                                  border-radius:5px; padding:4px 8px; color:#c45c00; margin-bottom:8px;
+                                  display:inline-block; }
+.kredit-success-box .ks-btns  { display: flex; gap: 6px; }
+.kredit-success-box .ks-btns a,
+.kredit-success-box .ks-btns button {
+    flex: 1; font-size: 11px; padding: 7px 4px;
+    border-radius: 7px; border: none; cursor: pointer; font-weight: 700;
+    text-decoration: none; display: flex; align-items: center; justify-content: center;
+}
 
 /* MISC */
 .form-control-xs { font-size: 12px; padding: 3px 7px; height: 28px; }
@@ -480,6 +556,7 @@ html, body {
 
             {{-- FOOTER PEMBAYARAN --}}
             <div class="cart-footer">
+
                 <div class="total-row">
                     <span style="font-size:14px; color:#6c757d; font-weight:600;">Total</span>
                     <span class="big-total" id="totalText"
@@ -502,100 +579,129 @@ html, body {
                            placeholder="Diskon (%)" readonly onclick="unlockDiscountPercent()">
                 </div>
 
-                <input type="number" id="paid" class="form-control form-control-xs"
-                       placeholder="⑥ Jumlah bayar → Enter untuk bayar">
-
-                <div class="total-row mt-1">
-                    <span style="font-size:13px;">Kembalian:</span>
-                    <span id="changeText" class="big-total" style="color:#28a745; font-size:15px;">Rp 0</span>
+                {{-- DROPDOWN METODE BAYAR --}}
+                <div style="margin-bottom:6px;">
+                    <label style="font-size:11px; font-weight:700; color:#555; display:block; margin-bottom:3px;">
+                        ⑥ Metode Pembayaran
+                    </label>
+                    <select id="paymentMethod" class="method-select" onchange="onMethodChange(this.value)">
+                        <option value="cash">💵 Cash / Tunai</option>
+                        <option value="transfer">🏦 Transfer Bank</option>
+                        <option value="qris">📱 QRIS</option>
+                        <option value="kredit">📋 Kredit / Hutang</option>
+                    </select>
                 </div>
 
-                <button id="btnPay" class="btn btn-primary btn-sm w-100 mt-1" style="font-size:13px;">
+                {{-- PANEL NOTICE (transfer/qris) --}}
+                <div id="panelNotice" class="panel-notice" style="display:none;"></div>
+
+                {{-- ===== PANEL CASH/TRANSFER/QRIS ===== --}}
+                <div id="panelCash">
+                    <input type="number" id="paid" class="form-control form-control-xs"
+                           placeholder="⑦ Jumlah bayar → Enter untuk bayar">
+                    <div class="total-row mt-1">
+                        <span style="font-size:13px;">Kembalian:</span>
+                        <span id="changeText" class="big-total" style="color:#28a745; font-size:15px;">Rp 0</span>
+                    </div>
+                </div>
+
+                {{-- ===== PANEL KREDIT LENGKAP ===== --}}
+                <div id="panelKredit" style="display:none;">
+                    <div class="kredit-panel-full">
+
+                        {{-- Header --}}
+                        <div class="kredit-header">
+                            <div class="kredit-header-icon">📋</div>
+                            <div>
+                                <div class="kredit-header-title">Transaksi Kredit / Hutang</div>
+                                <div class="kredit-header-sub">Stok dikurangi · Pembayaran ditangguhkan · Catat sebagai piutang</div>
+                            </div>
+                        </div>
+
+                        {{-- Total hutang --}}
+                        <div class="kredit-total-banner">
+                            <span class="ktb-label">💰 Total Hutang</span>
+                            <span class="ktb-amount" id="kreditTotal">Rp 0</span>
+                        </div>
+
+                        {{-- Form grid --}}
+                        <div class="kredit-form-grid">
+
+                            {{-- Nama peminjam --}}
+                            <div class="kredit-field kfg-full">
+                                <label>👤 Nama Peminjam / Pelanggan</label>
+                                <input type="text" id="kreditNama" placeholder="Nama pelanggan (opsional jika ada member)">
+                            </div>
+
+                            {{-- No. HP --}}
+                            <div class="kredit-field">
+                                <label>📱 No. Telepon</label>
+                                <input type="text" id="kreditTelp" placeholder="08xxxxxxxxxx">
+                            </div>
+
+                            {{-- Cara bayar nanti --}}
+                            <div class="kredit-field">
+                                <label>💳 Rencana Cara Bayar</label>
+                                <select id="kreditCaraBayar">
+                                    <option value="cash">💵 Cash / Tunai</option>
+                                    <option value="transfer">🏦 Transfer Bank</option>
+                                    <option value="qris">📱 QRIS</option>
+                                    <option value="cicilan">📆 Cicilan</option>
+                                </select>
+                            </div>
+
+                            {{-- Cicilan (muncul jika pilih cicilan) --}}
+                            <div class="kredit-field kfg-full" id="kreditCicilanGroup" style="display:none;">
+                                <label>📆 Jumlah Cicilan (kali)</label>
+                                <input type="number" id="kreditCicilan" min="2" max="36" value="3"
+                                       placeholder="Misal: 3 (3x cicilan)" oninput="hitungCicilan()">
+                                <div class="angsuran-info" id="angsuranInfo"></div>
+                            </div>
+
+                        </div>
+
+                        {{-- Jatuh tempo --}}
+                        <div class="kredit-field" style="margin-bottom:4px;">
+                            <label>📅 Estimasi Jatuh Tempo</label>
+                            <input type="date" id="kreditJatuhTempo" oninput="updateJatuhTempoInfo()">
+                            <div class="jatuh-tempo-chips" id="jtChips">
+                                <span class="jt-chip" onclick="setJatuhTempo(7)">7 hari</span>
+                                <span class="jt-chip" onclick="setJatuhTempo(14)">14 hari</span>
+                                <span class="jt-chip active" onclick="setJatuhTempo(30)">30 hari</span>
+                                <span class="jt-chip" onclick="setJatuhTempo(60)">2 bulan</span>
+                                <span class="jt-chip" onclick="setJatuhTempo(90)">3 bulan</span>
+                            </div>
+                            <div class="jt-info" id="jtInfo">
+                                <span>⏳ Jatuh tempo:</span>
+                                <span class="jt-date" id="jtInfoDate">—</span>
+                            </div>
+                        </div>
+
+                        {{-- Catatan --}}
+                        <div class="kredit-field" style="margin-bottom:0; margin-top:0;">
+                            <label>📝 Catatan / Keterangan</label>
+                            <textarea id="kreditCatatan" placeholder="Misal: pembayaran saat gajian, transfer ke BCA 123xxx..."></textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                {{-- TOMBOL BAYAR CASH/TRANSFER/QRIS --}}
+                <button id="btnPay" class="btn btn-primary btn-sm w-100 mt-1"
+                        style="font-size:13px;" onclick="processPay()">
                     💳 Simpan / Bayar
                 </button>
+
+                {{-- TOMBOL SIMPAN KREDIT --}}
+                <button id="btnKredit" class="btn btn-sm w-100 mt-1"
+                        style="font-size:13px; display:none; color:#fff; background:#e67e00; border:none; border-radius:6px; font-weight:700; padding:8px;"
+                        onclick="processPay()">
+                    📋 Simpan sebagai Kredit / Hutang
+                </button>
+
             </div>
 
         </div>
-    </div>
-</div>
-
-{{-- ========== MODAL PAYMENT — COMBO LIST ========== --}}
-<div class="modal-overlay" id="paymentModal">
-    <div class="modal-box">
-
-        <h5>💳 Pembayaran</h5>
-        <div class="modal-subtitle">Pilih metode, masukkan nominal, lalu proses bayar</div>
-
-        {{-- Total tagihan --}}
-        <div class="modal-total-display">
-            <span class="label">Total Tagihan</span>
-            <span class="amount" id="modalTotalAmount">Rp 0</span>
-        </div>
-
-        {{-- ===== COMBO LIST METODE BAYAR ===== --}}
-        <span class="combo-list-label">Metode Pembayaran</span>
-        <div class="combo-list">
-
-            <div class="combo-item selected" data-method="cash" tabindex="0" onclick="selectMethod('cash')">
-                <span class="combo-item-icon">💵</span>
-                <div>
-                    <div class="combo-item-title">Cash / Tunai</div>
-                    <div class="combo-item-desc">Pembayaran langsung dengan uang tunai</div>
-                </div>
-            </div>
-
-            <div class="combo-item" data-method="transfer" tabindex="0" onclick="selectMethod('transfer')">
-                <span class="combo-item-icon">🏦</span>
-                <div>
-                    <div class="combo-item-title">Transfer Bank</div>
-                    <div class="combo-item-desc">BCA / BNI / Mandiri / BSI dan lainnya</div>
-                </div>
-            </div>
-
-            <div class="combo-item" data-method="qris" tabindex="0" onclick="selectMethod('qris')">
-                <span class="combo-item-icon">📱</span>
-                <div>
-                    <div class="combo-item-title">QRIS</div>
-                    <div class="combo-item-desc">GoPay, OVO, Dana, ShopeePay, dll</div>
-                </div>
-            </div>
-
-            {{-- ★ BARU: Kredit --}}
-            <div class="combo-item" data-method="kredit" tabindex="0" onclick="selectMethod('kredit')">
-                <span class="combo-item-icon">📋</span>
-                <div>
-                    <div class="combo-item-title">Kredit / Hutang</div>
-                    <div class="combo-item-desc">Pembayaran ditangguhkan — catat sebagai piutang</div>
-                </div>
-            </div>
-
-        </div>
-
-        {{-- Peringatan / info metode --}}
-        <div class="payment-notice" id="paymentNotice">
-            <span class="payment-notice-icon" id="paymentNoticeIcon"></span>
-            <span id="paymentNoticeText"></span>
-        </div>
-
-        {{-- Input jumlah bayar (disembunyikan saat Kredit) --}}
-        <div class="modal-input-group" id="paidInputGroup">
-            <label for="modalPaid">Jumlah Bayar (Rp)</label>
-            <input type="number" id="modalPaid" class="modal-pay-input"
-                   placeholder="Masukkan jumlah bayar">
-        </div>
-
-        {{-- Kembalian / info kredit --}}
-        <div class="modal-kembalian-row" id="modalKembalianRow">
-            <span class="label" id="modalKembalianLabel">Kembalian</span>
-            <span class="value" id="modalChangeText">Rp 0</span>
-        </div>
-
-        {{-- Tombol aksi --}}
-        <div class="modal-actions">
-            <button class="btn-cancel-modal" onclick="closePaymentModal()">✕ Batal</button>
-            <button class="btn-confirm-pay"  id="btnConfirmPay" onclick="confirmPay()">✓ Proses Bayar</button>
-        </div>
-
     </div>
 </div>
 
@@ -621,7 +727,6 @@ let manualDiscountPercent = 0;
 let memberDiscount        = 0;
 let selectedPaymentMethod = 'cash';
 
-// FIX DOUBLE-ADD: dua flag pengaman
 let isAdding      = false;
 let isScanPending = false;
 
@@ -663,7 +768,7 @@ function highlightActive(activeId) {
 }
 
 // =============================================
-// BARCODE — FIX DOUBLE-ADD
+// BARCODE
 // =============================================
 document.getElementById('barcode').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
@@ -749,7 +854,6 @@ document.getElementById('search').addEventListener('keyup', function (e) {
             items.forEach((p, i) => {
                 let sc = '';
                 (p.stocks || []).forEach(s => {
-                    // Stok 0 tampil abu-abu (bukan merah), karena tetap bisa ditambahkan
                     const col = s > 0 ? '#155724' : '#666', bg = s > 0 ? '#d4edda' : '#e9ecef';
                     sc += `<td style="text-align:center;min-width:58px;"><span style="background:${bg};color:${col};padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;">${s}</span></td>`;
                 });
@@ -778,62 +882,21 @@ document.getElementById('search').addEventListener('blur', () => setTimeout(() =
 ['member','discount_rp','discount_percent','paid'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('keydown', e => { if (e.key !== 'Enter') return; e.preventDefault(); focusNext(id); });
+    el.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        if (id === 'paid') processPay();
+        else focusNext(id);
+    });
     el.addEventListener('focus', () => highlightActive(id));
 });
 
-document.getElementById('modalPaid').addEventListener('keydown', e => {
-    if (e.key === 'Enter')  { e.preventDefault(); confirmPay(); return; }
-    if (e.key === 'Escape') { e.preventDefault(); closePaymentModal(); return; }
-    if ((e.key === 'ArrowUp') || (e.key === 'Tab' && e.shiftKey)) {
-        e.preventDefault();
-        const idx   = COMBO_METHODS.indexOf(selectedPaymentMethod);
-        const items = document.querySelectorAll('.combo-item');
-        if (items[idx]) items[idx].focus();
-    }
+window.addEventListener('load', () => {
+    document.getElementById('barcode').focus();
+    highlightActive('barcode');
+    // Set default jatuh tempo 30 hari
+    setJatuhTempo(30);
 });
-
-// =============================================
-// KEYBOARD NAVIGASI COMBO LIST MODAL
-// =============================================
-const COMBO_METHODS = ['cash','transfer','qris','kredit'];
-
-document.querySelectorAll('.combo-item').forEach(function(item) {
-    item.addEventListener('keydown', function(e) {
-        const items = Array.from(document.querySelectorAll('.combo-item'));
-        const idx   = items.indexOf(this);
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            const next = items[idx + 1];
-            if (next) { selectMethod(next.dataset.method); next.focus(); }
-            return;
-        }
-        if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            const prev = items[idx - 1];
-            if (prev) { selectMethod(prev.dataset.method); prev.focus(); }
-            return;
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            selectMethod(this.dataset.method);
-            if (this.dataset.method !== 'kredit') {
-                setTimeout(() => {
-                    const inp = document.getElementById('modalPaid');
-                    inp.focus(); inp.select && inp.select();
-                }, 50);
-            }
-            return;
-        }
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            closePaymentModal();
-        }
-    });
-});
-
-window.addEventListener('load', () => { document.getElementById('barcode').focus(); highlightActive('barcode'); });
 
 // =============================================
 // TRANSAKSI BARU
@@ -888,6 +951,149 @@ document.getElementById('discount_percent').addEventListener('input', function (
     else { manualDiscountPercent = Number(val); manualDiscountRp = 0; document.getElementById('discount_rp').value = ''; }
     applyDiscountLive();
 });
+
+// =============================================
+// METODE BAYAR — DROPDOWN
+// =============================================
+function onMethodChange(method) {
+    selectedPaymentMethod = method;
+
+    const panelCash   = document.getElementById('panelCash');
+    const panelKredit = document.getElementById('panelKredit');
+    const panelNotice = document.getElementById('panelNotice');
+    const btnPay      = document.getElementById('btnPay');
+    const btnKredit   = document.getElementById('btnKredit');
+    const total       = Number(document.getElementById('totalText').dataset.total);
+
+    // Reset
+    panelCash.style.display   = 'none';
+    panelKredit.style.display = 'none';
+    panelNotice.style.display = 'none';
+    btnPay.style.display      = '';
+    btnKredit.style.display   = 'none';
+
+    if (method === 'kredit') {
+        panelKredit.style.display = '';
+        btnPay.style.display      = 'none';
+        btnKredit.style.display   = '';
+        document.getElementById('kreditTotal').innerText = 'Rp ' + total.toLocaleString('id-ID');
+        // Isi nama member jika ada
+        const memberEl = document.getElementById('member');
+        if (memberEl.value && memberEl.value.trim() !== '') {
+            const kNama = document.getElementById('kreditNama');
+            if (!kNama.value) kNama.value = memberEl.value;
+        }
+
+    } else if (method === 'transfer') {
+        panelCash.style.display   = '';
+        panelNotice.style.display = '';
+        panelNotice.innerHTML     = '⚠️ Pastikan bukti <strong>transfer bank</strong> sudah diterima sebelum proses bayar.';
+        document.getElementById('paid').value = total;
+        updateKembalian();
+
+    } else if (method === 'qris') {
+        panelCash.style.display   = '';
+        panelNotice.style.display = '';
+        panelNotice.innerHTML     = '📱 Pastikan notifikasi <strong>QRIS</strong> sudah diterima sebelum proses bayar.';
+        document.getElementById('paid').value = total;
+        updateKembalian();
+
+    } else {
+        panelCash.style.display = '';
+        document.getElementById('paid').value = '';
+        updateKembalian();
+    }
+}
+
+// =============================================
+// KREDIT — JATUH TEMPO
+// =============================================
+function setJatuhTempo(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const dd   = String(d.getDate()).padStart(2, '0');
+    document.getElementById('kreditJatuhTempo').value = `${yyyy}-${mm}-${dd}`;
+
+    // Update chip aktif
+    document.querySelectorAll('.jt-chip').forEach(c => c.classList.remove('active'));
+    const map = { 7:0, 14:1, 30:2, 60:3, 90:4 };
+    const chips = document.querySelectorAll('.jt-chip');
+    if (map[days] !== undefined) chips[map[days]].classList.add('active');
+
+    updateJatuhTempoInfo();
+}
+
+function updateJatuhTempoInfo() {
+    const val = document.getElementById('kreditJatuhTempo').value;
+    if (!val) return;
+
+    const today   = new Date(); today.setHours(0,0,0,0);
+    const due     = new Date(val); due.setHours(0,0,0,0);
+    const diffMs  = due - today;
+    const diffDay = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    const options  = { day: 'numeric', month: 'long', year: 'numeric' };
+    const tglStr   = due.toLocaleDateString('id-ID', options);
+    const hariStr  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][due.getDay()];
+
+    document.getElementById('jtInfoDate').innerText = `${hariStr}, ${tglStr} (${diffDay} hari lagi)`;
+
+    // Chip custom — hapus active semua jika tanggal manual
+    const chipDays = [7, 14, 30, 60, 90];
+    const matched  = chipDays.find(d => {
+        const test = new Date(); test.setDate(test.getDate() + d); test.setHours(0,0,0,0);
+        return test.getTime() === due.getTime();
+    });
+    document.querySelectorAll('.jt-chip').forEach(c => c.classList.remove('active'));
+    if (matched !== undefined) {
+        const map = { 7:0, 14:1, 30:2, 60:3, 90:4 };
+        document.querySelectorAll('.jt-chip')[map[matched]]?.classList.add('active');
+    }
+
+    // Hitung cicilan jika aktif
+    hitungCicilan();
+}
+
+// =============================================
+// KREDIT — CARA BAYAR / CICILAN
+// =============================================
+document.getElementById('kreditCaraBayar').addEventListener('change', function () {
+    const isCicilan = this.value === 'cicilan';
+    document.getElementById('kreditCicilanGroup').style.display = isCicilan ? '' : 'none';
+    if (isCicilan) hitungCicilan();
+    else document.getElementById('angsuranInfo').style.display = 'none';
+});
+
+function hitungCicilan() {
+    if (document.getElementById('kreditCaraBayar').value !== 'cicilan') return;
+    const total    = Number(document.getElementById('totalText').dataset.total);
+    const n        = parseInt(document.getElementById('kreditCicilan').value) || 1;
+    const perCicil = Math.ceil(total / n);
+    const infoEl   = document.getElementById('angsuranInfo');
+
+    // Hitung tanggal tiap cicilan berdasarkan jatuh tempo
+    const jtVal = document.getElementById('kreditJatuhTempo').value;
+    let cicilanDates = '';
+    if (jtVal) {
+        const dueDate = new Date(jtVal);
+        const today   = new Date(); today.setHours(0,0,0,0);
+        const diffDay = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
+        const interval = Math.round(diffDay / n);
+        const parts = [];
+        for (let i = 1; i <= Math.min(n, 4); i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() + interval * i);
+            parts.push(d.toLocaleDateString('id-ID', { day:'numeric', month:'short' }));
+        }
+        if (n > 4) parts.push('...');
+        cicilanDates = ` <small style="color:#555">(${parts.join(' · ')})</small>`;
+    }
+
+    infoEl.innerHTML = `📆 ${n}x cicilan = <strong>Rp ${perCicil.toLocaleString('id-ID')}</strong>/cicilan${cicilanDates}`;
+    infoEl.style.display = '';
+}
 
 // =============================================
 // ADD FROM SEARCH
@@ -945,6 +1151,11 @@ function loadCart() {
         const nb = doc.querySelector('#pendingBadge');
         if (nb) { const b = document.getElementById('pendingBadge'); b.innerText = nb.innerText; b.classList.toggle('hidden', nb.classList.contains('hidden')); }
         applyDiscountLive(); updateKembalian();
+        if (selectedPaymentMethod === 'kredit') {
+            const t = Number(document.getElementById('totalText').dataset.total);
+            document.getElementById('kreditTotal').innerText = 'Rp ' + t.toLocaleString('id-ID');
+            hitungCicilan();
+        }
     });
 }
 
@@ -955,13 +1166,17 @@ function applyDiscountLive() {
     const totalEl = document.getElementById('totalText');
     const awal    = Math.round(Number(totalEl.dataset.original));
     let   akhir   = awal;
-    if (manualDiscountRp > 0)      akhir = awal - Math.round(manualDiscountRp);
+    if (manualDiscountRp > 0)           akhir = awal - Math.round(manualDiscountRp);
     else if (manualDiscountPercent > 0) akhir = awal - Math.round(awal * manualDiscountPercent / 100);
-    else if (memberDiscount > 0)   akhir = awal - Math.round(awal * memberDiscount / 100);
+    else if (memberDiscount > 0)        akhir = awal - Math.round(awal * memberDiscount / 100);
     if (akhir < 0) akhir = 0;
     totalEl.innerText = 'Rp ' + akhir.toLocaleString('id-ID');
     totalEl.dataset.total = akhir;
     updateKembalian();
+    if (selectedPaymentMethod === 'kredit') {
+        document.getElementById('kreditTotal').innerText = 'Rp ' + akhir.toLocaleString('id-ID');
+        hitungCicilan();
+    }
 }
 
 // =============================================
@@ -1001,7 +1216,7 @@ function removeItemWithAuth(itemId, productName) {
 }
 
 // =============================================
-// KEMBALIAN MAIN
+// KEMBALIAN
 // =============================================
 document.getElementById('paid').addEventListener('input', updateKembalian);
 function updateKembalian() {
@@ -1011,154 +1226,129 @@ function updateKembalian() {
 }
 
 // =============================================
-// COMBO LIST — PILIH METODE BAYAR
+// PROSES BAYAR
 // =============================================
-function selectMethod(method) {
-    selectedPaymentMethod = method;
-
-    // Highlight baris terpilih
-    document.querySelectorAll('.combo-item').forEach(el => {
-        el.classList.toggle('selected', el.dataset.method === method);
-    });
-
-    const notice      = document.getElementById('paymentNotice');
-    const noticeText  = document.getElementById('paymentNoticeText');
-    const noticeIcon  = document.getElementById('paymentNoticeIcon');
-    const paidGroup   = document.getElementById('paidInputGroup');
-    const kembalianRow = document.getElementById('modalKembalianRow');
-    const kembalianLabel = document.getElementById('modalKembalianLabel');
-    const modalPaid   = document.getElementById('modalPaid');
-    const confirmBtn  = document.getElementById('btnConfirmPay');
-    const total       = Number(document.getElementById('totalText').dataset.total);
-
-    // Reset semua state dulu
-    notice.className = 'payment-notice';
-    paidGroup.style.display = '';
-    modalPaid.disabled = false;
-    kembalianRow.className = 'modal-kembalian-row';
-    kembalianLabel.textContent = 'Kembalian';
-    confirmBtn.className = 'btn-confirm-pay';
-    confirmBtn.textContent = '✓ Proses Bayar';
-
-    if (method === 'kredit') {
-        // === KREDIT: sembunyikan input bayar, tampilkan info khusus ===
-        noticeIcon.textContent = '📋';
-        noticeText.innerHTML   = 'Transaksi akan dicatat sebagai <strong>piutang / kredit</strong>. Stok tetap dikurangi. Pembayaran dapat dilakukan kemudian.';
-        notice.classList.add('show', 'notice-kredit');
-
-        paidGroup.style.display = 'none'; // sembunyikan input bayar
-        modalPaid.value         = 0;
-
-        kembalianRow.classList.add('kredit-mode');
-        kembalianLabel.textContent = 'Status';
-        document.getElementById('modalChangeText').textContent = '⏳ Belum Dibayar';
-
-        confirmBtn.classList.add('kredit-btn');
-        confirmBtn.textContent = '📋 Simpan Kredit';
-
-    } else if (method === 'transfer') {
-        noticeIcon.textContent = '⚠️';
-        noticeText.innerHTML   = 'Pastikan bukti <strong>transfer bank</strong> sudah diterima sebelum menyelesaikan transaksi.';
-        notice.classList.add('show', 'notice-warning');
-        modalPaid.value = total;
-        updateModalKembalian();
-
-    } else if (method === 'qris') {
-        noticeIcon.textContent = '📱';
-        noticeText.innerHTML   = 'Pastikan notifikasi <strong>QRIS</strong> diterima terlebih dahulu sebelum proses bayar.';
-        notice.classList.add('show', 'notice-warning');
-        modalPaid.value = total;
-        updateModalKembalian();
-
-    } else {
-        // cash — bersih, tidak ada notice
-        updateModalKembalian();
-    }
-}
-
-// =============================================
-// MODAL PAYMENT
-// =============================================
-function openPaymentModal() {
-    const total   = Number(document.getElementById('totalText').dataset.total);
-    const paidVal = document.getElementById('paid').value;
-
-    document.getElementById('modalTotalAmount').innerText = 'Rp ' + total.toLocaleString('id-ID');
-    document.getElementById('modalPaid').value            = paidVal || '';
-
-    selectMethod('cash');
-    updateModalKembalian();
-
-    document.getElementById('paymentModal').classList.add('show');
-    setTimeout(() => {
-        const firstCombo = document.querySelector('.combo-item');
-        if (firstCombo) firstCombo.focus();
-    }, 150);
-}
-
-function closePaymentModal() {
-    document.getElementById('paymentModal').classList.remove('show');
-    setTimeout(() => { document.getElementById('paid').focus(); highlightActive('paid'); }, 50);
-}
-
-document.getElementById('modalPaid').addEventListener('input', updateModalKembalian);
-function updateModalKembalian() {
-    if (selectedPaymentMethod === 'kredit') return; // jangan update saat kredit
-    const total = Number(document.getElementById('totalText').dataset.total);
-    const bayar = Number(document.getElementById('modalPaid').value || 0);
-    document.getElementById('modalChangeText').innerText = 'Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID');
-}
-
-document.getElementById('paymentModal').addEventListener('click', function (e) { if (e.target === this) closePaymentModal(); });
-document.getElementById('btnPay').addEventListener('click', openPaymentModal);
-
-// =============================================
-// KONFIRMASI BAYAR
-// =============================================
-async function confirmPay() {
+async function processPay() {
     const total         = Number(document.getElementById('totalText').dataset.total);
     const paymentMethod = selectedPaymentMethod;
+    const bayar         = paymentMethod === 'kredit'
+                          ? 0
+                          : Number(document.getElementById('paid').value || 0);
+    const memberId      = document.getElementById('member').dataset.memberId || null;
 
-    // Kredit: langsung proses tanpa input bayar
-    const bayar = paymentMethod === 'kredit' ? 0 : Number(document.getElementById('modalPaid').value || 0);
+    if (paymentMethod !== 'kredit' && bayar <= 0) {
+        alert('Masukkan jumlah bayar terlebih dahulu!');
+        document.getElementById('paid').focus();
+        return;
+    }
 
-    const memberId    = document.getElementById('member').dataset.memberId || null;
-    const strukWindow = window.open('', '_blank');
-
-    try {
-    const res = await fetch('/pos/pay', { method:'POST', headers:jsonHeaders,
-        body: JSON.stringify({ trx_id:TRX, paid:bayar, member_id:memberId, payment_method:paymentMethod, frontend_total:total })
-    });
-    const r = await res.json();
-
-    if (r.success) {
-        if (r.is_kredit) {
-            strukWindow.close();
-            closePaymentModal();
-            window.location.href = `/pos/kredit/${r.trx_id}`;
+    // Validasi kredit
+    if (paymentMethod === 'kredit') {
+        const jtVal = document.getElementById('kreditJatuhTempo').value;
+        if (!jtVal) {
+            alert('Tentukan jatuh tempo terlebih dahulu!');
             return;
         }
-
-        if (r.paid_off) {
-            closePaymentModal();
-            const labels = { cash:'💵 Cash / Tunai', transfer:'🏦 Transfer Bank', qris:'📱 QRIS' };
-            alert('✅ Transaksi lunas!\nMetode   : ' + (labels[paymentMethod] || paymentMethod) +
-                  '\nKembalian: Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID'));
-            strukWindow.location.href = `/transactions/${r.trx_id}/struk`;
-            setTimeout(() => { window.location.href = '/pos?new_transaction=1'; }, 500);
-        } else {
-            alert('Transaksi pending, sisa: Rp ' + (total - bayar).toLocaleString('id-ID'));
-            strukWindow.close();
-            closePaymentModal();
-        }
-    } else {
-        alert(r.message || 'Gagal menyimpan transaksi');
-        strukWindow.close();
     }
-} catch (err) {
-    alert('Terjadi error: ' + err.message);
-    strukWindow.close();
+
+    // Kumpulkan data kredit
+    const kreditData = paymentMethod === 'kredit' ? {
+        nama_peminjam : document.getElementById('kreditNama').value.trim(),
+        telepon       : document.getElementById('kreditTelp').value.trim(),
+        cara_bayar    : document.getElementById('kreditCaraBayar').value,
+        cicilan       : document.getElementById('kreditCaraBayar').value === 'cicilan'
+                        ? parseInt(document.getElementById('kreditCicilan').value) || 1
+                        : null,
+        jatuh_tempo   : document.getElementById('kreditJatuhTempo').value,
+        catatan       : document.getElementById('kreditCatatan').value.trim(),
+    } : null;
+
+    const strukWindow = paymentMethod !== 'kredit' ? window.open('', '_blank') : null;
+
+    try {
+        const res = await fetch('/pos/pay', {
+            method  : 'POST',
+            headers : jsonHeaders,
+            body    : JSON.stringify({
+                trx_id         : TRX,
+                paid           : bayar,
+                member_id      : memberId,
+                payment_method : paymentMethod,
+                frontend_total : total,
+                kredit_data    : kreditData,
+            })
+        });
+        const r = await res.json();
+
+        if (r.success) {
+
+            if (r.is_kredit) {
+                showKreditSuccess(r.trx_id, total, kreditData);
+                return;
+            }
+
+            if (r.paid_off) {
+                const labels = { cash:'💵 Cash / Tunai', transfer:'🏦 Transfer Bank', qris:'📱 QRIS' };
+                alert('✅ Transaksi lunas!\nMetode   : ' + (labels[paymentMethod] || paymentMethod) +
+                      '\nKembalian: Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID'));
+                if (strukWindow) strukWindow.location.href = `/transactions/${r.trx_id}/struk`;
+                setTimeout(() => { window.location.href = '/pos?new_transaction=1'; }, 500);
+            } else {
+                alert('Transaksi pending, sisa: Rp ' + (total - bayar).toLocaleString('id-ID'));
+                if (strukWindow) strukWindow.close();
+            }
+
+        } else {
+            alert(r.message || 'Gagal menyimpan transaksi');
+            if (strukWindow) strukWindow.close();
+        }
+
+    } catch (err) {
+        alert('Terjadi error: ' + err.message);
+        if (strukWindow) strukWindow.close();
+    }
 }
+
+// =============================================
+// TAMPIL KREDIT SUKSES
+// =============================================
+function showKreditSuccess(trxId, total, kd) {
+    const panelKredit = document.getElementById('panelKredit');
+
+    let dueStr = '—';
+    if (kd && kd.jatuh_tempo) {
+        const d = new Date(kd.jatuh_tempo);
+        dueStr = d.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    }
+
+    let caraBayarLabel = { cash:'💵 Cash', transfer:'🏦 Transfer', qris:'📱 QRIS', cicilan:'📆 Cicilan' };
+    let extraInfo = '';
+    if (kd && kd.cara_bayar === 'cicilan' && kd.cicilan) {
+        const perCicil = Math.ceil(total / kd.cicilan);
+        extraInfo = `<div style="font-size:11px;color:#7a3b00;margin-bottom:4px;">📆 ${kd.cicilan}x cicilan = <strong>Rp ${perCicil.toLocaleString('id-ID')}</strong>/cicilan</div>`;
+    }
+
+    panelKredit.innerHTML = `
+        <div class="kredit-success-box">
+            <div class="ks-icon">✅</div>
+            <div class="ks-title">Kredit Berhasil Disimpan!</div>
+            <div class="ks-trx">Transaksi #${trxId}</div>
+            <div class="ks-total">Total Hutang: <strong>Rp ${total.toLocaleString('id-ID')}</strong></div>
+            ${extraInfo}
+            <div class="ks-due">📅 Jatuh Tempo: ${dueStr}</div>
+            ${ kd && kd.cara_bayar ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">Rencana bayar: ${caraBayarLabel[kd.cara_bayar] || kd.cara_bayar}</div>` : '' }
+            <div class="ks-btns">
+                <a href="/pos/kredit/${trxId}"
+                   style="background:#e67e00; color:#fff;">
+                    📋 Detail Kredit
+                </a>
+                <button onclick="window.location.href='/pos?new_transaction=1'"
+                        style="background:#28a745; color:#fff;">
+                    ✚ Transaksi Baru
+                </button>
+            </div>
+        </div>`;
+    document.getElementById('btnKredit').style.display = 'none';
 }
 
 // =============================================
@@ -1186,6 +1376,9 @@ function selectMember(id) {
         document.getElementById('discount_percent').value = memberDiscount > 0 ? memberDiscount : '';
         const dp = document.getElementById('discount_percent'); dp.readOnly = false; dp.classList.remove('locked');
         memberInfo.innerHTML = `<strong>Nama:</strong> ${m.name} | <strong>Level:</strong> ${m.level} | <strong>Disc:</strong> ${m.discount}% | <strong>Poin:</strong> ${m.points}`;
+        // Isi otomatis nama di kredit
+        const kNama = document.getElementById('kreditNama');
+        if (!kNama.value) kNama.value = m.name;
         applyDiscountLive();
         fetch('/pos/set-member', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ trx_id:TRX, member_id:m.id }) })
             .then(() => fetch('/pos/set-discount', { method:'POST', headers:jsonHeaders, body:JSON.stringify({ trx_id:TRX, discount:getFinalDiscount() }) }))
@@ -1211,12 +1404,9 @@ function openPending(trxId) {
 // =============================================
 function openPaidTransaction(trxId) {
     if (!trxId) return;
-
     const pwd = prompt("🔐 Masukkan password owner untuk membuka kembali transaksi ini:");
     if (!pwd) return;
-
     document.body.style.cursor = 'wait';
-
     fetch('/pos/reopen-transaction', {
         method : 'POST',
         headers: jsonHeaders,
@@ -1225,10 +1415,7 @@ function openPaidTransaction(trxId) {
     .then(r => r.json())
     .then(r => {
         document.body.style.cursor = '';
-        if (!r.success) {
-            alert("❌ " + (r.message || "Gagal membuka transaksi"));
-            return;
-        }
+        if (!r.success) { alert("❌ " + (r.message || "Gagal membuka transaksi")); return; }
         window.location.href = `/pos?trx_id=${r.trx_id}`;
     })
     .catch(err => {

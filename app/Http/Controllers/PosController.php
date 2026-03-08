@@ -20,12 +20,15 @@ use Illuminate\Support\Facades\Hash;
 class PosController extends Controller
 {
     // ================= HELPER TRANSAKSI AKTIF =================
-    private function getActiveTransaction(Request $request): Transaction
+    // Mengembalikan null jika tidak ditemukan — TIDAK pakai firstOrFail
+    private function getActiveTransaction(Request $request): ?Transaction
     {
+        if (!$request->filled('trx_id')) return null;
+
         return Transaction::where('id', $request->trx_id)
             ->where('user_id', Auth::id())
             ->where('status', 'pending')
-            ->firstOrFail();
+            ->first();
     }
 
     // ================= GENERATE TRX NUMBER =================
@@ -60,7 +63,25 @@ class PosController extends Controller
             }
         }
 
+        // Jika ada request new_transaction, buat transaksi baru lalu redirect
+        if ($request->has('new_transaction')) {
+            $trx = DB::transaction(function () use ($user) {
+                return Transaction::create([
+                    'user_id'    => $user->id,
+                    'status'     => 'pending',
+                    'trx_number' => $this->generateTrxNumber(),
+                    'total'      => 0,
+                    'paid'       => 0,
+                    'change'     => 0,
+                    'discount'   => 0,
+                ]);
+            });
+            return redirect("/pos?trx_id={$trx->id}");
+        }
+
         $trx = null;
+
+        // Coba ambil dari trx_id di URL — hanya yang pending milik user ini
         if ($request->filled('trx_id')) {
             $trx = Transaction::where('id', $request->trx_id)
                 ->where('user_id', $user->id)
@@ -68,6 +89,15 @@ class PosController extends Controller
                 ->first();
         }
 
+        // Tidak ditemukan? Ambil pending terakhir milik user
+        if (!$trx) {
+            $trx = Transaction::where('user_id', $user->id)
+                ->where('status', 'pending')
+                ->latest()
+                ->first();
+        }
+
+        // Masih tidak ada? Buat baru
         if (!$trx) {
             $trx = DB::transaction(function () use ($user) {
                 return Transaction::create([
@@ -229,16 +259,12 @@ class PosController extends Controller
         return $rule?->price ?? $unit->price;
     }
 
-    // ================= CEK STOK — PERLU OVERRIDE? =================
-    // Stok 0 = DIIZINKAN langsung (owner mungkin belum update sistem).
-    // Stok > 0 tapi kurang dari qty yang diminta = butuh override password.
+    // ================= CEK STOK =================
+    // Stok 0 / tidak ada = langsung izinkan.
+    // Stok > 0 tapi kurang dari qty = butuh override.
     private function stockNeedsOverride(int $stok, int $newQty): bool
     {
-        // Jika stok 0 atau tidak ada di sistem → izinkan saja (tanpa override)
-        if ($stok <= 0) {
-            return false;
-        }
-        // Stok ada, tapi kurang dari yang diminta → butuh override
+        if ($stok <= 0) return false;
         return $newQty > $stok;
     }
 
@@ -252,7 +278,14 @@ class PosController extends Controller
             'override_password' => 'nullable|string',
         ]);
 
-        $trx         = $this->getActiveTransaction($request);
+        $trx = $this->getActiveTransaction($request);
+        if (!$trx) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaksi tidak ditemukan atau sudah selesai. Silakan mulai transaksi baru.',
+            ], 404);
+        }
+
         $unit        = ProductUnit::findOrFail($request->product_unit_id);
         $warehouseId = $request->warehouse_id;
 
@@ -260,14 +293,12 @@ class PosController extends Controller
             ->where('warehouse_id', $warehouseId)
             ->value('qty') ?? 0;
 
-        // Cari item yang sudah ada di keranjang
         $existingItem = TransactionItem::where('transaction_id', $trx->id)
             ->where('product_unit_id', $unit->id)
             ->first();
 
         $newQty = ($existingItem ? $existingItem->qty : 0) + 1;
 
-        // Cek apakah butuh override
         if ($this->stockNeedsOverride($stok, $newQty)) {
             $valid = ($request->override_password ?? '') === env('POS_OVERRIDE_PASSWORD');
             if (!$valid) {
@@ -279,7 +310,6 @@ class PosController extends Controller
             }
         }
 
-        // FIX DOUBLE-ADD: DB::transaction + lockForUpdate
         $item = null;
         DB::transaction(function () use ($trx, $unit, $warehouseId, &$item) {
             $item = TransactionItem::where('transaction_id', $trx->id)
@@ -288,9 +318,9 @@ class PosController extends Controller
                 ->first();
 
             if ($item) {
-                $item->qty      = $item->qty + 1;
-                $item->price    = $this->resolvePrice($unit, $item->qty);
-                $item->subtotal = ($item->price - ($item->discount ?? 0)) * $item->qty;
+                $item->qty          = $item->qty + 1;
+                $item->price        = $this->resolvePrice($unit, $item->qty);
+                $item->subtotal     = ($item->price - ($item->discount ?? 0)) * $item->qty;
                 $item->warehouse_id = $warehouseId;
                 $item->save();
             } else {
@@ -332,16 +362,24 @@ class PosController extends Controller
             'override_password' => 'nullable|string',
         ]);
 
-        $trx  = $this->getActiveTransaction($request);
-        $item = TransactionItem::with('unit')->findOrFail($request->item_id);
-        abort_if($item->transaction_id !== $trx->id, 403);
+        $trx = $this->getActiveTransaction($request);
+        if (!$trx) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaksi tidak ditemukan atau sudah selesai.',
+            ], 404);
+        }
+
+        $item = TransactionItem::with('unit')->find($request->item_id);
+        if (!$item || $item->transaction_id !== $trx->id) {
+            return response()->json(['success' => false, 'message' => 'Item tidak ditemukan.'], 404);
+        }
 
         $warehouseId = $request->warehouse_id;
         $stok        = Stock::where('product_unit_id', $item->product_unit_id)
             ->where('warehouse_id', $warehouseId)
             ->value('qty') ?? 0;
 
-        // Stok 0 = langsung izinkan. Stok > 0 tapi kurang = butuh override.
         if ($this->stockNeedsOverride($stok, $request->qty)) {
             $valid = ($request->override_password ?? '') === env('POS_OVERRIDE_PASSWORD');
             if (!$valid) {
@@ -373,9 +411,18 @@ class PosController extends Controller
             'override_password' => 'nullable|string',
         ]);
 
-        $trx  = $this->getActiveTransaction($request);
-        $item = TransactionItem::findOrFail($request->item_id);
-        abort_if($item->transaction_id !== $trx->id, 403);
+        $trx = $this->getActiveTransaction($request);
+        if (!$trx) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaksi tidak ditemukan atau sudah selesai.',
+            ], 404);
+        }
+
+        $item = TransactionItem::find($request->item_id);
+        if (!$item || $item->transaction_id !== $trx->id) {
+            return response()->json(['success' => false, 'message' => 'Item tidak ditemukan.'], 404);
+        }
 
         $unit        = ProductUnit::with('product')->findOrFail($request->product_unit_id);
         $warehouseId = $request->warehouse_id;
@@ -421,6 +468,7 @@ class PosController extends Controller
             'member_id'      => 'nullable|exists:members,id',
             'payment_method' => 'nullable|in:cash,transfer,qris,kredit',
             'frontend_total' => 'nullable|numeric|min:0',
+            'kredit_data'    => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -430,7 +478,11 @@ class PosController extends Controller
                 ->findOrFail($request->trx_id);
 
             if ($trx->status !== 'pending') {
-                return response()->json(['success' => false, 'message' => 'Transaksi sudah selesai'], 400);
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transaksi sudah selesai atau bukan pending.',
+                ], 400);
             }
 
             $activeWarehouseId = Warehouse::where('is_active', true)->value('id') ?? 1;
@@ -450,12 +502,7 @@ class PosController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                // Jika stok tidak ada record atau stok = 0:
-                // → IZINKAN transaksi (owner mungkin lupa update), tapi tidak kurangi stok
-                // Jika stok ada (> 0) tapi kurang dari qty:
-                // → TOLAK (seharusnya sudah di-handle di addItem, ini double-check)
                 if ($stock && $stock->qty > 0 && $stock->qty < $item->qty) {
-                    // Coba cari di gudang lain sebagai fallback
                     $altStock = Stock::where('product_unit_id', $item->product_unit_id)
                         ->where('qty', '>=', $item->qty)
                         ->lockForUpdate()
@@ -476,7 +523,6 @@ class PosController extends Controller
                 $validItems[] = ['item' => $item, 'stock' => $stock];
             }
 
-            // Hitung diskon
             $discountAmount = 0;
             $member         = null;
 
@@ -501,9 +547,8 @@ class PosController extends Controller
 
             $paid = (int) round((float)($request->paid ?? 0), 0);
 
-            // ===== KREDIT: simpan langsung tanpa bayar =====
+            // ===== KREDIT: simpan tanpa bayar =====
             if ($isKredit) {
-                // Kurangi stok (hanya yang stoknya > 0)
                 foreach ($validItems as $row) {
                     $s = $row['stock'];
                     if ($s && $s->qty > 0) {
@@ -511,17 +556,25 @@ class PosController extends Controller
                     }
                 }
 
+                // Ambil data kredit dari frontend
+                $kd = $request->input('kredit_data', []);
+
                 $trx->update([
-                    'member_id'      => $request->member_id,
-                    'total'          => $total,
-                    'paid'           => 0,
-                    'change'         => 0,
-                    'status'         => 'kredit',
-                    'discount'       => $discountAmount,
-                    'payment_method' => 'kredit',
+                    'member_id'         => $request->member_id,
+                    'total'             => $total,
+                    'paid'              => 0,
+                    'change'            => 0,
+                    'status'            => 'kredit',
+                    'discount'          => $discountAmount,
+                    'payment_method'    => 'kredit',
+                    'due_date'          => isset($kd['jatuh_tempo']) && $kd['jatuh_tempo'] ? $kd['jatuh_tempo'] : null,
+                    'debtor_name'       => isset($kd['nama_peminjam']) ? trim($kd['nama_peminjam']) : null,
+                    'debtor_phone'      => isset($kd['telepon']) ? trim($kd['telepon']) : null,
+                    'payment_plan'      => $kd['cara_bayar'] ?? null,
+                    'installment_count' => ($kd['cara_bayar'] ?? null) === 'cicilan' ? ($kd['cicilan'] ?? null) : null,
+                    'kredit_notes'      => isset($kd['catatan']) ? trim($kd['catatan']) : null,
                 ]);
 
-                // Update poin & level member (belum earned karena belum bayar)
                 if ($member) {
                     $member->increment('total_spent', $total);
                     if ($member->total_spent >= 5000000)     $member->update(['level' => 'Gold',   'discount' => 5]);
@@ -533,7 +586,7 @@ class PosController extends Controller
                 return response()->json(['success' => true, 'is_kredit' => true, 'trx_id' => $trx->id]);
             }
 
-            // ===== PEMBAYARAN BIASA =====
+            // ===== PEMBAYARAN BIASA: belum lunas =====
             if ($paid < $total) {
                 $trx->update([
                     'member_id'      => $request->member_id,
@@ -548,7 +601,7 @@ class PosController extends Controller
                 return response()->json(['success' => true, 'paid_off' => false, 'trx_id' => $trx->id]);
             }
 
-            // Kurangi stok (hanya yang stoknya > 0)
+            // ===== PEMBAYARAN BIASA: lunas =====
             foreach ($validItems as $row) {
                 $s = $row['stock'];
                 if ($s && $s->qty > 0) {
@@ -578,6 +631,7 @@ class PosController extends Controller
 
             DB::commit();
             return response()->json(['success' => true, 'paid_off' => true, 'trx_id' => $trx->id]);
+
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -587,7 +641,11 @@ class PosController extends Controller
     // ================= CART =================
     public function cart(Request $request)
     {
-        $trx   = $this->getActiveTransaction($request);
+        $trx = $this->getActiveTransaction($request);
+        if (!$trx) {
+            return response()->json(['items' => [], 'total' => 0]);
+        }
+
         $items = $trx->items()->with('unit.product')->get();
 
         $cart = $items->map(fn($i) => [
@@ -659,7 +717,7 @@ class PosController extends Controller
         return response()->json(['success' => true]);
     }
 
-    // ================= REOPEN PAID / KREDIT TRANSACTION =================
+    // ================= REOPEN PAID / KREDIT =================
     public function reopenTransaction(Request $request)
     {
         $request->validate([
@@ -682,7 +740,7 @@ class PosController extends Controller
         }
 
         DB::transaction(function () use ($trx) {
-            // Kembalikan stok yang sudah dikurangi
+            // Kembalikan stok
             foreach ($trx->items as $item) {
                 $warehouseId = $item->warehouse_id
                     ?? Warehouse::where('is_active', true)->value('id')
@@ -736,7 +794,8 @@ class PosController extends Controller
 
         return response()->json(['success' => true, 'deleted' => $deleted]);
     }
-    // ── 1. Tampilkan halaman kredit ──────────────────────
+
+    // ================= KREDIT: TAMPILKAN =================
     public function showKredit($trx_id)
     {
         $trx = Transaction::with([
@@ -753,8 +812,7 @@ class PosController extends Controller
         return view('pos.kredit', compact('trx', 'totalTerbayar', 'sisa'));
     }
 
-
-    // ── 2. Simpan catatan kredit ─────────────────────────
+    // ================= KREDIT: SIMPAN CATATAN =================
     public function saveKreditNotes(Request $request)
     {
         $request->validate([
@@ -767,11 +825,10 @@ class PosController extends Controller
 
         return redirect()
             ->route('pos.kredit.show', $trx->id)
-            ->with('success', 'Pembayaran berhasil disimpan');
+            ->with('success', 'Catatan berhasil disimpan');
     }
 
-
-    // ── 3. Lunasi kredit (full) ──────────────────────────
+    // ================= KREDIT: LUNASI =================
     public function lunasiKredit(Request $request)
     {
         $request->validate([
@@ -812,80 +869,79 @@ class PosController extends Controller
         ]);
 
         return redirect()
-            ->route('pos.kredit', $trx->id)
+            ->route('pos.kredit.show', $trx->id)
             ->with('success', 'Kredit berhasil dilunasi');
     }
 
-
-    // ── 4. Bayar sebagian (partial) ──────────────────────
+    // ================= KREDIT: BAYAR SEBAGIAN =================
     public function partialPayKredit(Request $request)
-{
-    $request->validate([
-        'trx_id'   => 'required|exists:transactions,id',
-        'password' => 'required|string',
-        'amount'   => 'required|numeric|min:1',
-        'method'   => 'required|in:cash,transfer,qris',
-        'note'     => 'nullable|string|max:500',
-    ]);
-
-    $owner = User::where('role','owner')->first();
-
-    if(!$owner || !Hash::check($request->password,$owner->password)){
-        return back()->with('error','Password owner salah!');
-    }
-
-    DB::transaction(function() use($request){
-
-        $trx = Transaction::with('payments')->lockForUpdate()->findOrFail($request->trx_id);
-
-        if($trx->status !== 'kredit'){
-            abort(400,'Transaksi bukan kredit');
-        }
-
-        $totalTerbayar = $trx->payments->sum('amount');
-        $sisa          = max($trx->total - $totalTerbayar,0);
-
-        $amountPaid = min($request->amount,$sisa);
-
-        KreditPayment::create([
-            'transaction_id' => $trx->id,
-            'amount'         => $amountPaid,
-            'method'         => $request->method,
-            'note'           => $request->note,
-            'paid_at'        => now(),
-            'created_by'     => auth()->id(),
+    {
+        $request->validate([
+            'trx_id'   => 'required|exists:transactions,id',
+            'password' => 'required|string',
+            'amount'   => 'required|numeric|min:1',
+            'method'   => 'required|in:cash,transfer,qris',
+            'note'     => 'nullable|string|max:500',
         ]);
 
-        $totalBaru = $trx->payments()->sum('amount') + $amountPaid;
-        $sisaBaru  = max($trx->total - $totalBaru,0);
+        $owner = User::where('role', 'owner')->first();
 
-        if($sisaBaru <= 0){
-            $trx->update([
-                'status' => 'paid',
-                'payment_method'=>$request->method,
-                'paid_at'=>now()
-            ]);
+        if (!$owner || !Hash::check($request->password, $owner->password)) {
+            return back()->with('error', 'Password owner salah!');
         }
 
-    });
+        DB::transaction(function () use ($request) {
+            $trx = Transaction::with('payments')->lockForUpdate()->findOrFail($request->trx_id);
 
-    return redirect()
-        ->route('pos.kredit.show',$request->trx_id)
-        ->with('success','Pembayaran berhasil disimpan');
+            if ($trx->status !== 'kredit') {
+                abort(400, 'Transaksi bukan kredit');
+            }
+
+            $totalTerbayar = $trx->payments->sum('amount');
+            $sisa          = max($trx->total - $totalTerbayar, 0);
+            $amountPaid    = min($request->amount, $sisa);
+
+            KreditPayment::create([
+                'transaction_id' => $trx->id,
+                'amount'         => $amountPaid,
+                'method'         => $request->method,
+                'note'           => $request->note,
+                'paid_at'        => now(),
+                'created_by'     => auth()->id(),
+            ]);
+
+            // Hitung ulang dari DB setelah insert
+            $totalBaru = $trx->payments()->sum('amount');
+            $sisaBaru  = max($trx->total - $totalBaru, 0);
+
+            if ($sisaBaru <= 0) {
+                $trx->update([
+                    'status'         => 'paid',
+                    'payment_method' => $request->method,
+                    'paid_at'        => now(),
+                ]);
+            }
+        });
+
+        return redirect()
+            ->route('pos.kredit.show', $request->trx_id)
+            ->with('success', 'Pembayaran berhasil disimpan');
     }
 
+    // ================= KREDIT: INDEX =================
     public function kreditIndex()
-{
-    $kredits = Transaction::with('member','payments')
-        ->where('status','kredit')
-        ->latest()
-        ->get();
+    {
+        $kredits = Transaction::with('member', 'payments')
+            ->where('status', 'kredit')
+            ->latest()
+            ->get();
 
-    return view('pos.kredit_index',compact('kredits'));
+        return view('pos.kredit_index', compact('kredits'));
     }
 
+    // ================= KREDIT: PRINT =================
     public function printKredit($trx_id)
     {
-    return redirect()->to('/transactions/'.$trx_id.'/struk');   
+        return redirect()->to('/transactions/' . $trx_id . '/struk');
     }
 }
