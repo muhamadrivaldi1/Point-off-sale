@@ -4,10 +4,12 @@
 
 @section('content')
 
-@php $s = \App\Models\StrukSetting::getSetting(); @endphp
+@php
+$s = \App\Models\StrukSetting::getSetting();
+@endphp
 
 <style>
-.struk{
+.struk {
 max-width:220px;
 margin:auto;
 padding:8px;
@@ -60,6 +62,7 @@ letter-spacing:.3px
 .footer{
 display:flex;
 justify-content:space-between;
+font-style:normal;
 margin-top:4px
 }
 
@@ -70,14 +73,22 @@ margin-top:4px
 
 <div class="struk">
 
-{{-- HEADER --}}
+{{-- ================= HEADER (EDITABLE) ================= --}}
 <div class="text-center">
 
 <strong>{{ strtoupper($s->nama_toko) }}</strong><br>
 
-@if($s->tagline){{ $s->tagline }}<br>@endif
-@if($s->alamat){{ $s->alamat }}<br>@endif
-@if($s->kota){{ strtoupper($s->kota) }}<br>@endif
+@if($s->tagline)
+{{ $s->tagline }}<br>
+@endif
+
+@if($s->alamat)
+{{ $s->alamat }}<br>
+@endif
+
+@if($s->kota)
+{{ strtoupper($s->kota) }}<br>
+@endif
 
 @if($s->tampil_npwp && $s->npwp)
 NPWP: {{ $s->npwp }}<br>
@@ -101,37 +112,31 @@ HP. {{ $s->telepon }}<br>
 
 {{-- INFO TRANSAKSI --}}
 @php
+$isKredit = $trx->payment_method === 'kredit' || $trx->status === 'kredit';
 
-$isKredit = $trx->payment_method === 'kredit';
-
-$metodeLabel = match($trx->payment_method) {
+$metodeLable = match($trx->payment_method) {
 'transfer' => 'Transfer Bank',
-'qris' => 'QRIS',
-'kredit' => 'KREDIT',
-default => 'Cash / Tunai',
+'qris'     => 'QRIS',
+'kredit'   => 'KREDIT',
+default    => 'Cash / Tunai',
 };
-
 @endphp
 
 <div>
-
 No  : {{ $trx->trx_number }}<br>
-
 Tgl : {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
-
 Kasir: {{ $trx->user->name ?? auth()->user()->name }}<br>
 
-@if($s->tampil_member && $trx->member)
+@if($trx->member)
 Member: {{ $trx->member->name }}<br>
 Level : {{ $trx->member->level }}<br>
 @endif
 
-Bayar : {{ $metodeLabel }}<br>
+Bayar : {{ $metodeLable }}<br>
 
 @if($isKredit)
 Status: *** BELUM LUNAS ***<br>
 @endif
-
 </div>
 
 <hr>
@@ -146,10 +151,10 @@ $subtotalBersih = 0;
 @foreach($trx->items as $item)
 
 @php
-$harga = $item->price;
+$hargaSatuan = $item->price;
 $qty = $item->qty;
-$sub = $harga * $qty;
-$subtotalBersih += $sub;
+$subtotalItem = $hargaSatuan * $qty;
+$subtotalBersih += $subtotalItem;
 @endphp
 
 <tr>
@@ -161,8 +166,8 @@ $subtotalBersih += $sub;
 
 <tr>
 <td>{{ $qty }} x</td>
-<td class="text-end">{{ number_format($harga) }}</td>
-<td class="text-end">{{ number_format($sub) }}</td>
+<td class="text-end">{{ number_format($hargaSatuan) }}</td>
+<td class="text-end">{{ number_format($subtotalItem) }}</td>
 </tr>
 
 @endforeach
@@ -173,15 +178,14 @@ $subtotalBersih += $sub;
 
 {{-- RINGKASAN --}}
 @php
+$diskonRupiah = $trx->discount ?? 0;
 
-$diskon = $trx->discount ?? 0;
+$totalBayar = $subtotalBersih - $diskonRupiah;
+if($totalBayar < 0) $totalBayar = 0;
 
-$total = max($subtotalBersih - $diskon,0);
-
-$sudahBayar = $trx->paid ?? 0;
-
-$sisa = max($total - $sudahBayar,0);
-
+$sudahBayar = $isKredit ? 0 : ($trx->paid ?? 0);
+$kembalian  = $isKredit ? 0 : max($trx->change ?? 0,0);
+$sisaHutang = $isKredit ? $totalBayar : 0;
 @endphp
 
 <table style="width:100%">
@@ -191,28 +195,28 @@ $sisa = max($total - $sudahBayar,0);
 <td class="text-end">{{ number_format($subtotalBersih) }}</td>
 </tr>
 
-@if($diskon>0)
+@if($diskonRupiah>0)
 <tr>
 <td>Diskon</td>
-<td class="text-end">-{{ number_format($diskon) }}</td>
+<td class="text-end">-{{ number_format($diskonRupiah) }}</td>
 </tr>
 @endif
 
 <tr>
 <td><strong>Total</strong></td>
-<td class="text-end"><strong>{{ number_format($total) }}</strong></td>
+<td class="text-end"><strong>{{ number_format($totalBayar) }}</strong></td>
 </tr>
 
 @if($isKredit)
 
 <tr>
 <td>Dibayar</td>
-<td class="text-end">{{ number_format($sudahBayar) }}</td>
+<td class="text-end">0</td>
 </tr>
 
 <tr>
 <td><strong>Sisa Hutang</strong></td>
-<td class="text-end"><strong>{{ number_format($sisa) }}</strong></td>
+<td class="text-end"><strong>{{ number_format($sisaHutang) }}</strong></td>
 </tr>
 
 @else
@@ -224,7 +228,7 @@ $sisa = max($total - $sudahBayar,0);
 
 <tr>
 <td>Kembali</td>
-<td class="text-end">{{ number_format($trx->change ?? 0) }}</td>
+<td class="text-end">{{ number_format($kembalian) }}</td>
 </tr>
 
 @endif
@@ -232,59 +236,22 @@ $sisa = max($total - $sudahBayar,0);
 </table>
 
 
-{{-- NOTA KREDIT --}}
 @if($isKredit)
 
 <hr>
 
 <div class="kredit-box">
-
 *** NOTA KREDIT / HUTANG ***<br>
-
 {{ $s->teks_kredit ?? 'Harap dilunasi secepatnya' }}<br>
-
-Total: Rp {{ number_format($total) }}
-
+Total: Rp {{ number_format($totalBayar) }}
 </div>
 
 @endif
 
-
-{{-- POIN --}}
-@if($s->tampil_poin && $trx->member && !$isKredit)
-
-<hr>
-
-<div>
-
-Poin Didapat : +{{ floor($subtotalBersih/10000) }} pts<br>
-
-Total Poin   : {{ $trx->member->points }} pts
-
-</div>
-
-@endif
-
-
-{{-- FOOTER TEXT --}}
-@if(($s->tampil_footer_text ?? true) && $s->footer_text)
-
-<hr>
-
-<div class="text-center" style="font-size:10px;white-space:pre-line">
-
-{{ $s->footer_text }}
-
-</div>
-
-@endif
-
-
-{{-- TANDA TANGAN --}}
-@if($s->tampil_footer_ttd)
 
 <hr><br>
 
+{{-- ================= FOOTER (EDITABLE) ================= --}}
 <div class="footer">
 
 <div class="left">
@@ -306,8 +273,6 @@ Total Poin   : {{ $trx->member->points }} pts
 {{ strtoupper($s->kota) }}
 
 </small>
-
-@endif
 
 </div>
 
