@@ -288,7 +288,7 @@ Route::prefix('reports')->name('reports.')->group(function () {
 Route::get('reports/journal', [ReportController::class, 'journal'])->name('reports.journal');
 
 Route::get('reports/laba-rugi', [ReportController::class, 'labaRugi'])->name('reports.laba-rugi');
-// Route::get('/reports/laba-rugi/export', [ReportController::class, 'exportLabaRugi'])->name('reports.laba-rugi.export');
-Route::get('/reports/laba-rugi/export', [ReportController::class, 'exportLabaRugi']);
+Route::get('/reports/laba-rugi/export', [ReportController::class, 'exportLabaRugi'])->name('reports.laba-rugi.export');
+// Route::get('/reports/laba-rugi/export', [ReportController::class, 'exportLabaRugi']);
 
 Route::get('/reports/neraca', [ReportController::class, 'neraca'])->name('reports.neraca');
