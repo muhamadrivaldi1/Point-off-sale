@@ -546,4 +546,20 @@ class ReportController extends Controller
             'kreditTrx', 'totalAset', 'totalKewajiban', 'modal'
         ));
     }
+
+    public function exportLabaRugi(Request $request)
+    {
+        $from = $request->query('from');
+        $to = $request->query('to');
+
+        // TODO: ambil data laba-rugi dari database
+        $data = []; // Contoh dummy
+
+        // Bisa export ke Excel, CSV, PDF, dsb.
+        return response()->json([
+            'from' => $from,
+            'to' => $to,
+            'data' => $data,
+        ]);
+    }
 }
