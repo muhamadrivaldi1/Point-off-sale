@@ -209,7 +209,6 @@ data-bs-toggle="collapse" href="#menuOperasional">
 @if(hasAkses('akses_retur'))
 <a href="/returns"><i class="bi bi-arrow-counterclockwise"></i> Retur Barang</a>
 @endif
-
 @if(hasAkses('akses_pembelian'))
 <a href="{{ route('po.index') }}"><i class="bi bi-cart-fill"></i> Pembelian</a>
 @endif
@@ -220,25 +219,36 @@ data-bs-toggle="collapse" href="#menuOperasional">
 
 </div>
 
-<a class="d-flex justify-content-between align-items-center"
-data-bs-toggle="collapse" href="#menuLaporan">
-<span><i class="bi bi-graph-up"></i> Laporan</span>
-<i class="bi bi-chevron-down"></i>
+{{-- ================= MENU LAPORAN (OWNER) ================= --}}
+        <a class="d-flex justify-content-between align-items-center" 
+   data-bs-toggle="collapse" href="#menuLaporan" role="button" aria-expanded="false">
+    <span><i class="bi bi-graph-up"></i> Laporan</span>
+    <i class="bi bi-chevron-down"></i>
 </a>
 
 <div class="collapse ps-3" id="menuLaporan">
+    @if(hasAkses('akses_laporan'))
+        {{-- Laporan Penjualan --}}
+        <a href="{{ route('reports.sales') }}"><i class="bi bi-cart-check"></i> Penjualan Rinci</a>
+        
+        {{-- Laporan Stok/Penerimaan --}}
+        <a href="{{ route('reports.stock') }}"><i class="bi bi-box-seam"></i> History</a>
+        <a href="{{ route('reports.penerimaan') }}"><i class="bi bi-download"></i> Penerimaan Barang</a>
 
-@if(hasAkses('akses_laporan'))
-<a href="/reports/sales"><i class="bi bi-graph-up"></i> Penjualan</a>
-@endif
+        <hr class="text-secondary my-1">
 
-@if(hasAkses('akses_laporan'))
-<a href="/reports/stock"><i class="bi bi-bar-chart"></i> Stok</a>
-@endif
+        {{-- Laporan Piutang & Hutang --}}
+        <a href="{{ route('reports.piutang') }}"><i class="bi bi-person-exclamation"></i> Piutang Pelanggan</a>
+        <a href="{{ route('reports.hutang') }}"><i class="bi bi-truck-flatbed"></i> Hutang Supplier</a>
 
+        <hr class="text-secondary my-1">
+
+        {{-- Laporan Akuntansi/Keuangan --}}
+        <a href="{{ route('reports.journal') }}"><i class="bi bi-journal-text"></i> Jurnal Akuntansi</a>
+        <a href="{{ route('reports.laba-rugi') }}"><i class="bi bi-graph-up-arrow"></i> Laba / Rugi & Neraca</a>
+    @endif
 </div>
-
-@endif
+        @endif {{-- End Role Owner --}}
 
 </div>
 

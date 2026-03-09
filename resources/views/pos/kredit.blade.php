@@ -21,10 +21,28 @@
 .s-box        { border-radius: 8px; padding: 10px 14px; text-align: center; }
 .s-box .s-label { font-size: 11px; color: #6b7280; margin-bottom: 3px; }
 .s-box .s-value { font-size: 16px; font-weight: 800; }
-.s-total  { background: #f3f4f6; }  .s-total  .s-value { color: #111827; }
-.s-bayar  { background: #d1fae5; }  .s-bayar  .s-value { color: #065f46; }
-.s-sisa   { background: #fee2e2; }  .s-sisa   .s-value { color: #dc2626; }
+.s-total      { background: #f3f4f6; } .s-total      .s-value { color: #111827; }
+.s-bayar      { background: #d1fae5; } .s-bayar      .s-value { color: #065f46; }
+.s-sisa       { background: #fee2e2; } .s-sisa       .s-value { color: #dc2626; }
 .s-sisa-lunas { background: #d1fae5; } .s-sisa-lunas .s-value { color: #065f46; }
+
+/* DP banner */
+.dp-banner {
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #065f46;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.dp-banner .dp-left  { font-weight: 600; }
+.dp-banner .dp-right { font-size: 11px; color: #047857; }
 
 /* Info kredit */
 .kredit-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -34,10 +52,10 @@
 .ki-box.full      { grid-column: 1 / -1; }
 
 /* Jatuh tempo alert */
-.due-alert        { border-radius: 8px; padding: 10px 14px; font-size: 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
-.due-ok           { background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; }
-.due-soon         { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
-.due-overdue      { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+.due-alert   { border-radius: 8px; padding: 10px 14px; font-size: 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.due-ok      { background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; }
+.due-soon    { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+.due-overdue { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
 
 /* Cicilan progress */
 .cicilan-progress { background: #f3f4f6; border-radius: 20px; height: 8px; overflow: hidden; margin: 6px 0; }
@@ -45,9 +63,8 @@
 
 /* Catatan box */
 .catatan-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px; padding: 10px 14px; font-size: 12px; color: #78350f; white-space: pre-wrap; line-height: 1.6; }
-.catatan-box .catatan-label { font-size: 10px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
 
-/* Form cicilan */
+/* Form */
 .form-group       { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px; }
 .form-input       { width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px; font-size: 13px; outline: none; transition: border-color .15s; }
@@ -72,6 +89,9 @@
 .m-transfer { background: #dbeafe; color: #1e40af; }
 .m-qris     { background: #ede9fe; color: #5b21b6; }
 
+/* Baris DP di riwayat */
+.row-dp td { background: #f0fdf4 !important; }
+
 /* Alert */
 .alert { padding: 11px 16px; border-radius: 7px; margin-bottom: 16px; font-size: 13px; }
 .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
@@ -90,9 +110,14 @@
             <p style="margin:4px 0 0; font-size:12px; color:#6b7280;">{{ $trx->trx_number }}</p>
         </div>
         <div style="display:flex; gap:8px;" class="no-print">
-            <a href="{{ route('pos') }}" style="background:#f3f4f6;color:#374151;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">← Kembali ke POS</a>
-            <a href="{{ route('print.kredit', $trx->id) }}" 
-            style="background:#6b7280;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">🖨 Print</a>
+            <a href="{{ route('pos') }}"
+               style="background:#f3f4f6;color:#374151;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">
+                ← Kembali ke POS
+            </a>
+            <a href="{{ route('print.kredit', $trx->id) }}"
+               style="background:#6b7280;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">
+                🖨 Print
+            </a>
         </div>
     </div>
 
@@ -131,10 +156,32 @@
             </div>
         </div>
 
+        {{-- Tampilkan info DP jika ada --}}
+        @php
+            $dpPayment = $trx->payments->firstWhere('note', 'DP / Uang Muka');
+        @endphp
+        @if($dpPayment)
+        <div class="dp-banner">
+            <div class="dp-left">
+                💵 DP / Uang Muka sudah dibayar:
+                <strong>Rp {{ number_format($dpPayment->amount) }}</strong>
+                <span class="method-badge m-{{ $dpPayment->method }}" style="margin-left:6px;">
+                    {{ ['cash'=>'💵 Cash','transfer'=>'🏦 Transfer','qris'=>'📱 QRIS'][$dpPayment->method] ?? $dpPayment->method }}
+                </span>
+            </div>
+            <div class="dp-right">
+                Sisa hutang awal setelah DP:
+                <strong>Rp {{ number_format($trx->total - $dpPayment->amount) }}</strong>
+            </div>
+        </div>
+        @endif
+
         @php
             $pct = $trx->total > 0 ? min(round(($totalTerbayar / $trx->total) * 100), 100) : 0;
         @endphp
-        <div style="font-size:11px; color:#6b7280; margin-bottom:4px;">Progress Pembayaran: <strong>{{ $pct }}%</strong></div>
+        <div style="font-size:11px; color:#6b7280; margin-bottom:4px; margin-top:10px;">
+            Progress Pembayaran: <strong>{{ $pct }}%</strong>
+        </div>
         <div class="cicilan-progress"><div class="cicilan-bar" style="width:{{ $pct }}%"></div></div>
 
         <hr class="k-divider">
@@ -156,9 +203,9 @@
         {{-- Jatuh tempo alert --}}
         @if($trx->due_date && $trx->status === 'kredit')
             @php
-                $today  = now()->startOfDay();
-                $due    = \Carbon\Carbon::parse($trx->due_date)->startOfDay();
-                $diff   = $today->diffInDays($due, false);
+                $today = now()->startOfDay();
+                $due   = \Carbon\Carbon::parse($trx->due_date)->startOfDay();
+                $diff  = $today->diffInDays($due, false);
             @endphp
             @if($diff < 0)
                 <div class="due-alert due-overdue">🚨 <strong>Jatuh tempo terlewat {{ abs($diff) }} hari!</strong> Segera tagih pembayaran.</div>
@@ -181,11 +228,14 @@
             <div class="ki-box">
                 <div class="ki-label">📱 No. Telepon</div>
                 <div class="ki-value">
-                    <a href="tel:{{ $trx->debtor_phone }}" style="color:#2563eb; text-decoration:none;">{{ $trx->debtor_phone }}</a>
+                    <a href="tel:{{ $trx->debtor_phone }}" style="color:#2563eb; text-decoration:none;">
+                        {{ $trx->debtor_phone }}
+                    </a>
                     &nbsp;
                     <a href="https://wa.me/{{ preg_replace('/^0/', '62', $trx->debtor_phone) }}"
-                       target="_blank" style="font-size:11px; background:#22c55e; color:#fff; padding:1px 7px; border-radius:10px; text-decoration:none;">
-                       WA
+                       target="_blank"
+                       style="font-size:11px; background:#22c55e; color:#fff; padding:1px 7px; border-radius:10px; text-decoration:none;">
+                        WA
                     </a>
                 </div>
             </div>
@@ -205,18 +255,22 @@
                     @php $planLabels = ['cash'=>'💵 Cash','transfer'=>'🏦 Transfer','qris'=>'📱 QRIS','cicilan'=>'📆 Cicilan']; @endphp
                     {{ $planLabels[$trx->payment_plan] ?? $trx->payment_plan }}
                     @if($trx->installment_count)
+                        @php
+                            // Cicilan dihitung dari sisa setelah DP
+                            $sisaSetelahDp = $dpPayment ? ($trx->total - $dpPayment->amount) : $trx->total;
+                            $perCicilanRencana = ceil($sisaSetelahDp / $trx->installment_count);
+                        @endphp
                         — <strong>{{ $trx->installment_count }}x cicilan</strong>
-                        (Rp {{ number_format(ceil($trx->total / $trx->installment_count)) }}/cicilan)
+                        (Rp {{ number_format($perCicilanRencana) }}/cicilan)
                     @endif
                 </div>
             </div>
             @endif
 
-            {{-- Catatan kasir --}}
             @if($trx->kredit_notes)
             <div class="ki-box full">
                 <div class="ki-label">📝 Catatan dari Kasir</div>
-                <div class="catatan-box" style="margin-top:4px; background:#fffbeb;">{{ $trx->kredit_notes }}</div>
+                <div class="catatan-box" style="margin-top:4px;">{{ $trx->kredit_notes }}</div>
             </div>
             @endif
         </div>
@@ -224,9 +278,12 @@
         {{-- Cicilan progress --}}
         @if($trx->installment_count && $trx->installment_count > 1)
         @php
-            $perCicil        = ceil($trx->total / $trx->installment_count);
-            $cicilanTerbayar = $totalTerbayar > 0 ? floor($totalTerbayar / $perCicil) : 0;
-            $cicilanTerbayar = min($cicilanTerbayar, $trx->installment_count);
+            // Hitung cicilan berdasarkan sisa setelah DP
+            $sisaUntukCicilan = $dpPayment ? ($trx->total - $dpPayment->amount) : $trx->total;
+            $perCicil         = ceil($sisaUntukCicilan / $trx->installment_count);
+            // Total terbayar untuk cicilan = totalTerbayar dikurangi DP
+            $terbayarCicilan  = $dpPayment ? max($totalTerbayar - $dpPayment->amount, 0) : $totalTerbayar;
+            $cicilanTerbayar  = $perCicil > 0 ? min(floor($terbayarCicilan / $perCicil), $trx->installment_count) : 0;
         @endphp
         <div style="margin-top:12px; background:#f9fafb; border-radius:7px; padding:10px 14px;">
             <div style="font-size:12px; font-weight:700; color:#374151; margin-bottom:8px;">
@@ -234,7 +291,7 @@
             </div>
             <div style="display:flex; gap:4px; flex-wrap:wrap;">
                 @for($i = 1; $i <= $trx->installment_count; $i++)
-                    @php $paid_i = ($totalTerbayar >= $perCicil * $i); @endphp
+                    @php $paid_i = ($terbayarCicilan >= $perCicil * $i); @endphp
                     <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
                                 font-size:11px; font-weight:700;
                                 background:{{ $paid_i ? '#22c55e' : '#e5e7eb' }};
@@ -258,8 +315,12 @@
         <table class="history-table">
             <thead>
                 <tr>
-                    <th>No</th><th>Produk</th><th>Satuan</th><th style="text-align:right">Harga</th>
-                    <th style="text-align:center">Qty</th><th style="text-align:right">Subtotal</th>
+                    <th>No</th>
+                    <th>Produk</th>
+                    <th>Satuan</th>
+                    <th style="text-align:right">Harga</th>
+                    <th style="text-align:center">Qty</th>
+                    <th style="text-align:right">Subtotal</th>
                 </tr>
             </thead>
             <tbody>
@@ -270,7 +331,9 @@
                     <td>{{ $item->unit->unit_name }}</td>
                     <td style="text-align:right">Rp {{ number_format($item->price) }}</td>
                     <td style="text-align:center">{{ $item->qty }}</td>
-                    <td style="text-align:right; font-weight:700;">Rp {{ number_format(($item->price - ($item->discount ?? 0)) * $item->qty) }}</td>
+                    <td style="text-align:right; font-weight:700;">
+                        Rp {{ number_format(($item->price - ($item->discount ?? 0)) * $item->qty) }}
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
@@ -296,10 +359,13 @@
 
         {{-- Saran cicilan --}}
         @if($trx->installment_count && $trx->installment_count > 1)
-        @php $saranBayar = ceil($trx->total / $trx->installment_count); @endphp
+        @php
+            $sisaUntukSaran = $dpPayment ? ($trx->total - $dpPayment->amount) : $trx->total;
+            $saranBayar     = ceil($sisaUntukSaran / $trx->installment_count);
+        @endphp
         <div class="cicilan-hint">
             💡 Saran: Bayar <strong>Rp {{ number_format($saranBayar) }}</strong>/cicilan sesuai rencana
-            ({{ $trx->installment_count }}x cicilan · Rp {{ number_format(ceil($trx->total / $trx->installment_count)) }} per cicilan).
+            ({{ $trx->installment_count }}x cicilan · Rp {{ number_format($saranBayar) }} per cicilan).
             <br>Kamu boleh bayar kurang atau lebih dari nominal cicilan.
         </div>
         @else
@@ -346,9 +412,10 @@
         </form>
 
         {{-- Tombol Lunasi Sekaligus --}}
-        @if($sisa > 0)
         <hr class="k-divider" style="margin-top:16px;">
-        <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">Atau lunasi sekaligus (sisa Rp {{ number_format($sisa) }})</div>
+        <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">
+            Atau lunasi sekaligus (sisa Rp {{ number_format($sisa) }})
+        </div>
         <form method="POST" action="{{ route('pos.kredit.lunasi') }}">
             @csrf
             <input type="hidden" name="trx_id" value="{{ $trx->id }}">
@@ -363,7 +430,8 @@
                 </div>
                 <div class="form-group">
                     <label>🔐 Password Owner</label>
-                    <input type="password" name="password" class="form-input" placeholder="Password owner" required>
+                    <input type="password" name="password" class="form-input"
+                           placeholder="Password owner" required>
                 </div>
                 <div class="form-group">
                     <label>📝 Catatan (opsional)</label>
@@ -372,7 +440,6 @@
             </div>
             <button type="submit" class="btn-lunasi">✅ Lunasi Sekaligus (Rp {{ number_format($sisa) }})</button>
         </form>
-        @endif
 
     </div>
     @endif
@@ -400,13 +467,22 @@
             <tbody>
                 @php $runningTotal = 0; @endphp
                 @foreach($trx->payments as $p)
-                @php $runningTotal += $p->amount; @endphp
-                <tr>
-                    <td>{{ $loop->iteration }}</td>
+                @php
+                    $runningTotal += $p->amount;
+                    $isDp = ($p->note === 'DP / Uang Muka');
+                @endphp
+                <tr class="{{ $isDp ? 'row-dp' : '' }}">
+                    <td>
+                        {{ $loop->iteration }}
+                        @if($isDp)
+                            <span style="font-size:10px; background:#059669; color:#fff;
+                                         padding:1px 5px; border-radius:10px; margin-left:3px;">DP</span>
+                        @endif
+                    </td>
                     <td>{{ \Carbon\Carbon::parse($p->paid_at)->locale('id')->translatedFormat('l, d M Y H:i') }}</td>
                     <td>
                         <strong>Rp {{ number_format($p->amount) }}</strong>
-                        <br><small style="color:#6b7280; font-size:10px;">Total: Rp {{ number_format($runningTotal) }}</small>
+                        <br><small style="color:#6b7280; font-size:10px;">Akumulasi: Rp {{ number_format($runningTotal) }}</small>
                     </td>
                     <td>
                         <span class="method-badge m-{{ $p->method }}">
@@ -414,7 +490,8 @@
                         </span>
                     </td>
                     <td style="font-size:12px; color:#6b7280;">
-                        {{ $p->creator->name ?? '—' }}
+                        {{-- FIX: relasi di KreditPayment model bernama createdBy(), bukan creator() --}}
+                        {{ $p->createdBy->name ?? '—' }}
                     </td>
                     <td style="font-size:12px; color:#374151;">
                         {{ $p->note ?: '—' }}
@@ -425,7 +502,9 @@
             <tfoot style="border-top:2px solid #e5e7eb;">
                 <tr>
                     <td colspan="2" style="padding:9px 12px; text-align:right; font-weight:700;">Total Terbayar:</td>
-                    <td colspan="4" style="padding:9px 12px; font-weight:800; color:#16a34a;">Rp {{ number_format($totalTerbayar) }}</td>
+                    <td colspan="4" style="padding:9px 12px; font-weight:800; color:#16a34a;">
+                        Rp {{ number_format($totalTerbayar) }}
+                    </td>
                 </tr>
             </tfoot>
         </table>
@@ -436,12 +515,12 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Auto-hide success alert
+    // Auto-hide success alert setelah 3.5 detik
     const a = document.getElementById('alert-ok');
     if (a) {
         setTimeout(() => {
             a.style.transition = 'opacity .5s';
-            a.style.opacity = '0';
+            a.style.opacity    = '0';
             setTimeout(() => a.remove(), 500);
         }, 3500);
     }

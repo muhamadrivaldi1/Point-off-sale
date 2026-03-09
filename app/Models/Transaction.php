@@ -37,9 +37,13 @@ class Transaction extends Model
 
     public function payments()
     {
-    return $this->hasMany(KreditPayment::class, 'transaction_id');
+        return $this->hasMany(\App\Models\KreditPayment::class, 'transaction_id');
     }
 
+    public function journals()
+    {
+        return $this->hasMany(Journal::class, 'reference', 'id');
+    }
     public function member()
     {
         return $this->belongsTo(Member::class);

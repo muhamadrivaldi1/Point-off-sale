@@ -582,8 +582,25 @@ class PosController extends Controller
                     else                                      $member->update(['level' => 'Basic',  'discount' => 0]);
                 }
 
+                $dpAmount = isset($kd['dp']) ? (int) round((float) $kd['dp'], 0) : 0;
+                if ($dpAmount > 0 && $dpAmount <= $total) {
+                    KreditPayment::create([
+                        'transaction_id' => $trx->id,
+                        'amount'         => $dpAmount,
+                        'method'         => $kd['dp_method'] ?? 'cash',
+                        'note'           => 'DP / Uang Muka',
+                        'paid_at'        => now(),
+                        'created_by'     => Auth::id(),
+                    ]);
+                }
+
                 DB::commit();
-                return response()->json(['success' => true, 'is_kredit' => true, 'trx_id' => $trx->id]);
+                return response()->json([
+                    'success'   => true,
+                    'is_kredit' => true,
+                    'trx_id'    => $trx->id,
+                    'dp'        => $dpAmount,
+                ]);
             }
 
             // ===== PEMBAYARAN BIASA: belum lunas =====
@@ -631,7 +648,6 @@ class PosController extends Controller
 
             DB::commit();
             return response()->json(['success' => true, 'paid_off' => true, 'trx_id' => $trx->id]);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -859,7 +875,7 @@ class PosController extends Controller
             'method'         => $request->method,
             'note'           => $request->note,
             'paid_at'        => now(),
-            'created_by'     => auth()->id(),
+            'created_by'     => Auth::id(),
         ]);
 
         $trx->update([
@@ -890,14 +906,14 @@ class PosController extends Controller
             return back()->with('error', 'Password owner salah!');
         }
 
-        DB::transaction(function () use ($request) {
-            $trx = Transaction::with('payments')->lockForUpdate()->findOrFail($request->trx_id);
+        DB::transaction(function () use ($request, &$trx) {
+            $trx = Transaction::lockForUpdate()->findOrFail($request->trx_id);
 
             if ($trx->status !== 'kredit') {
                 abort(400, 'Transaksi bukan kredit');
             }
 
-            $totalTerbayar = $trx->payments->sum('amount');
+            $totalTerbayar = $trx->payments()->sum('amount');
             $sisa          = max($trx->total - $totalTerbayar, 0);
             $amountPaid    = min($request->amount, $sisa);
 
@@ -907,11 +923,13 @@ class PosController extends Controller
                 'method'         => $request->method,
                 'note'           => $request->note,
                 'paid_at'        => now(),
-                'created_by'     => auth()->id(),
+                'created_by'     => Auth::id(),
             ]);
 
-            // Hitung ulang dari DB setelah insert
-            $totalBaru = $trx->payments()->sum('amount');
+            // refresh relasi agar frontend dapat data baru
+            $trx->load('payments');
+
+            $totalBaru = $trx->payments->sum('amount');
             $sisaBaru  = max($trx->total - $totalBaru, 0);
 
             if ($sisaBaru <= 0) {

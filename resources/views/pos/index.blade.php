@@ -216,7 +216,7 @@ html, body {
     padding-bottom: 6px;
     border-bottom: 1px dashed #ffcc80;
 }
-.kredit-header-icon { font-size: 16px; }
+.kredit-header-icon  { font-size: 16px; }
 .kredit-header-title { font-size: 12px; font-weight: 800; color: #c45c00; }
 .kredit-header-sub   { font-size: 10px; color: #a06000; margin-top: 1px; }
 
@@ -233,6 +233,25 @@ html, body {
 }
 .kredit-total-banner .ktb-label  { font-size: 11px; color: #7a3b00; font-weight: 600; }
 .kredit-total-banner .ktb-amount { font-size: 15px; font-weight: 900; color: #e67e00; }
+
+/* DP box */
+.dp-box {
+    background: #fff;
+    border: 1.5px solid #a7f3d0;
+    border-radius: 7px;
+    padding: 8px 10px;
+    margin-bottom: 7px;
+}
+.dp-box-title {
+    font-size: 10px; font-weight: 700; color: #065f46;
+    text-transform: uppercase; letter-spacing: .3px; margin-bottom: 5px;
+}
+.dp-sisa-info {
+    display: none; margin-top: 6px;
+    background: #f0fdf4; border: 1px solid #bbf7d0;
+    border-radius: 6px; padding: 5px 10px;
+    font-size: 11px; color: #166534;
+}
 
 /* Grid form kredit */
 .kredit-form-grid {
@@ -273,6 +292,15 @@ html, body {
     box-shadow: 0 0 0 2px rgba(230,126,0,.15);
 }
 .kredit-field textarea { resize: none; height: 38px; font-family: inherit; }
+
+/* DP field override warna border jadi hijau */
+.dp-field input, .dp-field select {
+    border-color: #6ee7b7 !important;
+}
+.dp-field input:focus, .dp-field select:focus {
+    border-color: #059669 !important;
+    box-shadow: 0 0 0 2px rgba(5,150,105,.15) !important;
+}
 
 /* Jatuh tempo chips */
 .jatuh-tempo-chips {
@@ -321,17 +349,6 @@ html, body {
     color: #1b5e20;
     margin-top: 3px;
     display: none;
-}
-
-/* Warning jatuh tempo sudah lewat */
-.jt-warning {
-    background: #fff3e0;
-    border: 1px solid #ffb74d;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 10px;
-    color: #e65100;
-    margin-top: 4px;
 }
 
 /* KREDIT SUCCESS */
@@ -618,10 +635,41 @@ html, body {
                             </div>
                         </div>
 
-                        {{-- Total hutang --}}
+                        {{-- Total belanja --}}
                         <div class="kredit-total-banner">
-                            <span class="ktb-label">💰 Total Hutang</span>
-                            <span class="ktb-amount" id="kreditTotal">Rp 0</span>
+                            <span class="ktb-label">💰 Total Belanja</span>
+                            <span class="ktb-amount" id="kreditTotalBelanja">Rp 0</span>
+                        </div>
+
+                        {{-- ===== DP / UANG MUKA ===== --}}
+                        <div class="dp-box">
+                            <div class="dp-box-title">💵 Uang Muka / DP (opsional)</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                                <div class="kredit-field dp-field">
+                                    <label>Jumlah DP</label>
+                                    <input type="number" id="kreditDP" min="0" placeholder="0 = tidak ada DP"
+                                           oninput="updateKreditSisa()">
+                                </div>
+                                <div class="kredit-field dp-field">
+                                    <label>Metode DP</label>
+                                    <select id="kreditDPMethod">
+                                        <option value="cash">💵 Cash</option>
+                                        <option value="transfer">🏦 Transfer</option>
+                                        <option value="qris">📱 QRIS</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="dp-sisa-info" id="kreditSisaBox">
+                                DP dibayar: <strong id="kreditDPText">Rp 0</strong>
+                                &nbsp;→&nbsp;
+                                Sisa hutang: <strong id="kreditSisaText" style="color:#dc2626;">Rp 0</strong>
+                            </div>
+                        </div>
+
+                        {{-- Total sisa hutang (dinamis) --}}
+                        <div class="kredit-total-banner" style="border-color:#fca5a5; background:#fff5f5;">
+                            <span class="ktb-label" style="color:#991b1b;">📌 Sisa Hutang</span>
+                            <span class="ktb-amount" id="kreditTotal" style="color:#dc2626;">Rp 0</span>
                         </div>
 
                         {{-- Form grid --}}
@@ -894,7 +942,6 @@ document.getElementById('search').addEventListener('blur', () => setTimeout(() =
 window.addEventListener('load', () => {
     document.getElementById('barcode').focus();
     highlightActive('barcode');
-    // Set default jatuh tempo 30 hari
     setJatuhTempo(30);
 });
 
@@ -976,7 +1023,12 @@ function onMethodChange(method) {
         panelKredit.style.display = '';
         btnPay.style.display      = 'none';
         btnKredit.style.display   = '';
-        document.getElementById('kreditTotal').innerText = 'Rp ' + total.toLocaleString('id-ID');
+        // Tampilkan total belanja & sisa hutang
+        document.getElementById('kreditTotalBelanja').innerText = 'Rp ' + total.toLocaleString('id-ID');
+        document.getElementById('kreditTotal').innerText        = 'Rp ' + total.toLocaleString('id-ID');
+        // Reset DP
+        document.getElementById('kreditDP').value = '';
+        document.getElementById('kreditSisaBox').style.display = 'none';
         // Isi nama member jika ada
         const memberEl = document.getElementById('member');
         if (memberEl.value && memberEl.value.trim() !== '') {
@@ -1006,6 +1058,27 @@ function onMethodChange(method) {
 }
 
 // =============================================
+// KREDIT — UPDATE SISA SETELAH DP
+// =============================================
+function updateKreditSisa() {
+    const total = Number(document.getElementById('totalText').dataset.total);
+    const dp    = parseFloat(document.getElementById('kreditDP').value) || 0;
+    const sisa  = Math.max(total - dp, 0);
+    const box   = document.getElementById('kreditSisaBox');
+
+    if (dp > 0) {
+        box.style.display = '';
+        document.getElementById('kreditDPText').innerText   = 'Rp ' + dp.toLocaleString('id-ID');
+        document.getElementById('kreditSisaText').innerText = 'Rp ' + sisa.toLocaleString('id-ID');
+        document.getElementById('kreditTotal').innerText    = 'Rp ' + sisa.toLocaleString('id-ID');
+    } else {
+        box.style.display = 'none';
+        document.getElementById('kreditTotal').innerText = 'Rp ' + total.toLocaleString('id-ID');
+    }
+    hitungCicilan();
+}
+
+// =============================================
 // KREDIT — JATUH TEMPO
 // =============================================
 function setJatuhTempo(days) {
@@ -1016,7 +1089,6 @@ function setJatuhTempo(days) {
     const dd   = String(d.getDate()).padStart(2, '0');
     document.getElementById('kreditJatuhTempo').value = `${yyyy}-${mm}-${dd}`;
 
-    // Update chip aktif
     document.querySelectorAll('.jt-chip').forEach(c => c.classList.remove('active'));
     const map = { 7:0, 14:1, 30:2, 60:3, 90:4 };
     const chips = document.querySelectorAll('.jt-chip');
@@ -1040,7 +1112,6 @@ function updateJatuhTempoInfo() {
 
     document.getElementById('jtInfoDate').innerText = `${hariStr}, ${tglStr} (${diffDay} hari lagi)`;
 
-    // Chip custom — hapus active semua jika tanggal manual
     const chipDays = [7, 14, 30, 60, 90];
     const matched  = chipDays.find(d => {
         const test = new Date(); test.setDate(test.getDate() + d); test.setHours(0,0,0,0);
@@ -1052,7 +1123,6 @@ function updateJatuhTempoInfo() {
         document.querySelectorAll('.jt-chip')[map[matched]]?.classList.add('active');
     }
 
-    // Hitung cicilan jika aktif
     hitungCicilan();
 }
 
@@ -1068,12 +1138,16 @@ document.getElementById('kreditCaraBayar').addEventListener('change', function (
 
 function hitungCicilan() {
     if (document.getElementById('kreditCaraBayar').value !== 'cicilan') return;
+
+    // Hitung cicilan dari SISA hutang (sudah dikurangi DP)
     const total    = Number(document.getElementById('totalText').dataset.total);
+    const dp       = parseFloat(document.getElementById('kreditDP').value) || 0;
+    const sisaHutang = Math.max(total - dp, 0);
+
     const n        = parseInt(document.getElementById('kreditCicilan').value) || 1;
-    const perCicil = Math.ceil(total / n);
+    const perCicil = Math.ceil(sisaHutang / n);
     const infoEl   = document.getElementById('angsuranInfo');
 
-    // Hitung tanggal tiap cicilan berdasarkan jatuh tempo
     const jtVal = document.getElementById('kreditJatuhTempo').value;
     let cicilanDates = '';
     if (jtVal) {
@@ -1153,8 +1227,8 @@ function loadCart() {
         applyDiscountLive(); updateKembalian();
         if (selectedPaymentMethod === 'kredit') {
             const t = Number(document.getElementById('totalText').dataset.total);
-            document.getElementById('kreditTotal').innerText = 'Rp ' + t.toLocaleString('id-ID');
-            hitungCicilan();
+            document.getElementById('kreditTotalBelanja').innerText = 'Rp ' + t.toLocaleString('id-ID');
+            updateKreditSisa();
         }
     });
 }
@@ -1174,8 +1248,8 @@ function applyDiscountLive() {
     totalEl.dataset.total = akhir;
     updateKembalian();
     if (selectedPaymentMethod === 'kredit') {
-        document.getElementById('kreditTotal').innerText = 'Rp ' + akhir.toLocaleString('id-ID');
-        hitungCicilan();
+        document.getElementById('kreditTotalBelanja').innerText = 'Rp ' + akhir.toLocaleString('id-ID');
+        updateKreditSisa();
     }
 }
 
@@ -1242,11 +1316,16 @@ async function processPay() {
         return;
     }
 
-    // Validasi kredit
     if (paymentMethod === 'kredit') {
         const jtVal = document.getElementById('kreditJatuhTempo').value;
         if (!jtVal) {
             alert('Tentukan jatuh tempo terlebih dahulu!');
+            return;
+        }
+        // Validasi DP tidak boleh melebihi total
+        const dp = parseFloat(document.getElementById('kreditDP').value) || 0;
+        if (dp >= total) {
+            alert('DP tidak boleh sama atau melebihi total belanja. Gunakan pembayaran biasa.');
             return;
         }
     }
@@ -1261,6 +1340,8 @@ async function processPay() {
                         : null,
         jatuh_tempo   : document.getElementById('kreditJatuhTempo').value,
         catatan       : document.getElementById('kreditCatatan').value.trim(),
+        dp            : parseFloat(document.getElementById('kreditDP').value) || 0,
+        dp_method     : document.getElementById('kreditDPMethod').value,
     } : null;
 
     const strukWindow = paymentMethod !== 'kredit' ? window.open('', '_blank') : null;
@@ -1321,11 +1402,31 @@ function showKreditSuccess(trxId, total, kd) {
         dueStr = d.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
     }
 
-    let caraBayarLabel = { cash:'💵 Cash', transfer:'🏦 Transfer', qris:'📱 QRIS', cicilan:'📆 Cicilan' };
+    const caraBayarLabel = { cash:'💵 Cash', transfer:'🏦 Transfer', qris:'📱 QRIS', cicilan:'📆 Cicilan' };
+
+    const dp   = kd?.dp || 0;
+    const sisa = Math.max(total - dp, 0);
+
+    // Info DP (jika ada)
+    let dpInfo = '';
+    if (dp > 0) {
+        const metodeDp = { cash:'💵 Cash', transfer:'🏦 Transfer', qris:'📱 QRIS' };
+        dpInfo = `
+            <div style="background:#d1fae5; border:1px solid #a7f3d0; border-radius:6px;
+                        padding:6px 10px; margin-bottom:5px; font-size:11px; color:#065f46;">
+                💰 DP dibayar: <strong>Rp ${dp.toLocaleString('id-ID')}</strong>
+                (${metodeDp[kd.dp_method] || kd.dp_method})
+                <br>📌 Sisa hutang: <strong style="color:#dc2626;">Rp ${sisa.toLocaleString('id-ID')}</strong>
+            </div>`;
+    }
+
+    // Info cicilan dari SISA hutang
     let extraInfo = '';
     if (kd && kd.cara_bayar === 'cicilan' && kd.cicilan) {
-        const perCicil = Math.ceil(total / kd.cicilan);
-        extraInfo = `<div style="font-size:11px;color:#7a3b00;margin-bottom:4px;">📆 ${kd.cicilan}x cicilan = <strong>Rp ${perCicil.toLocaleString('id-ID')}</strong>/cicilan</div>`;
+        const perCicil = Math.ceil(sisa / kd.cicilan);
+        extraInfo = `<div style="font-size:11px;color:#7a3b00;margin-bottom:4px;">
+            📆 ${kd.cicilan}x cicilan = <strong>Rp ${perCicil.toLocaleString('id-ID')}</strong>/cicilan
+        </div>`;
     }
 
     panelKredit.innerHTML = `
@@ -1333,13 +1434,13 @@ function showKreditSuccess(trxId, total, kd) {
             <div class="ks-icon">✅</div>
             <div class="ks-title">Kredit Berhasil Disimpan!</div>
             <div class="ks-trx">Transaksi #${trxId}</div>
-            <div class="ks-total">Total Hutang: <strong>Rp ${total.toLocaleString('id-ID')}</strong></div>
+            <div class="ks-total">Total Belanja: <strong>Rp ${total.toLocaleString('id-ID')}</strong></div>
+            ${dpInfo}
             ${extraInfo}
             <div class="ks-due">📅 Jatuh Tempo: ${dueStr}</div>
-            ${ kd && kd.cara_bayar ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">Rencana bayar: ${caraBayarLabel[kd.cara_bayar] || kd.cara_bayar}</div>` : '' }
+            ${kd?.cara_bayar ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">Rencana bayar: ${caraBayarLabel[kd.cara_bayar] || kd.cara_bayar}</div>` : ''}
             <div class="ks-btns">
-                <a href="/pos/kredit/${trxId}"
-                   style="background:#e67e00; color:#fff;">
+                <a href="/pos/kredit/${trxId}" style="background:#e67e00; color:#fff;">
                     📋 Detail Kredit
                 </a>
                 <button onclick="window.location.href='/pos?new_transaction=1'"
@@ -1376,7 +1477,6 @@ function selectMember(id) {
         document.getElementById('discount_percent').value = memberDiscount > 0 ? memberDiscount : '';
         const dp = document.getElementById('discount_percent'); dp.readOnly = false; dp.classList.remove('locked');
         memberInfo.innerHTML = `<strong>Nama:</strong> ${m.name} | <strong>Level:</strong> ${m.level} | <strong>Disc:</strong> ${m.discount}% | <strong>Poin:</strong> ${m.points}`;
-        // Isi otomatis nama di kredit
         const kNama = document.getElementById('kreditNama');
         if (!kNama.value) kNama.value = m.name;
         applyDiscountLive();

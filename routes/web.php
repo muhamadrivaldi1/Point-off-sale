@@ -193,6 +193,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('po')->group(function () {
         Route::get('/',            [PurchaseOrderController::class, 'index'])->name('po.index');
         Route::get('create',       [PurchaseOrderController::class, 'create'])->name('po.create');
+        Route::get('{id}',         [PurchaseOrderController::class, 'show'])->name('po.show');
         Route::get('{id}/edit',    [PurchaseOrderController::class, 'edit'])->name('po.edit');
         Route::post('/',           [PurchaseOrderController::class, 'store'])->name('po.store');
         Route::put('{id}',         [PurchaseOrderController::class, 'update'])->name('po.update');
@@ -224,10 +225,25 @@ Route::middleware('auth')->group(function () {
     | Reports
     |--------------------------------------------------------------------------
     */
-    Route::get('/reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
-    Route::get('/reports/sales/{id}', [ReportController::class, 'salesDetail'])->name('reports.sales.detail');
-    Route::get('/reports/stock', [ReportController::class, 'stock'])->name('reports.stock');
-    Route::get('/reports/sales-csv', [ReportController::class, 'salesCsv'])->name('reports.sales.csv');
+
+    Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
+        // Penjualan
+        Route::get('/sales', [ReportController::class, 'sales'])->name('sales');
+        Route::get('/sales/detail/{id}', [ReportController::class, 'salesDetail'])->name('sales.detail');
+        Route::get('/sales/csv', [ReportController::class, 'salesCsv'])->name('sales.csv');
+
+        // Stok & Penerimaan
+        Route::get('/stock', [ReportController::class, 'stock'])->name('stock');
+        Route::get('/penerimaan', [ReportController::class, 'penerimaan'])->name('penerimaan'); // Pastikan baris ini ada
+
+        // Piutang & Hutang
+        Route::get('/piutang', [ReportController::class, 'piutang'])->name('piutang');
+        Route::get('/hutang', [ReportController::class, 'hutang'])->name('hutang');
+
+        // Akuntansi
+        Route::get('/journal', [ReportController::class, 'journal'])->name('journal');
+        Route::get('/laba-rugi', [ReportController::class, 'labaRugi'])->name('laba_rugi');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -262,3 +278,16 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/cashier/opening-balance/update', [CashierSessionController::class, 'updateOpeningBalance'])->name('cashier.updateOpeningBalance'); // bisa tambah middleware role jika perlu
 });
+
+Route::prefix('reports')->name('reports.')->group(function () {
+    Route::get('/hutang', [ReportController::class, 'hutang'])->name('hutang');
+    Route::get('/hutang/{id}', [ReportController::class, 'hutangDetail'])->name('hutang.detail');
+    Route::get('hutang/pay/{id}', [ReportController::class, 'hutangPay'])->name('hutang.pay');
+});
+
+Route::get('reports/journal', [ReportController::class, 'journal'])->name('reports.journal');
+
+Route::get('reports/laba-rugi', [ReportController::class, 'labaRugi'])->name('reports.laba-rugi');
+Route::get('/reports/laba-rugi/export', [ReportController::class, 'exportLabaRugi'])->name('reports.laba-rugi.export');
+
+Route::get('/reports/neraca', [ReportController::class, 'neraca'])->name('reports.neraca');
