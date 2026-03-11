@@ -8,15 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class StockMutation extends Model
 {
     protected $fillable = [
-        'unit_id', 
-        'user_id', 
-        'type', 
-        'qty', 
-        'stock_before', 
-        'stock_after', 
-        'reference', 
-        'description'
-    ];
+    'unit_id', 
+    'user_id', 
+    'type', 
+    'status', 
+    'qty', 
+    'stock_before', 
+    'stock_after', 
+    'reference', 
+    'description'
+];
 
     /**
      * Relasi ke ProductUnit

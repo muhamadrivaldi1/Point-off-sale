@@ -30,7 +30,7 @@ class TransactionController extends Controller
         $q->where('status', 'paid')
           ->orWhere(function($subQuery) {
               $subQuery->where('status', 'pending')
-                       ->whereHas('items'); // ✅ pending HARUS punya item
+                       ->whereHas('items'); 
           });
     });
 
@@ -237,6 +237,35 @@ class TransactionController extends Controller
 
         return view('transactions.struk', compact('trx', 'total'));
     }
+
+    /* ===============================
+    LAPORAN PIUTANG (HUTANG BERJALAN)
+=============================== */
+public function piutang(Request $request)
+{
+    $from = $request->input('from', now()->startOfMonth()->toDateString());
+    $to   = $request->input('to', now()->toDateString());
+
+    $data = Transaction::with(['member', 'payments'])
+        ->where('status', 'kredit')
+        // HANYA ambil yang jumlah bayar (accepted) masih kurang dari total tagihan
+        ->whereColumn('accepted', '<', 'total') 
+        ->whereDate('created_at', '>=', $from)
+        ->whereDate('created_at', '<=', $to)
+        ->orderBy('created_at', 'desc')
+        ->paginate(20)
+        ->withQueryString();
+
+    // Hitung sisa piutang untuk badge total di atas
+    $totalSisaPiutang = Transaction::where('status', 'kredit')
+        ->whereColumn('accepted', '<', 'total')
+        ->whereDate('created_at', '>=', $from)
+        ->whereDate('created_at', '<=', $to)
+        ->selectRaw('SUM(total - accepted) as sisa')
+        ->first()->sisa ?? 0;
+
+    return view('reports.piutang', compact('data', 'from', 'to', 'totalSisaPiutang'));
+}
 
     /**
      * HELPER ROLE

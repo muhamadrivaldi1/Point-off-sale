@@ -139,6 +139,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/pos/get-member', [PosController::class, 'getMember']);
     Route::post('/pos/cleanup-empty', [PosController::class, 'cleanupEmptyPending']);
     Route::post('/pos/reopen-transaction', [PosController::class, 'reopenTransaction']);
+    Route::post('/pos/bayar-tagihan', [PosController::class, 'bayarTagihan']);
+    Route::get('/pos/tagihan-today',  [PosController::class, 'tagihanToday']);
+
 
 
     /*
@@ -238,10 +241,15 @@ Route::middleware('auth')->group(function () {
 
         // Piutang & Hutang
         Route::get('/piutang', [ReportController::class, 'piutang'])->name('piutang');
+        Route::get('/piutang/export', [ReportController::class, 'piutangExport'])->name('piutang.export');
+        
         Route::get('/hutang', [ReportController::class, 'hutang'])->name('hutang');
-
+        Route::get('/hutang/export', [ReportController::class, 'hutangExport'])->name('hutang.export');
+        
         // Akuntansi
         Route::get('/journal', [ReportController::class, 'journal'])->name('journal');
+        Route::get('/journal/export', [ReportController::class, 'journalExport'])->name('journal.export');
+        
         Route::get('/laba-rugi', [ReportController::class, 'labaRugi'])->name('laba_rugi');
     });
 
@@ -285,10 +293,16 @@ Route::prefix('reports')->name('reports.')->group(function () {
     Route::get('hutang/pay/{id}', [ReportController::class, 'hutangPay'])->name('hutang.pay');
 });
 
+// Pastikan namanya 'stockReport' bukan 'index' atau yang lain
+Route::get('/reports/stock', [App\Http\Controllers\ReportController::class, 'stockReport'])->name('reports.stock');
 Route::get('reports/journal', [ReportController::class, 'journal'])->name('reports.journal');
 
 Route::get('reports/laba-rugi', [ReportController::class, 'labaRugi'])->name('reports.laba-rugi');
-Route::get('/reports/laba-rugi/export', [ReportController::class, 'exportLabaRugi'])->name('reports.laba-rugi.export');
+Route::get('/reports/laba-rugi/export', [ReportController::class, 'labaRugiExport'])->name('reports.laba-rugi.export');
 // Route::get('/reports/laba-rugi/export', [ReportController::class, 'exportLabaRugi']);
 
+Route::get('/reports/penerimaan', [ReportController::class, 'penerimaan'])->name('reports.penerimaan');
+Route::get('/reports/penerimaan/export', [ReportController::class, 'penerimaanExport'])->name('reports.penerimaan.export');
+
+Route::get('/reports/neraca/csv', [ReportController::class, 'neracaExportCsv'])->name('reports.neraca.csv');
 Route::get('/reports/neraca', [ReportController::class, 'neraca'])->name('reports.neraca');

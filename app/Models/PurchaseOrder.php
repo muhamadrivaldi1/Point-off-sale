@@ -33,6 +33,10 @@ class PurchaseOrder extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function payments()
+    {
+        return $this->hasMany(PurchasePayment::class, 'purchase_order_id');
+    }
 
     public function supplier()
     {

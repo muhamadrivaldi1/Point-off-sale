@@ -40,7 +40,7 @@
         <input name="units[0][barcode]" class="form-control">
     </div>
     <div class="col">
-        <label>Harga</label>
+        <label> Beli Harga</label>
         <input name="units[0][price]" class="form-control">
     </div>
 </div>

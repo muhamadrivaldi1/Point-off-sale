@@ -9,6 +9,7 @@ class Transaction extends Model
     protected $fillable = [
         'trx_number',
         'user_id',
+        'warehouse_id',
         'member_id',
         'used_points',
         'point_value',
@@ -17,12 +18,23 @@ class Transaction extends Model
         'paid',
         'change',
         'payment_method',
-        'status'
+        'notes',
+        'status',
+    ];
+
+    protected $casts = [
+        'total'       => 'float',
+        'discount'    => 'float',
+        'paid'        => 'float',
+        'change'      => 'float',
+        'point_value' => 'float',
+        'used_points' => 'integer',
+        'notes'       => 'array',   
     ];
 
     public function items()
     {
-        return $this->hasMany(TransactionItem::class);
+        return $this->hasMany(TransactionItem::class, 'transaction_id');
     }
 
     public function user()
@@ -44,17 +56,19 @@ class Transaction extends Model
     {
         return $this->hasMany(Journal::class, 'reference', 'id');
     }
+
     public function member()
     {
         return $this->belongsTo(Member::class);
     }
 
-    protected $casts = [
-        'total'        => 'float',
-        'discount'     => 'float',
-        'paid'         => 'float',
-        'change'       => 'float',
-        'point_value'  => 'float',
-        'used_points'  => 'integer',
-    ];
+    public function cicilan()
+    {
+        return $this->hasMany(KreditPayment::class, 'transaction_id');
+    }
+
+    public function details()
+    {
+        return $this->hasMany(TransactionDetail::class, 'transaction_id');
+    }
 }

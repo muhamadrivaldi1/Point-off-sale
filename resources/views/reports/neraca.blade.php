@@ -63,15 +63,16 @@
             </p>
         </div>
         <div style="display:flex; gap:8px;" class="no-print">
-            <a href="{{ route('reports.laba-rugi') }}"
-               style="background:#2563eb;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">
-               📊 Laba / Rugi
-            </a>
-            <button onclick="window.print()"
-                    style="background:#6b7280;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;border:none;cursor:pointer;">
-                🖨 Print
-            </button>
-        </div>
+    <a href="{{ route('reports.laba-rugi') }}"
+       style="background:#2563eb;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">
+        📊 Laba / Rugi
+    </a>
+    {{-- Tombol CSV --}}
+    <a href="{{ route('reports.neraca.csv', ['tanggal' => $tanggal]) }}"
+       style="background:#059669;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">
+        📄 Export CSV
+    </a>
+</div>
     </div>
 
     {{-- FILTER TANGGAL --}}

@@ -962,4 +962,66 @@ class PosController extends Controller
     {
         return redirect()->to('/transactions/' . $trx_id . '/struk');
     }
+
+    public function bayarTagihan(\Illuminate\Http\Request $request)
+    {
+        try {
+            $trx = \App\Models\Transaction::create([
+                'trx_number'     => 'TGH-' . date('Ymd') . '-' . str_pad(
+                    \App\Models\Transaction::whereDate('created_at', today())
+                        ->where('status', 'bayar_tagihan')->count() + 1,
+                    3,
+                    '0',
+                    STR_PAD_LEFT
+                ),
+                'user_id'        => auth()->id(),
+                'warehouse_id'   => auth()->user()->active_warehouse_id ?? 1,
+                'status'         => 'bayar_tagihan',
+                'total'          => $request->total,
+                'payment_method' => $request->metode_bayar,
+                'notes'          => [
+                    'kategori'    => $request->kategori,
+                    'nominal'     => $request->nominal,
+                    'biaya_admin' => $request->biaya_admin ?? 0,
+                    'no_rekening' => $request->no_rekening,
+                    'periode'     => $request->periode,
+                    'nama_bayar'  => $request->nama_bayar,
+                    'catatan'     => $request->catatan,
+                ],
+            ]);
+
+            return response()->json([
+                'success'    => true,
+                'trx_id'     => $trx->id,
+                'trx_number' => $trx->trx_number,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function tagihanToday()
+    {
+        $list = \App\Models\Transaction::where('status', 'bayar_tagihan')
+            ->whereDate('created_at', today())
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($t) {
+                $notes = $t->notes ?? [];
+                return [
+                    'trx_number'   => $t->trx_number,
+                    'kategori'     => $notes['kategori']    ?? '—',
+                    'total'        => $t->total,
+                    'metode_bayar' => $t->payment_method,
+                    'no_rekening'  => $notes['no_rekening'] ?? '',
+                    'nama_bayar'   => $notes['nama_bayar']  ?? '',
+                    'time'         => $t->created_at->format('H:i'),
+                ];
+            });
+
+        return response()->json(['tagihanList' => $list]);
+    }
 }

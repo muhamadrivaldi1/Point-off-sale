@@ -92,7 +92,6 @@ class PurchaseOrderController extends Controller
             $po = new PurchaseOrder();
             $po->user_id = Auth::id();
             $po->status = 'draft';
-
         }
 
         $po->po_number = $request->po_number;
@@ -189,54 +188,53 @@ class PurchaseOrderController extends Controller
     }
 
     public function receive($id)
-{
-    DB::transaction(function () use ($id) {
+    {
+        DB::transaction(function () use ($id) {
 
-        $po = PurchaseOrder::with('items')->findOrFail($id);
+            $po = PurchaseOrder::with('items')->findOrFail($id);
 
-        if ($po->status !== 'approved') {
-            throw new \Exception('PO belum approved');
-        }
+            if ($po->status !== 'approved') {
+                throw new \Exception('PO belum approved');
+            }
 
-        foreach ($po->items as $item) {
+            foreach ($po->items as $item) {
 
-            // 1. Update stock
-            $stock = Stock::firstOrCreate(
-                ['product_unit_id' => $item->product_unit_id],
-                ['qty' => 0]
-            );
+                // 1. Update stock
+                $stock = Stock::firstOrCreate(
+                    ['product_unit_id' => $item->product_unit_id],
+                    ['qty' => 0]
+                );
 
-            $stock->increment('qty', $item->qty);
+                $stock->increment('qty', $item->qty);
 
-            // 2. Catat StockMutation
-            $lastMutation = \App\Models\StockMutation::where('unit_id', $item->product_unit_id)
-                ->latest('created_at')
-                ->first();
+                // 2. Catat StockMutation
+                $lastMutation = \App\Models\StockMutation::where('unit_id', $item->product_unit_id)
+                    ->latest('created_at')
+                    ->first();
 
-            $stockBefore = $lastMutation ? $lastMutation->stock_after : 0;
-            $stockAfter = $stockBefore + $item->qty;
+                $stockBefore = $lastMutation ? $lastMutation->stock_after : 0;
+                $stockAfter = $stockBefore + $item->qty;
 
-            \App\Models\StockMutation::create([
-                'unit_id' => $item->product_unit_id,
-                'user_id' => Auth::id(),
-                'type' => 'in',
-                'qty' => $item->qty,
-                'stock_before' => $stockBefore,
-                'stock_after' => $stockAfter,
-                'reference' => $po->po_number,
-                'description' => 'Pembelian Barang'
+                \App\Models\StockMutation::create([
+                    'unit_id' => $item->product_unit_id,
+                    'user_id' => Auth::id(),
+                    'type' => 'in',
+                    'qty' => $item->qty,
+                    'stock_before' => $stockBefore,
+                    'stock_after' => $stockAfter,
+                    'reference' => $po->po_number,
+                    'description' => 'Pembelian Barang'
+                ]);
+            }
+
+            $po->update([
+                'status' => 'received'
             ]);
-        }
+        });
 
-        $po->update([
-            'status' => 'received'
-        ]);
-
-    });
-
-    return redirect()->route('po.index')
-        ->with('success', 'Barang berhasil diterima & stok diperbarui');
-}
+        return redirect()->route('po.index')
+            ->with('success', 'Barang berhasil diterima & stok diperbarui');
+    }
 
     public function cancel($id)
     {
@@ -268,12 +266,30 @@ class PurchaseOrderController extends Controller
     }
 
     public function show($id)
-{
-    $po = \App\Models\PurchaseOrder::with([
-        'supplier',
-        'items.unit.product'
-    ])->findOrFail($id);
+    {
+        $po = \App\Models\PurchaseOrder::with([
+            'supplier',
+            'items.unit.product'
+        ])->findOrFail($id);
 
-    return view('po.show', compact('po'));
-}
+        return view('po.show', compact('po'));
+    }
+    public function updateHeader(Request $request, $id)
+    {
+        $request->validate([
+            'tanggal' => 'required|date',
+            'supplier_id' => 'required|exists:suppliers,id',
+            // tambahkan validasi lain jika perlu
+        ]);
+
+        $po = PurchaseOrder::findOrFail($id);
+        $po->update([
+            'tanggal' => $request->tanggal,
+            'supplier_id' => $request->supplier_id,
+            'po_number' => $request->po_number,
+            'keterangan' => $request->keterangan,
+        ]);
+
+        return response()->json(['message' => 'Header PO berhasil diperbarui']);
+    }
 }
