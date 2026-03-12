@@ -294,18 +294,25 @@
 
             {{-- JENIS TRANSAKSI --}}
             <div class="field-row">
-                <label>Jenis Transaksi</label>
-                <select name="jenis_transaksi" id="jenis_transaksi" class="form-select"
-                    {{ $po->status !== 'draft' ? 'disabled' : '' }} required>
-                    <option value="Pembelian" {{ ($po->jenis_transaksi ?? 'Pembelian') === 'Pembelian' ? 'selected' : '' }}>
-                        PR — Pembelian Reguler
-                    </option>
-                    <option value="PO" {{ ($po->jenis_transaksi ?? '') === 'PO' ? 'selected' : '' }}>
-                        PO — Private Order
-                    </option>
-                </select>
-            </div>
+            <label>Jenis Transaksi</label>
+            
+            {{-- 1. Select utama --}}
+            <select name="jenis_transaksi" id="jenis_transaksi" class="form-select"
+                {{ $po->status !== 'draft' ? 'disabled' : '' }} required>
+                <option value="Pembelian" {{ ($po->jenis_transaksi ?? 'Pembelian') === 'Pembelian' ? 'selected' : '' }}>
+                    PR — Pembelian Reguler
+                </option>
+                <option value="PO" {{ ($po->jenis_transaksi ?? '') === 'PO' ? 'selected' : '' }}>
+                    PO — Private Order
+                </option>
+            </select>
 
+            {{-- 2. Hidden Input: Penting! Jika status != draft, select di atas disabled (tidak terkirim). 
+                Maka kita kirim nilainya lewat hidden input ini agar Controller tidak menerima null. --}}
+            @if($po->status !== 'draft')
+                <input type="hidden" name="jenis_transaksi" value="{{ $po->jenis_transaksi }}">
+            @endif
+        </div>
             {{-- NOMOR TRANSAKSI (auto-update prefix via JS) --}}
             <div class="field-row">
                 <label>
@@ -650,9 +657,9 @@
 
         <div class="action-bar">
             @if($po->status === 'draft')
-                <button type="submit" form="form-header" class="btn btn-primary btn-sm">
+                {{-- <button type="submit" form="form-header" class="btn btn-primary btn-sm">
                     <i class="bi bi-save me-1"></i> Simpan
-                </button>
+                </button> --}}
                 <form method="POST" action="{{ route('po.approve', $po->id) }}" class="d-inline"
                       onsubmit="return confirm('Approve & kunci PO ini?')">
                     @csrf
@@ -748,26 +755,27 @@ function updateNomor(jenis) {
 // TOGGLE FIELD PO MODE
 // =============================
 function togglePOFields(jenis) {
-
     const isPO = jenis === 'PO';
 
     advancedFields.forEach(id => {
-
         const el = document.getElementById(id);
         if (!el) return;
 
         const wrapper = el.closest('.field-row');
 
         if (isPO) {
-            el.disabled = true;
+            // JANGAN gunakan .disabled = true agar data tetap terkirim ke Laravel
+            // Kita cukup sembunyikan saja containernya
             if(wrapper) wrapper.style.display = 'none';
+            
+            // Opsional: Berikan nilai default jika itu field jenis_pembayaran
+            if(id === 'field-jenis-pembayaran') {
+                el.value = 'Cash'; 
+            }
         } else {
-            el.disabled = false;
             if(wrapper) wrapper.style.display = '';
         }
-
     });
-
 }
 
 // =============================

@@ -17,6 +17,7 @@ use App\Http\Controllers\CashierSessionController;
 use App\Http\Controllers\PriceRuleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\AccountController;
 
 /*
 |--------------------------------------------------------------------------
@@ -295,8 +296,9 @@ Route::prefix('reports')->name('reports.')->group(function () {
 
 // Pastikan namanya 'stockReport' bukan 'index' atau yang lain
 Route::get('/reports/stock', [App\Http\Controllers\ReportController::class, 'stockReport'])->name('reports.stock');
-Route::get('reports/journal', [ReportController::class, 'journal'])->name('reports.journal');
 
+Route::get('reports/journal', [ReportController::class, 'journal'])->name('reports.journal');
+Route::post('/reports/journal/store', [ReportController::class, 'store'])->name('reports.journal.store');
 Route::get('reports/laba-rugi', [ReportController::class, 'labaRugi'])->name('reports.laba-rugi');
 Route::get('/reports/laba-rugi/export', [ReportController::class, 'labaRugiExport'])->name('reports.laba-rugi.export');
 // Route::get('/reports/laba-rugi/export', [ReportController::class, 'exportLabaRugi']);
@@ -306,3 +308,6 @@ Route::get('/reports/penerimaan/export', [ReportController::class, 'penerimaanEx
 
 Route::get('/reports/neraca/csv', [ReportController::class, 'neracaExportCsv'])->name('reports.neraca.csv');
 Route::get('/reports/neraca', [ReportController::class, 'neraca'])->name('reports.neraca');
+
+
+Route::resource('accounts', AccountController::class);

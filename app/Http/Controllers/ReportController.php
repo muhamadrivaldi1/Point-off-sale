@@ -10,9 +10,9 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\ProductUnit;
 use App\Models\Supplier;
+use App\Models\Account;
 use App\Models\KreditPayment;
 use App\Models\Sale;
-
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\DB;
@@ -522,50 +522,115 @@ class ReportController extends Controller
         $to = $request->get('to', date('Y-m-d'));
         $search = $request->get('search');
 
-        // Gunakan query builder agar bisa di-clone
-        $query = Transaction::with(['user', 'member'])
+        // 1. Ambil DAFTAR AKUN untuk dropdown di modal (SOLUSI ERROR UNDEFINED)
+        $accounts = Account::orderBy('code', 'asc')->get();
+
+        // 2. Query data transaksi (Eager Loading relasi)
+        $query = Transaction::with(['user', 'member', 'account'])
             ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59']);
 
         if ($search) {
-            $query->where('trx_number', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('trx_number', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
         }
 
-        // 1. Hitung TOTAL keseluruhan (untuk Footer) sebelum dipaginate
+        // 3. Hitung TOTAL keseluruhan untuk Footer
         $totalDebit = (clone $query)->sum('total');
         $totalKredit = $totalDebit;
 
-        // 2. Ambil data dengan PAGINATION
+        // 4. Ambil data dengan Pagination
         $data = $query->latest()->paginate(15)->withQueryString();
 
-        return view('reports.journal', compact('data', 'from', 'to', 'totalDebit', 'totalKredit'));
+        return view('reports.journal', compact('data', 'from', 'to', 'totalDebit', 'totalKredit', 'accounts'));
     }
 
+    /* ===============================
+           SIMPAN TRANSAKSI MANUAL
+    =============================== */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|in:income,expense',
+            'account_id' => 'required|exists:accounts,id',
+            'total' => 'required|numeric|min:0',
+            'date' => 'required|date',
+            'description' => 'nullable|string',
+        ]);
+
+        // Simpan ke tabel transactions
+        $transaction = new Transaction();
+        $transaction->trx_number = 'TRX-MANUAL-' . strtoupper(uniqid());
+        $transaction->user_id = auth()->id();
+        $transaction->account_id = $request->account_id;
+
+        // Field keuangan agar laporan tidak nol/null
+        $transaction->total = $request->total;
+        $transaction->paid = $request->total;      // Set lunas
+        $transaction->accepted = $request->total;  // Set uang diterima
+        $transaction->change = 0;                  // Kembalian nol
+
+        $transaction->description = $request->description;
+        $transaction->type = $request->type;
+
+        // PERBAIKAN: Gunakan 'paid' bukan 'completed'
+        $transaction->status = 'paid';
+        $transaction->payment_method = 'cash'; // Default metode pembayaran
+
+        // Set waktu sesuai input user
+        $transaction->created_at = $request->date . ' ' . date('H:i:s');
+        $transaction->updated_at = now();
+
+        $transaction->save();
+
+        return redirect()->back()->with('success', 'Transaksi berhasil disimpan ke Jurnal!');
+    }
+
+    /* ===============================
+           EXPORT JURNAL (CSV)
+    =============================== */
     public function journalExport(Request $request)
     {
         $from = $request->get('from', date('Y-m-01'));
         $to = $request->get('to', date('Y-m-d'));
 
         $fileName = "Jurnal_Umum_{$from}_to_{$to}.csv";
-
         $headers = [
             "Content-type" => "text/csv",
             "Content-Disposition" => "attachment; filename=$fileName",
         ];
 
-        $callback = function () use ($request, $from, $to) {
+        $callback = function () use ($from, $to) {
             $file = fopen('php://output', 'w');
-            // BOM untuk Excel agar support karakter khusus
-            fputs($file, $bom = (chr(0xEF) . chr(0xBB) . chr(0xBF)));
+            fputs($file, (chr(0xEF) . chr(0xBB) . chr(0xBF)));
 
             fputcsv($file, ['TANGGAL', 'NO. TRX', 'AKUN & KETERANGAN', 'REF', 'DEBIT', 'KREDIT']);
 
-            $transactions = Transaction::whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])->get();
+            $transactions = Transaction::with('account')
+                ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+                ->get();
 
             foreach ($transactions as $row) {
-                // Baris 1: Kas (Debit)
-                fputcsv($file, [$row->created_at->format('d/m/Y'), $row->trx_number, 'Kas dan Bank', '1100', $row->total, 0]);
-                // Baris 2: Pendapatan (Kredit)
-                fputcsv($file, ['', '', 'Pendapatan Penjualan', '4100', 0, $row->total]);
+                $isIncome = $row->type == 'income' || $row->type == null;
+                $akunNama = $row->account->name ?? ($isIncome ? 'Pendapatan Penjualan' : 'Beban/Lainnya');
+                $akunKode = $row->account->code ?? ($isIncome ? '4100' : '5100');
+
+                // LOGIKA DOUBLE ENTRY (Lawan selalu KAS)
+                // Jika Masuk (Income): Kas (Debit) vs Akun Lawan (Kredit)
+                // Jika Keluar (Expense): Akun Lawan (Debit) vs Kas (Kredit)
+
+                if ($isIncome) {
+                    // Baris 1: Kas (Debit)
+                    fputcsv($file, [$row->created_at->format('d/m/Y'), $row->trx_number, 'Kas dan Bank', '1100', $row->total, 0]);
+                    // Baris 2: Akun Lawan (Kredit)
+                    fputcsv($file, ['', '', $akunNama . ' - ' . $row->description, $akunKode, 0, $row->total]);
+                } else {
+                    // Baris 1: Akun Lawan (Debit)
+                    fputcsv($file, [$row->created_at->format('d/m/Y'), $row->trx_number, $akunNama . ' - ' . $row->description, $akunKode, $row->total, 0]);
+                    // Baris 2: Kas (Kredit)
+                    fputcsv($file, ['', '', 'Kas dan Bank', '1100', 0, $row->total]);
+                }
             }
             fclose($file);
         };

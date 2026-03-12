@@ -81,6 +81,7 @@ class PurchaseOrderController extends Controller
             'tanggal' => 'required|date',
             'jenis_transaksi' => 'required|in:Pembelian,PO',
             'jenis_pembayaran' => 'required|in:Cash,Kredit,Transfer',
+            'jenis_pembayaran' => $request->jenis_transaksi === 'PO' ? 'nullable' : 'required|in:Cash,Kredit,Transfer',
         ]);
 
         $po = PurchaseOrder::where('po_number', $request->po_number)

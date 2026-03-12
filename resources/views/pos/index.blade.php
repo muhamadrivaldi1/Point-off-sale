@@ -47,13 +47,22 @@ html, body {
 .new-transaction-btn:hover { background: #218838; }
 
 /* ===== BAYAR TAGIHAN BUTTON ===== */
-.bayar-tagihan-btn {
+/* .bayar-tagihan-btn {
     display: flex; align-items: center; gap: 4px;
     background: #fd7e14; color: white; border: none; border-radius: 5px;
     padding: 4px 10px; cursor: pointer; font-weight: 600; font-size: 12px;
     transition: all .2s; white-space: nowrap;
 }
-.bayar-tagihan-btn:hover { background: #e96b05; }
+.bayar-tagihan-btn:hover { background: #e96b05; } */
+
+/* ===== JURNAL BUTTON ===== */
+.jurnal-btn {
+    display: flex; align-items: center; gap: 4px;
+    background: #6d28d9; color: white; border: none; border-radius: 5px;
+    padding: 4px 10px; cursor: pointer; font-weight: 600; font-size: 12px;
+    transition: all .2s; white-space: nowrap;
+}
+.jurnal-btn:hover { background: #5b21b6; }
 
 .pos-container {
     display: flex;
@@ -480,6 +489,90 @@ html, body {
 
 /* Empty history */
 .tg-empty { text-align: center; padding: 12px; color: #ccc; font-size: 11px; }
+
+/* ============================================================
+   PANEL JURNAL UMUM — OVERLAY SLIDE-IN (ungu)
+   ============================================================ */
+#jurnalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 1060;                  /* lebih tinggi dari tagihan */
+    display: none;
+    align-items: stretch;
+    justify-content: flex-end;
+    backdrop-filter: blur(2px);
+}
+#jurnalOverlay.show { display: flex; }
+
+#jurnalPanel {
+    width: 82vw;                    /* lebih lebar agar tabel jurnal nyaman */
+    max-width: 1100px;
+    background: #fff;
+    box-shadow: -6px 0 32px rgba(0,0,0,.22);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideInRight .22s ease;
+}
+
+/* Header panel jurnal */
+.jr-header {
+    background: linear-gradient(135deg, #6d28d9, #5b21b6);
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+.jr-header-title { font-size: 15px; font-weight: 800; }
+.jr-header-sub   { font-size: 11px; opacity: .82; margin-top: 2px; }
+.jr-close-btn {
+    background: rgba(255,255,255,.22); border: none; color: #fff;
+    border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 16px; line-height: 1;
+    transition: background .15s; white-space: nowrap;
+}
+.jr-close-btn:hover { background: rgba(255,255,255,.38); }
+
+/* Toolbar iframe */
+.jr-toolbar {
+    background: #f3f0ff;
+    border-bottom: 1.5px solid #ddd6fe;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: #5b21b6;
+}
+.jr-toolbar a {
+    background: #6d28d9; color: #fff;
+    padding: 4px 12px; border-radius: 5px; text-decoration: none;
+    font-size: 12px; font-weight: 700; transition: background .15s;
+}
+.jr-toolbar a:hover { background: #5b21b6; }
+
+/* Iframe jurnal — mengisi sisa tinggi panel */
+#jurnalFrame {
+    flex: 1;
+    border: none;
+    width: 100%;
+    min-height: 0;
+}
+
+/* Spinner saat iframe loading */
+.jr-loading {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; padding: 40px; color: #6c757d; font-size: 13px;
+    position: absolute; inset: 60px 0 0 0; background: #fff; z-index: 1;
+}
+.jr-spinner {
+    width: 24px; height: 24px;
+    border: 3px solid #ddd6fe; border-top-color: #6d28d9;
+    border-radius: 50%; animation: spin .7s linear infinite;
+}
 </style>
 
 <div class="pos-wrapper">
@@ -491,9 +584,13 @@ html, body {
             <span class="trx-time">{{ $trx->created_at->format('d M Y') }} • {{ $trx->created_at->format('H:i:s') }}</span>
         </div>
         <div class="trx-right">
-            <button class="bayar-tagihan-btn" onclick="openTagihan()">
-                🧾 Bayar Tagihan
+            {{-- ★ TOMBOL JURNAL BARU ★ --}}
+            <button class="jurnal-btn" onclick="openJurnal()">
+                📒 Jurnal Umum
             </button>
+            {{-- <button class="bayar-tagihan-btn" onclick="openTagihan()">
+                🧾 Bayar Tagihan
+            </button> --}}
             <button class="new-transaction-btn" onclick="createNewTransaction()">
                 + Transaksi Baru
             </button>
@@ -823,12 +920,11 @@ html, body {
 </div>
 
 {{-- ============================================================
-     OVERLAY PANEL: BAYAR TAGIHAN LAIN
+     OVERLAY BAYAR TAGIHAN
      ============================================================ --}}
 <div id="tagihanOverlay" onclick="handleTagihanOverlayClick(event)">
     <div id="tagihanPanel">
 
-        {{-- Header --}}
         <div class="tg-header">
             <div>
                 <div class="tg-header-title">🧾 Bayar Tagihan</div>
@@ -837,44 +933,40 @@ html, body {
             <button class="tg-close-btn" onclick="closeTagihan()">✕</button>
         </div>
 
-        {{-- Content: Form --}}
         <div class="tg-content" id="tgContent">
 
-            {{-- STATE: FORM --}}
             <div id="tgStateForm">
 
-                {{-- Kategori tagihan --}}
                 <div>
                     <div class="tg-section-title">📂 Jenis Tagihan</div>
                     <div class="tg-kategori-wrap" style="margin-top:8px;">
-                        <div class="tg-kategori-chip active" data-kategori="Listrik"   onclick="tgSetKategori(this,'Listrik')">
+                        <div class="tg-kategori-chip active" data-kategori="Listrik" onclick="tgSetKategori(this,'Listrik')">
                             <span class="tg-chip-icon">⚡</span>Listrik
                         </div>
-                        <div class="tg-kategori-chip" data-kategori="Air"   onclick="tgSetKategori(this,'Air')">
+                        <div class="tg-kategori-chip" data-kategori="Air" onclick="tgSetKategori(this,'Air')">
                             <span class="tg-chip-icon">💧</span>Air
                         </div>
-                        <div class="tg-kategori-chip" data-kategori="Internet"   onclick="tgSetKategori(this,'Internet')">
+                        <div class="tg-kategori-chip" data-kategori="Internet" onclick="tgSetKategori(this,'Internet')">
                             <span class="tg-chip-icon">📶</span>Internet
                         </div>
-                        <div class="tg-kategori-chip" data-kategori="TV Kabel"   onclick="tgSetKategori(this,'TV Kabel')">
+                        <div class="tg-kategori-chip" data-kategori="TV Kabel" onclick="tgSetKategori(this,'TV Kabel')">
                             <span class="tg-chip-icon">📺</span>TV Kabel
                         </div>
-                        <div class="tg-kategori-chip" data-kategori="Gas"   onclick="tgSetKategori(this,'Gas')">
+                        <div class="tg-kategori-chip" data-kategori="Gas" onclick="tgSetKategori(this,'Gas')">
                             <span class="tg-chip-icon">🔥</span>Gas
                         </div>
-                        <div class="tg-kategori-chip" data-kategori="Telepon"   onclick="tgSetKategori(this,'Telepon')">
+                        <div class="tg-kategori-chip" data-kategori="Telepon" onclick="tgSetKategori(this,'Telepon')">
                             <span class="tg-chip-icon">📞</span>Telepon
                         </div>
-                        <div class="tg-kategori-chip" data-kategori="BPJS"   onclick="tgSetKategori(this,'BPJS')">
+                        <div class="tg-kategori-chip" data-kategori="BPJS" onclick="tgSetKategori(this,'BPJS')">
                             <span class="tg-chip-icon">🏥</span>BPJS
                         </div>
-                        <div class="tg-kategori-chip" data-kategori="Lainnya"   onclick="tgSetKategori(this,'Lainnya')">
+                        <div class="tg-kategori-chip" data-kategori="Lainnya" onclick="tgSetKategori(this,'Lainnya')">
                             <span class="tg-chip-icon">📋</span>Lainnya
                         </div>
                     </div>
                 </div>
 
-                {{-- Nama tagihan (muncul jika pilih Lainnya) --}}
                 <div id="tgNamaCustomWrap" style="display:none;">
                     <div class="tg-field">
                         <label>📝 Nama Tagihan</label>
@@ -883,19 +975,16 @@ html, body {
                 </div>
 
                 <div class="tg-grid-2">
-                    {{-- No. Rekening / ID Pelanggan --}}
                     <div class="tg-field">
                         <label>🔢 No. Rekening / ID Pelanggan</label>
                         <input type="text" id="tgNoRek" placeholder="Opsional">
                     </div>
-                    {{-- Bulan / Periode --}}
                     <div class="tg-field">
                         <label>📅 Periode / Bulan</label>
                         <input type="month" id="tgPeriode">
                     </div>
                 </div>
 
-                {{-- Nominal --}}
                 <div>
                     <div class="tg-section-title">💰 Nominal Tagihan</div>
                     <div class="tg-nominal-wrap" style="margin-top:8px;">
@@ -914,13 +1003,11 @@ html, body {
                     </div>
                 </div>
 
-                {{-- Biaya Admin / Jasa (opsional) --}}
                 <div class="tg-field">
                     <label>🏷️ Biaya Admin / Jasa (opsional)</label>
                     <input type="number" id="tgBiayaAdmin" placeholder="0" min="0" oninput="tgUpdateSummary()">
                 </div>
 
-                {{-- Metode bayar --}}
                 <div>
                     <div class="tg-section-title">💳 Metode Pembayaran</div>
                     <div class="tg-method-pills" style="margin-top:8px;">
@@ -936,19 +1023,16 @@ html, body {
                     </div>
                 </div>
 
-                {{-- Nama pembayar --}}
                 <div class="tg-field">
                     <label>👤 Nama Pembayar (opsional)</label>
                     <input type="text" id="tgNamaBayar" placeholder="Nama pelanggan / pemilik tagihan">
                 </div>
 
-                {{-- Catatan --}}
                 <div class="tg-field">
                     <label>📝 Catatan (opsional)</label>
                     <textarea id="tgCatatan" placeholder="Misal: PLN prabayar token 200rb, tagihan bulan Maret..."></textarea>
                 </div>
 
-                {{-- Ringkasan --}}
                 <div class="tg-summary" id="tgSummary">
                     <div class="tg-section-title" style="margin-bottom:8px;">📋 Ringkasan Pembayaran</div>
                     <div class="tg-summary-row">
@@ -973,12 +1057,10 @@ html, body {
                     </div>
                 </div>
 
-                {{-- Tombol simpan --}}
                 <button class="tg-submit-btn" id="tgSubmitBtn" onclick="tgProcessPay()">
                     🧾 Simpan Pembayaran Tagihan
                 </button>
 
-                {{-- History tagihan hari ini --}}
                 <div>
                     <div class="tg-section-title">🕐 Tagihan Hari Ini</div>
                     <div id="tgHistoryList" style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
@@ -991,7 +1073,6 @@ html, body {
 
             </div>
 
-            {{-- STATE: SUCCESS --}}
             <div id="tgStateSuccess" style="display:none;">
                 <div class="tg-success-box">
                     <div class="tgs-icon">✅</div>
@@ -1016,10 +1097,51 @@ html, body {
     </div>
 </div>
 
+{{-- ============================================================
+     OVERLAY JURNAL UMUM — slide-in dengan iframe
+     ============================================================ --}}
+<div id="jurnalOverlay" onclick="handleJurnalOverlayClick(event)">
+    <div id="jurnalPanel">
+
+        {{-- Header --}}
+        <div class="jr-header">
+            <div>
+                <div class="jr-header-title">📒 Jurnal Umum Detail</div>
+                <div class="jr-header-sub">Data transaksi dalam format jurnal akuntansi · Halaman kasir tetap aktif</div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                {{-- Tombol buka di tab baru (opsional) --}}
+                <a id="jurnalNewTabBtn" href="{{ route('reports.journal') }}" target="_blank"
+                   style="background:rgba(255,255,255,.22); color:#fff; border-radius:6px; padding:5px 12px;
+                          font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">
+                    ↗ Tab Baru
+                </a>
+                <button class="jr-close-btn" onclick="closeJurnal()">✕ Tutup</button>
+            </div>
+        </div>
+
+        {{-- Spinner saat iframe load --}}
+        <div class="jr-loading" id="jurnalLoading">
+            <div class="jr-spinner"></div> Memuat jurnal...
+        </div>
+
+        {{-- Iframe — menampilkan halaman journal.blade.php --}}
+        <iframe id="jurnalFrame"
+                src="about:blank"
+                onload="onJurnalFrameLoad()"
+                style="display:none;">
+        </iframe>
+
+    </div>
+</div>
+
 <script>
 let TRX  = {{ $trx->id }};
 const csrf = '{{ csrf_token() }}';
 const warehouseList = @json($warehousesJson);
+
+/* Route jurnal — sesuaikan jika nama route berbeda */
+const JURNAL_URL = '{{ route("reports.journal") }}';
 
 function getWarehouseId() { return document.getElementById('warehouse_id').value; }
 
@@ -1036,12 +1158,9 @@ let memberDiscount        = 0;
 let selectedPaymentMethod = 'cash';
 let isAdding              = false;
 let isScanPending         = false;
+let selectedSearchIdx     = -1;
 
-// =============================================
-// NAVIGASI KEYBOARD
-// =============================================
-let selectedSearchIdx = -1;
-
+/* ── Search highlight ─────────────────────────────────────── */
 function updateSearchHighlight() {
     const rows = document.querySelectorAll('#searchResult tr[data-unit-id]');
     rows.forEach((row, i) => row.classList.toggle('search-row-active', i === selectedSearchIdx));
@@ -1070,9 +1189,7 @@ function highlightActive(activeId) {
     if (el) el.classList.add('input-active');
 }
 
-// =============================================
-// BARCODE
-// =============================================
+/* ── Barcode ──────────────────────────────────────────────── */
 document.getElementById('barcode').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -1104,11 +1221,9 @@ document.getElementById('barcode').addEventListener('keydown', function (e) {
 });
 document.getElementById('barcode').addEventListener('focus', () => highlightActive('barcode'));
 
-// =============================================
-// SEARCH
-// =============================================
 let isFromKeyboard = false;
 
+/* ── Search product ───────────────────────────────────────── */
 document.getElementById('search').addEventListener('keydown', function (e) {
     const box  = document.getElementById('searchBox');
     const rows = document.querySelectorAll('#searchResult tr[data-unit-id]');
@@ -1186,19 +1301,13 @@ window.addEventListener('load', () => {
     document.getElementById('barcode').focus();
     highlightActive('barcode');
     setJatuhTempo(30);
-    // Set default periode tagihan ke bulan ini
     const now = new Date();
     document.getElementById('tgPeriode').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 });
 
-// =============================================
-// TRANSAKSI BARU
-// =============================================
 function createNewTransaction() { window.location.href = '/pos?new_transaction=1'; }
 
-// =============================================
-// UNLOCK
-// =============================================
+/* ── Unlock owner fields ──────────────────────────────────── */
 function unlockMember() {
     if (memberUnlocked) return;
     const pwd = prompt("Masukkan password owner:"); if (!pwd) return;
@@ -1229,9 +1338,6 @@ function unlockDiscountPercent() {
         });
 }
 
-// =============================================
-// DISKON
-// =============================================
 document.getElementById('discount_rp').addEventListener('input', function () {
     const val = this.value.trim();
     if (val === '' || Number(val) <= 0) { manualDiscountRp = 0; this.value = ''; }
@@ -1245,9 +1351,7 @@ document.getElementById('discount_percent').addEventListener('input', function (
     applyDiscountLive();
 });
 
-// =============================================
-// METODE BAYAR — DROPDOWN
-// =============================================
+/* ── Payment method ───────────────────────────────────────── */
 function onMethodChange(method) {
     selectedPaymentMethod = method;
     const panelCash   = document.getElementById('panelCash');
@@ -1308,13 +1412,13 @@ function setJatuhTempo(days) {
 function updateJatuhTempoInfo() {
     const val = document.getElementById('kreditJatuhTempo').value; if (!val) return;
     const today = new Date(); today.setHours(0,0,0,0);
-    const due = new Date(val); due.setHours(0,0,0,0);
+    const due   = new Date(val); due.setHours(0,0,0,0);
     const diffDay = Math.round((due - today) / (1000*60*60*24));
-    const tglStr = due.toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'});
+    const tglStr  = due.toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'});
     const hariStr = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][due.getDay()];
     document.getElementById('jtInfoDate').innerText = `${hariStr}, ${tglStr} (${diffDay} hari lagi)`;
     const chipDays = [7,14,30,60,90];
-    const matched = chipDays.find(d => { const t = new Date(); t.setDate(t.getDate()+d); t.setHours(0,0,0,0); return t.getTime()===due.getTime(); });
+    const matched  = chipDays.find(d => { const t = new Date(); t.setDate(t.getDate()+d); t.setHours(0,0,0,0); return t.getTime()===due.getTime(); });
     document.querySelectorAll('.jt-chip').forEach(c => c.classList.remove('active'));
     if (matched !== undefined) { const map={7:0,14:1,30:2,60:3,90:4}; document.querySelectorAll('.jt-chip')[map[matched]]?.classList.add('active'); }
     hitungCicilan();
@@ -1328,17 +1432,17 @@ document.getElementById('kreditCaraBayar').addEventListener('change', function (
 
 function hitungCicilan() {
     if (document.getElementById('kreditCaraBayar').value !== 'cicilan') return;
-    const total = Number(document.getElementById('totalText').dataset.total);
-    const dp    = parseFloat(document.getElementById('kreditDP').value) || 0;
-    const sisa  = Math.max(total - dp, 0);
-    const n     = parseInt(document.getElementById('kreditCicilan').value) || 1;
+    const total    = Number(document.getElementById('totalText').dataset.total);
+    const dp       = parseFloat(document.getElementById('kreditDP').value) || 0;
+    const sisa     = Math.max(total - dp, 0);
+    const n        = parseInt(document.getElementById('kreditCicilan').value) || 1;
     const perCicil = Math.ceil(sisa / n);
-    const infoEl = document.getElementById('angsuranInfo');
-    const jtVal  = document.getElementById('kreditJatuhTempo').value;
+    const infoEl   = document.getElementById('angsuranInfo');
+    const jtVal    = document.getElementById('kreditJatuhTempo').value;
     let cicilanDates = '';
     if (jtVal) {
         const dueDate = new Date(jtVal), today = new Date(); today.setHours(0,0,0,0);
-        const diffDay = Math.round((dueDate - today) / (1000*60*60*24));
+        const diffDay  = Math.round((dueDate - today) / (1000*60*60*24));
         const interval = Math.round(diffDay / n);
         const parts = [];
         for (let i = 1; i <= Math.min(n,4); i++) { const d = new Date(today); d.setDate(d.getDate()+interval*i); parts.push(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'})); }
@@ -1349,6 +1453,7 @@ function hitungCicilan() {
     infoEl.style.display = '';
 }
 
+/* ── Cart ─────────────────────────────────────────────────── */
 function addFromSearch(id) {
     if (isScanPending || isAdding) return;
     add(id);
@@ -1383,10 +1488,10 @@ function add(id, overridePassword = null) {
 
 function loadCart() {
     fetch(`/pos?trx_id=${TRX}`).then(r => r.text()).then(html => {
-        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const doc    = new DOMParser().parseFromString(html, 'text/html');
         const totalEl = doc.querySelector('#totalText');
-        const orig = Math.round(Number(totalEl.dataset.total));
-        document.querySelector('#cartBody').innerHTML = doc.querySelector('#cartBody').innerHTML;
+        const orig   = Math.round(Number(totalEl.dataset.total));
+        document.querySelector('#cartBody').innerHTML     = doc.querySelector('#cartBody').innerHTML;
         document.getElementById('totalText').dataset.original = orig;
         document.getElementById('totalText').dataset.total    = orig;
         document.getElementById('totalText').innerText        = 'Rp ' + orig.toLocaleString('id-ID');
@@ -1409,7 +1514,7 @@ function applyDiscountLive() {
     else if (manualDiscountPercent > 0) akhir = awal - Math.round(awal * manualDiscountPercent / 100);
     else if (memberDiscount > 0)        akhir = awal - Math.round(awal * memberDiscount / 100);
     if (akhir < 0) akhir = 0;
-    totalEl.innerText = 'Rp ' + akhir.toLocaleString('id-ID');
+    totalEl.innerText     = 'Rp ' + akhir.toLocaleString('id-ID');
     totalEl.dataset.total = akhir;
     updateKembalian();
     if (selectedPaymentMethod === 'kredit') {
@@ -1455,6 +1560,7 @@ function updateKembalian() {
     document.getElementById('changeText').innerText = 'Rp ' + Math.max(bayar - total, 0).toLocaleString('id-ID');
 }
 
+/* ── Process pay ──────────────────────────────────────────── */
 async function processPay() {
     const total         = Number(document.getElementById('totalText').dataset.total);
     const paymentMethod = selectedPaymentMethod;
@@ -1480,7 +1586,7 @@ async function processPay() {
     const strukWindow = paymentMethod !== 'kredit' ? window.open('', '_blank') : null;
     try {
         const res = await fetch('/pos/pay', { method:'POST', headers:jsonHeaders, body: JSON.stringify({ trx_id:TRX, paid:bayar, member_id:memberId, payment_method:paymentMethod, frontend_total:total, kredit_data:kreditData }) });
-        const r = await res.json();
+        const r   = await res.json();
         if (r.success) {
             if (r.is_kredit) { showKreditSuccess(r.trx_id, total, kreditData); return; }
             if (r.paid_off) {
@@ -1516,6 +1622,7 @@ function showKreditSuccess(trxId, total, kd) {
     document.getElementById('btnKredit').style.display = 'none';
 }
 
+/* ── Member search ────────────────────────────────────────── */
 const memberBox  = document.getElementById('memberResult');
 const memberInfo = document.getElementById('memberInfo');
 
@@ -1569,17 +1676,64 @@ function openPaidTransaction(trxId) {
         .catch(err => { document.body.style.cursor = ''; console.error(err); alert("Terjadi error. Coba lagi."); });
 }
 
-// ============================================================
-// ===== PANEL BAYAR TAGIHAN =====
-// ============================================================
+/* ══════════════════════════════════════════════════════════
+   JURNAL OVERLAY
+   ══════════════════════════════════════════════════════════ */
+let jurnalLoaded = false;   /* hindari reload berulang */
+
+function openJurnal() {
+    document.getElementById('jurnalOverlay').classList.add('show');
+
+    const frame   = document.getElementById('jurnalFrame');
+    const loading = document.getElementById('jurnalLoading');
+
+    /* Muat iframe hanya jika belum pernah dimuat */
+    if (!jurnalLoaded) {
+        loading.style.display = 'flex';
+        frame.style.display   = 'none';
+        frame.src             = JURNAL_URL;
+        jurnalLoaded          = true;
+    }
+}
+
+function closeJurnal() {
+    document.getElementById('jurnalOverlay').classList.remove('show');
+}
+
+/* Tampilkan iframe setelah selesai load, sembunyikan spinner */
+function onJurnalFrameLoad() {
+    const frame   = document.getElementById('jurnalFrame');
+    const loading = document.getElementById('jurnalLoading');
+    /* Hanya jika src bukan about:blank */
+    if (frame.src && frame.src !== 'about:blank') {
+        loading.style.display = 'none';
+        frame.style.display   = '';
+    }
+}
+
+/* Klik backdrop → tutup jurnal */
+function handleJurnalOverlayClick(e) {
+    if (e.target === document.getElementById('jurnalOverlay')) closeJurnal();
+}
+
+/* Tombol reload manual di toolbar (refresh isi jurnal) */
+function reloadJurnal() {
+    const frame   = document.getElementById('jurnalFrame');
+    const loading = document.getElementById('jurnalLoading');
+    loading.style.display = 'flex';
+    frame.style.display   = 'none';
+    frame.src             = JURNAL_URL + '?_t=' + Date.now(); /* cache-bust */
+}
+
+/* ══════════════════════════════════════════════════════════
+   TAGIHAN OVERLAY
+   ══════════════════════════════════════════════════════════ */
 let tgKategori       = 'Listrik';
 let tgMethodSelected = 'cash';
 let tgSuccessTrxId   = null;
 
-// State ringkasan
 const tgMethodLabels = { cash:'💵 Cash', transfer:'🏦 Transfer', qris:'📱 QRIS' };
 
-// Buka overlay
 function openTagihan() {
     document.getElementById('tagihanOverlay').classList.add('show');
     tgReset();
@@ -1587,33 +1741,29 @@ function openTagihan() {
     setTimeout(() => document.getElementById('tgNominal').focus(), 200);
 }
 
-// Tutup overlay
 function closeTagihan() {
     document.getElementById('tagihanOverlay').classList.remove('show');
 }
 
-// Klik backdrop → tutup
 function handleTagihanOverlayClick(e) {
     if (e.target === document.getElementById('tagihanOverlay')) closeTagihan();
 }
 
-// ESC tutup
+/* ESC menutup overlay yang sedang terbuka */
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('tagihanOverlay').classList.contains('show'))
-        closeTagihan();
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('jurnalOverlay').classList.contains('show'))  { closeJurnal();   return; }
+    if (document.getElementById('tagihanOverlay').classList.contains('show')) { closeTagihan();  return; }
 });
 
-// Set kategori
 function tgSetKategori(el, kategori) {
     tgKategori = kategori;
     document.querySelectorAll('.tg-kategori-chip').forEach(c => c.classList.remove('active'));
     el.classList.add('active');
-    // Tampilkan input nama custom jika "Lainnya"
     document.getElementById('tgNamaCustomWrap').style.display = (kategori === 'Lainnya') ? '' : 'none';
     tgUpdateSummary();
 }
 
-// Set metode
 function tgSetMethod(el, method) {
     tgMethodSelected = method;
     document.querySelectorAll('.tg-method-pill').forEach(c => c.classList.remove('active'));
@@ -1621,38 +1771,30 @@ function tgSetMethod(el, method) {
     tgUpdateSummary();
 }
 
-// Set nominal cepat
 function tgSetNominal(val) {
     document.getElementById('tgNominal').value = val;
-    // Highlight chip yang aktif
     document.querySelectorAll('.tg-qn-chip').forEach(c => {
         c.classList.toggle('active', Number(c.getAttribute('onclick').match(/\d+/)[0]) === val);
     });
     tgUpdateSummary();
 }
 
-// Update ringkasan live
 function tgUpdateSummary() {
-    const nominal     = parseFloat(document.getElementById('tgNominal').value) || 0;
-    const biayaAdmin  = parseFloat(document.getElementById('tgBiayaAdmin').value) || 0;
-    const total       = nominal + biayaAdmin;
+    const nominal    = parseFloat(document.getElementById('tgNominal').value) || 0;
+    const biayaAdmin = parseFloat(document.getElementById('tgBiayaAdmin').value) || 0;
+    const total      = nominal + biayaAdmin;
     const namaTagihan = tgKategori === 'Lainnya'
         ? (document.getElementById('tgNamaCustom').value.trim() || 'Lainnya')
         : tgKategori;
-
-    document.getElementById('tgSumKategori').innerText  = namaTagihan;
-    document.getElementById('tgSumNominal').innerText   = 'Rp ' + nominal.toLocaleString('id-ID');
-    document.getElementById('tgSumMethod').innerText    = tgMethodLabels[tgMethodSelected] || tgMethodSelected;
-    document.getElementById('tgSumTotal').innerText     = 'Rp ' + total.toLocaleString('id-ID');
-
-    // Tampilkan baris biaya admin hanya jika > 0
+    document.getElementById('tgSumKategori').innerText = namaTagihan;
+    document.getElementById('tgSumNominal').innerText  = 'Rp ' + nominal.toLocaleString('id-ID');
+    document.getElementById('tgSumMethod').innerText   = tgMethodLabels[tgMethodSelected] || tgMethodSelected;
+    document.getElementById('tgSumTotal').innerText    = 'Rp ' + total.toLocaleString('id-ID');
     document.getElementById('tgSumAdminRow').style.display = biayaAdmin > 0 ? '' : 'none';
     document.getElementById('tgSumAdmin').innerText = 'Rp ' + biayaAdmin.toLocaleString('id-ID');
 }
 
-// Listener nominal
 document.getElementById('tgNominal').addEventListener('input', function () {
-    // Reset quick chip highlight saat ketik manual
     const val = parseFloat(this.value) || 0;
     document.querySelectorAll('.tg-qn-chip').forEach(c => {
         const chipVal = Number(c.getAttribute('onclick').match(/\d+/)[0]);
@@ -1663,9 +1805,6 @@ document.getElementById('tgNominal').addEventListener('input', function () {
 
 document.getElementById('tgNamaCustom').addEventListener('input', tgUpdateSummary);
 
-// =============================================
-// TG: PROSES BAYAR TAGIHAN
-// =============================================
 async function tgProcessPay() {
     const nominal    = parseFloat(document.getElementById('tgNominal').value) || 0;
     const biayaAdmin = parseFloat(document.getElementById('tgBiayaAdmin').value) || 0;
@@ -1694,30 +1833,19 @@ async function tgProcessPay() {
     };
 
     const btn = document.getElementById('tgSubmitBtn');
-    btn.disabled = true;
+    btn.disabled  = true;
     btn.innerHTML = '<div class="tg-spinner" style="border-top-color:#fff; width:16px; height:16px;"></div> Menyimpan...';
 
     try {
-        // POST ke endpoint: /pos/bayar-tagihan
-        // Membuat transaksi baru dengan status 'bayar_tagihan'
-        const res = await fetch('/pos/bayar-tagihan', {
-            method : 'POST',
-            headers: jsonHeaders,
-            body   : JSON.stringify(payload)
-        });
-        const r = await res.json();
+        const res = await fetch('/pos/bayar-tagihan', { method:'POST', headers:jsonHeaders, body:JSON.stringify(payload) });
+        const r   = await res.json();
 
         if (r.success) {
             tgSuccessTrxId = r.trx_id;
-
-            // Isi detail sukses
             document.getElementById('tgSuccessTrxNum').innerText = r.trx_number || `#${r.trx_id}`;
 
             const periodeStr = payload.periode
-                ? (() => {
-                    const [y, m] = payload.periode.split('-');
-                    return new Date(y, m-1).toLocaleDateString('id-ID', { month:'long', year:'numeric' });
-                  })()
+                ? (() => { const [y,m] = payload.periode.split('-'); return new Date(y,m-1).toLocaleDateString('id-ID',{month:'long',year:'numeric'}); })()
                 : '—';
 
             document.getElementById('tgSuccessDetail').innerHTML = `
@@ -1734,12 +1862,12 @@ async function tgProcessPay() {
                 ${payload.nama_bayar ? `<div class="tg-success-detail-row"><span class="sdl">Pembayar</span><span class="sdv">${payload.nama_bayar}</span></div>` : ''}
             `;
 
-            // Switch ke state sukses
             document.getElementById('tgStateForm').style.display    = 'none';
             document.getElementById('tgStateSuccess').style.display = '';
-
-            // Refresh list transaksi hari ini
             loadCart();
+
+            /* Reload jurnal agar data terbaru muncul jika panel sedang terbuka */
+            if (document.getElementById('jurnalOverlay').classList.contains('show')) reloadJurnal();
 
         } else {
             alert('❌ ' + (r.message || 'Gagal menyimpan tagihan'));
@@ -1753,40 +1881,25 @@ async function tgProcessPay() {
     }
 }
 
-// =============================================
-// TG: CETAK STRUK
-// =============================================
 function tgPrintStruk() {
     if (!tgSuccessTrxId) return;
     window.open(`/transactions/${tgSuccessTrxId}/struk`, '_blank');
 }
 
-// =============================================
-// TG: LOAD HISTORY TAGIHAN HARI INI
-// =============================================
 async function tgLoadHistory() {
     const listEl    = document.getElementById('tgHistoryList');
     const loadingEl = document.getElementById('tgHistoryLoading');
     const emptyEl   = document.getElementById('tgHistoryEmpty');
     loadingEl.style.display = 'flex';
     emptyEl.style.display   = 'none';
-    // Hapus item lama (selain loading & empty)
     [...listEl.children].forEach(c => { if (c !== loadingEl && c !== emptyEl) c.remove(); });
 
     try {
-        const res  = await fetch('/pos/tagihan-today', {
-            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf }
-        });
+        const res  = await fetch('/pos/tagihan-today', { headers:{ 'Accept':'application/json', 'X-CSRF-TOKEN':csrf } });
         const data = await res.json();
         const list = data.tagihanList || [];
-
         loadingEl.style.display = 'none';
-
-        if (list.length === 0) {
-            emptyEl.style.display = '';
-            return;
-        }
-
+        if (list.length === 0) { emptyEl.style.display = ''; return; }
         list.forEach(item => {
             const div = document.createElement('div');
             div.className = 'tg-history-item';
@@ -1806,7 +1919,6 @@ async function tgLoadHistory() {
                 </div>`;
             listEl.insertBefore(div, emptyEl);
         });
-
     } catch {
         loadingEl.style.display = 'none';
         emptyEl.style.display   = '';
@@ -1814,21 +1926,13 @@ async function tgLoadHistory() {
     }
 }
 
-// =============================================
-// TG: RESET
-// =============================================
 function tgReset() {
     tgKategori       = 'Listrik';
     tgMethodSelected = 'cash';
     tgSuccessTrxId   = null;
-
-    // Reset chips kategori
     document.querySelectorAll('.tg-kategori-chip').forEach(c => c.classList.toggle('active', c.dataset.kategori === 'Listrik'));
-    // Reset method pills
     document.querySelectorAll('.tg-method-pill').forEach(c => c.classList.toggle('active', c.dataset.method === 'cash'));
-    // Reset quick nominal
     document.querySelectorAll('.tg-qn-chip').forEach(c => c.classList.remove('active'));
-
     document.getElementById('tgNominal').value    = '';
     document.getElementById('tgBiayaAdmin').value = '';
     document.getElementById('tgNoRek').value      = '';
@@ -1836,14 +1940,9 @@ function tgReset() {
     document.getElementById('tgCatatan').value    = '';
     document.getElementById('tgNamaCustom').value = '';
     document.getElementById('tgNamaCustomWrap').style.display = 'none';
-
-    // Reset periode ke bulan ini
     const now = new Date();
     document.getElementById('tgPeriode').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-
     tgUpdateSummary();
-
-    // Tampilkan form, sembunyikan sukses
     document.getElementById('tgStateForm').style.display    = '';
     document.getElementById('tgStateSuccess').style.display = 'none';
 }

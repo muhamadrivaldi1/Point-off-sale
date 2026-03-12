@@ -20,6 +20,7 @@ class Transaction extends Model
         'payment_method',
         'notes',
         'status',
+        'account_id',
     ];
 
     protected $casts = [
@@ -70,5 +71,9 @@ class Transaction extends Model
     public function details()
     {
         return $this->hasMany(TransactionDetail::class, 'transaction_id');
+    }
+
+    public function account() {
+        return $this->belongsTo(Account::class);
     }
 }

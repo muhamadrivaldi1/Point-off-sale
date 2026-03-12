@@ -156,6 +156,10 @@ data-bs-toggle="collapse" href="#menuMaster">
 <a href="/products"><i class="bi bi-box-seam"></i> Produk</a>
 @endif
 
+@if(hasAkses('akses_laporan')) 
+    <a href="{{ route('accounts.index') }}"><i class="bi bi-list-stars"></i> Daftar Tagihan lain (COA)</a>
+ @endif
+
 @if(hasAkses('akses_supplier'))
 <a href="/suppliers"><i class="bi bi-truck"></i> Supplier</a>
 @endif
