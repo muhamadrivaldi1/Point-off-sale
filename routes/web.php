@@ -311,3 +311,5 @@ Route::get('/reports/neraca', [ReportController::class, 'neraca'])->name('report
 
 
 Route::resource('accounts', AccountController::class);
+Route::patch('accounts/{account}/toggle', [AccountController::class, 'toggle'])->name('accounts.toggle');
+Route::get('accounts/api/list', [AccountController::class, 'apiList'])->name('accounts.api.list');

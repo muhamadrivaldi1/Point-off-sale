@@ -20,7 +20,6 @@ use Illuminate\Support\Facades\Hash;
 class PosController extends Controller
 {
     // ================= HELPER TRANSAKSI AKTIF =================
-    // Mengembalikan null jika tidak ditemukan — TIDAK pakai firstOrFail
     private function getActiveTransaction(Request $request): ?Transaction
     {
         if (!$request->filled('trx_id')) return null;
@@ -63,7 +62,6 @@ class PosController extends Controller
             }
         }
 
-        // Jika ada request new_transaction, buat transaksi baru lalu redirect
         if ($request->has('new_transaction')) {
             $trx = DB::transaction(function () use ($user) {
                 return Transaction::create([
@@ -81,7 +79,6 @@ class PosController extends Controller
 
         $trx = null;
 
-        // Coba ambil dari trx_id di URL — hanya yang pending milik user ini
         if ($request->filled('trx_id')) {
             $trx = Transaction::where('id', $request->trx_id)
                 ->where('user_id', $user->id)
@@ -89,7 +86,6 @@ class PosController extends Controller
                 ->first();
         }
 
-        // Tidak ditemukan? Ambil pending terakhir milik user
         if (!$trx) {
             $trx = Transaction::where('user_id', $user->id)
                 ->where('status', 'pending')
@@ -97,7 +93,6 @@ class PosController extends Controller
                 ->first();
         }
 
-        // Masih tidak ada? Buat baru
         if (!$trx) {
             $trx = DB::transaction(function () use ($user) {
                 return Transaction::create([
@@ -260,8 +255,6 @@ class PosController extends Controller
     }
 
     // ================= CEK STOK =================
-    // Stok 0 / tidak ada = langsung izinkan.
-    // Stok > 0 tapi kurang dari qty = butuh override.
     private function stockNeedsOverride(int $stok, int $newQty): bool
     {
         if ($stok <= 0) return false;
@@ -547,7 +540,7 @@ class PosController extends Controller
 
             $paid = (int) round((float)($request->paid ?? 0), 0);
 
-            // ===== KREDIT: simpan tanpa bayar =====
+            // ===== KREDIT =====
             if ($isKredit) {
                 foreach ($validItems as $row) {
                     $s = $row['stock'];
@@ -556,13 +549,14 @@ class PosController extends Controller
                     }
                 }
 
-                // Ambil data kredit dari frontend
-                $kd = $request->input('kredit_data', []);
+                $kd       = $request->input('kredit_data', []);
+                $dpAmount = isset($kd['dp']) ? (int) round((float) $kd['dp'], 0) : 0;
 
                 $trx->update([
                     'member_id'         => $request->member_id,
                     'total'             => $total,
-                    'paid'              => 0,
+                    'paid'              => $dpAmount,
+                    'accepted'          => $dpAmount,
                     'change'            => 0,
                     'status'            => 'kredit',
                     'discount'          => $discountAmount,
@@ -579,11 +573,10 @@ class PosController extends Controller
                     $member->increment('total_spent', $total);
                     if ($member->total_spent >= 5000000)     $member->update(['level' => 'Gold',   'discount' => 5]);
                     elseif ($member->total_spent >= 1000000) $member->update(['level' => 'Silver', 'discount' => 2]);
-                    else                                      $member->update(['level' => 'Basic',  'discount' => 0]);
+                    else                                     $member->update(['level' => 'Basic',  'discount' => 0]);
                 }
 
-                $dpAmount = isset($kd['dp']) ? (int) round((float) $kd['dp'], 0) : 0;
-                if ($dpAmount > 0 && $dpAmount <= $total) {
+                if ($dpAmount > 0) {
                     KreditPayment::create([
                         'transaction_id' => $trx->id,
                         'amount'         => $dpAmount,
@@ -609,6 +602,7 @@ class PosController extends Controller
                     'member_id'      => $request->member_id,
                     'total'          => $total,
                     'paid'           => $paid,
+                    'accepted'       => $paid,
                     'change'         => 0,
                     'status'         => 'pending',
                     'discount'       => $discountAmount,
@@ -630,6 +624,7 @@ class PosController extends Controller
                 'member_id'      => $request->member_id,
                 'total'          => $total,
                 'paid'           => $paid,
+                'accepted'       => $total,
                 'change'         => $paid - $total,
                 'status'         => 'paid',
                 'discount'       => $discountAmount,
@@ -643,7 +638,7 @@ class PosController extends Controller
 
                 if ($member->total_spent >= 5000000)     $member->update(['level' => 'Gold',   'discount' => 5]);
                 elseif ($member->total_spent >= 1000000) $member->update(['level' => 'Silver', 'discount' => 2]);
-                else                                      $member->update(['level' => 'Basic',  'discount' => 0]);
+                else                                     $member->update(['level' => 'Basic',  'discount' => 0]);
             }
 
             DB::commit();
@@ -756,7 +751,6 @@ class PosController extends Controller
         }
 
         DB::transaction(function () use ($trx) {
-            // Kembalikan stok
             foreach ($trx->items as $item) {
                 $warehouseId = $item->warehouse_id
                     ?? Warehouse::where('is_active', true)->value('id')
@@ -771,7 +765,6 @@ class PosController extends Controller
                 }
             }
 
-            // Kembalikan poin & total_spent member
             if ($trx->member_id) {
                 $member = Member::find($trx->member_id);
                 if ($member) {
@@ -786,14 +779,15 @@ class PosController extends Controller
                     }
                     if ($member->total_spent >= 5000000)     $member->update(['level' => 'Gold',   'discount' => 5]);
                     elseif ($member->total_spent >= 1000000) $member->update(['level' => 'Silver', 'discount' => 2]);
-                    else                                      $member->update(['level' => 'Basic',  'discount' => 0]);
+                    else                                     $member->update(['level' => 'Basic',  'discount' => 0]);
                 }
             }
 
             $trx->update([
-                'status' => 'pending',
-                'paid'   => 0,
-                'change' => 0,
+                'status'   => 'pending',
+                'paid'     => 0,
+                'accepted' => 0,
+                'change'   => 0,
             ]);
         });
 
@@ -822,10 +816,20 @@ class PosController extends Controller
 
         abort_if(!in_array($trx->status, ['kredit', 'paid']), 404);
 
+        // ★ SUMBER KEBENARAN: selalu hitung dari relasi payments
         $totalTerbayar = $trx->payments->sum('amount');
         $sisa          = max($trx->total - $totalTerbayar, 0);
 
-        return view('pos.kredit', compact('trx', 'totalTerbayar', 'sisa'));
+        // Sinkronkan kolom accepted agar konsisten
+        if ($trx->accepted != $totalTerbayar) {
+            $trx->update(['accepted' => $totalTerbayar]);
+            $trx->accepted = $totalTerbayar;
+        }
+
+        // Cari DP awal jika ada
+        $dpPayment = $trx->payments->where('note', 'DP / Uang Muka')->first();
+
+        return view('pos.kredit', compact('trx', 'totalTerbayar', 'sisa', 'dpPayment'));
     }
 
     // ================= KREDIT: SIMPAN CATATAN =================
@@ -857,36 +861,43 @@ class PosController extends Controller
         $owner = User::where('role', 'owner')->first();
 
         if (!$owner || !Hash::check($request->password, $owner->password)) {
-            return back()->with('error', 'Password owner salah!');
+            return response()->json(['success' => false, 'message' => 'Password owner salah!'], 403);
         }
 
-        $trx = Transaction::with('payments')->findOrFail($request->trx_id);
+        DB::transaction(function () use ($request) {
+            $trx = Transaction::with('payments')->lockForUpdate()->findOrFail($request->trx_id);
 
-        if ($trx->status !== 'kredit') {
-            return back()->with('error', 'Transaksi bukan kredit atau sudah lunas.');
-        }
+            if ($trx->status !== 'kredit') {
+                abort(400, 'Transaksi bukan kredit atau sudah lunas.');
+            }
 
-        $totalTerbayar = $trx->payments->sum('amount');
-        $sisa          = max($trx->total - $totalTerbayar, 0);
+            // Hitung sisa dari relasi payments (BUKAN dari accepted)
+            $totalTerbayar = $trx->payments->sum('amount');
+            $sisa          = max($trx->total - $totalTerbayar, 0);
 
-        KreditPayment::create([
-            'transaction_id' => $trx->id,
-            'amount'         => $sisa,
-            'method'         => $request->method,
-            'note'           => $request->note,
-            'paid_at'        => now(),
-            'created_by'     => Auth::id(),
-        ]);
+            if ($sisa <= 0) {
+                abort(400, 'Transaksi sudah lunas.');
+            }
 
-        $trx->update([
-            'status'         => 'paid',
-            'payment_method' => $request->method,
-            'paid_at'        => now(),
-        ]);
+            KreditPayment::create([
+                'transaction_id' => $trx->id,
+                'amount'         => $sisa,
+                'method'         => $request->method,
+                'note'           => $request->note ?? 'Pelunasan Piutang',
+                'paid_at'        => now(),
+                'created_by'     => Auth::id(),
+            ]);
 
-        return redirect()
-            ->route('pos.kredit.show', $trx->id)
-            ->with('success', 'Kredit berhasil dilunasi');
+            // Update accepted = total (sudah lunas penuh)
+            $trx->update([
+                'status'         => 'paid',
+                'accepted'       => $trx->total,
+                'payment_method' => $request->method,
+                'paid_at'        => now(),
+            ]);
+        });
+
+        return response()->json(['success' => true]);
     }
 
     // ================= KREDIT: BAYAR SEBAGIAN =================
@@ -903,19 +914,25 @@ class PosController extends Controller
         $owner = User::where('role', 'owner')->first();
 
         if (!$owner || !Hash::check($request->password, $owner->password)) {
-            return back()->with('error', 'Password owner salah!');
+            return response()->json(['success' => false, 'message' => 'Password owner salah!'], 403);
         }
 
-        DB::transaction(function () use ($request, &$trx) {
+        DB::transaction(function () use ($request) {
             $trx = Transaction::lockForUpdate()->findOrFail($request->trx_id);
 
             if ($trx->status !== 'kredit') {
                 abort(400, 'Transaksi bukan kredit');
             }
 
-            $totalTerbayar = $trx->payments()->sum('amount');
+            // Hitung sisa dari relasi payments (BUKAN dari accepted)
+            $totalTerbayar = KreditPayment::where('transaction_id', $trx->id)->sum('amount');
             $sisa          = max($trx->total - $totalTerbayar, 0);
-            $amountPaid    = min($request->amount, $sisa);
+
+            if ($sisa <= 0) {
+                abort(400, 'Transaksi sudah lunas.');
+            }
+
+            $amountPaid = min((float)$request->amount, $sisa);
 
             KreditPayment::create([
                 'transaction_id' => $trx->id,
@@ -926,24 +943,23 @@ class PosController extends Controller
                 'created_by'     => Auth::id(),
             ]);
 
-            // refresh relasi agar frontend dapat data baru
-            $trx->load('payments');
+            // Hitung ulang total terbayar setelah insert
+            $totalTerbayarBaru = $totalTerbayar + $amountPaid;
+            $sisaBaru          = max($trx->total - $totalTerbayarBaru, 0);
 
-            $totalBaru = $trx->payments->sum('amount');
-            $sisaBaru  = max($trx->total - $totalBaru, 0);
+            // ★ SELALU update accepted agar sinkron dengan payments
+            $updateData = ['accepted' => $totalTerbayarBaru];
 
             if ($sisaBaru <= 0) {
-                $trx->update([
-                    'status'         => 'paid',
-                    'payment_method' => $request->method,
-                    'paid_at'        => now(),
-                ]);
+                $updateData['status']         = 'paid';
+                $updateData['payment_method'] = $request->method;
+                $updateData['paid_at']        = now();
             }
+
+            $trx->update($updateData);
         });
 
-        return redirect()
-            ->route('pos.kredit.show', $request->trx_id)
-            ->with('success', 'Pembayaran berhasil disimpan');
+        return response()->json(['success' => true]);
     }
 
     // ================= KREDIT: INDEX =================
@@ -952,7 +968,12 @@ class PosController extends Controller
         $kredits = Transaction::with('member', 'payments')
             ->where('status', 'kredit')
             ->latest()
-            ->get();
+            ->get()
+            ->map(function ($t) {
+                $totalTerbayar = $t->payments->sum('amount');
+                $t->sisa       = max($t->total - $totalTerbayar, 0);
+                return $t;
+            });
 
         return view('pos.kredit_index', compact('kredits'));
     }
@@ -963,12 +984,13 @@ class PosController extends Controller
         return redirect()->to('/transactions/' . $trx_id . '/struk');
     }
 
-    public function bayarTagihan(\Illuminate\Http\Request $request)
+    // ================= BAYAR TAGIHAN =================
+    public function bayarTagihan(Request $request)
     {
         try {
-            $trx = \App\Models\Transaction::create([
+            $trx = Transaction::create([
                 'trx_number'     => 'TGH-' . date('Ymd') . '-' . str_pad(
-                    \App\Models\Transaction::whereDate('created_at', today())
+                    Transaction::whereDate('created_at', today())
                         ->where('status', 'bayar_tagihan')->count() + 1,
                     3,
                     '0',
@@ -1003,9 +1025,10 @@ class PosController extends Controller
         }
     }
 
+    // ================= TAGIHAN HARI INI =================
     public function tagihanToday()
     {
-        $list = \App\Models\Transaction::where('status', 'bayar_tagihan')
+        $list = Transaction::where('status', 'bayar_tagihan')
             ->whereDate('created_at', today())
             ->orderByDesc('created_at')
             ->get()

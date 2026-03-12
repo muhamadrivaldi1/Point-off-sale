@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             ProductUnitSeeder::class,
             StockSeeder::class,
             PriceRuleSeeder::class,
+            AccountSeeder::class,
 
         ]);
 

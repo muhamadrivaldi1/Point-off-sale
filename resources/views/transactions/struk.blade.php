@@ -5,309 +5,252 @@
 @section('content')
 
 @php
-$s = \App\Models\StrukSetting::getSetting();
+    $s = \App\Models\StrukSetting::getSetting();
+    
+    // Logika Perhitungan Pembayaran
+    $isKredit = $trx->payment_method === 'kredit' || $trx->status === 'kredit';
+    
+    // Ambil total yang sudah dibayar (DP + Cicilan)
+    $totalSudahMasuk = $trx->payments ? $trx->payments->sum('amount') : ($trx->paid ?? 0);
+    
+    // Sisa Hutang adalah Total Akhir dikurangi yang sudah masuk
+    $sisaHutang = max($trx->total - $totalSudahMasuk, 0);
 @endphp
 
 <style>
 .struk {
-max-width:220px;
-margin:auto;
-padding:8px;
-background:#fff;
-font-family:monospace;
-font-size:11px;
-box-shadow:0 0 8px rgba(0,0,0,.15);
-text-align:left;
+    max-width: 220px;
+    margin: auto;
+    padding: 10px;
+    background: #fff;
+    font-family: monospace;
+    font-size: 11px;
+    box-shadow: 0 0 8px rgba(0,0,0,.15);
+    text-align: left;
+    color: #000;
 }
 
-@page{ size:58mm auto; margin:0 }
+@page { size: 58mm auto; margin: 0 }
 
-@media print{
-body *{ visibility:hidden }
-.struk,.struk *{ visibility:visible }
-
-.struk{
-position:absolute;
-left:50%;
-top:0;
-transform:translateX(-50%);
-width:58mm;
-max-width:58mm;
-padding:6px;
-font-size:10px;
-box-shadow:none
+@media print {
+    body * { visibility: hidden }
+    .struk, .struk * { visibility: visible }
+    .struk {
+        position: absolute;
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+        width: 58mm;
+        max-width: 58mm;
+        padding: 5px;
+        font-size: 10px;
+        box-shadow: none;
+    }
+    .d-print-none { display: none !important }
 }
 
-.d-print-none{ display:none!important }
+.text-center { text-align: center }
+.text-end { text-align: right }
+
+hr {
+    border-top: 1px dashed #000;
+    margin: 5px 0;
 }
 
-.text-center{text-align:center}
-.text-end{text-align:right}
-
-hr{
-border-top:1px dashed #000;
-margin:4px 0
+.kredit-box {
+    border: 1px solid #000;
+    padding: 5px;
+    margin: 8px 0;
+    text-align: center;
+    font-weight: bold;
+    font-size: 10px;
 }
 
-.kredit-box{
-border:1px solid #000;
-padding:4px 5px;
-margin:4px 0;
-text-align:center;
-font-weight:bold;
-font-size:11px;
-letter-spacing:.3px
+.footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
 }
 
-.footer{
-display:flex;
-justify-content:space-between;
-font-style:normal;
-margin-top:4px
-}
-
-.footer .left{text-align:left}
-.footer .right{text-align:right}
+table { width: 100%; border-collapse: collapse; }
+td { vertical-align: top; }
 </style>
-
 
 <div class="struk">
 
-{{-- ================= HEADER (EDITABLE) ================= --}}
-<div class="text-center">
+    {{-- ================= HEADER ================= --}}
+    <div class="text-center">
+        <strong>{{ strtoupper($s->nama_toko) }}</strong><br>
+        @if($s->tagline) {{ $s->tagline }}<br> @endif
+        @if($s->alamat) {{ $s->alamat }}<br> @endif
+        @if($s->kota) {{ strtoupper($s->kota) }}<br> @endif
+        @if($s->tampil_npwp && $s->npwp) NPWP: {{ $s->npwp }}<br> @endif
+        @if($s->telepon) HP. {{ $s->telepon }}<br> @endif
+        @if($s->email) {{ $s->email }}<br> @endif
+        @if($s->website) {{ $s->website }}<br> @endif
+    </div>
 
-<strong>{{ strtoupper($s->nama_toko) }}</strong><br>
+    <hr>
 
-@if($s->tagline)
-{{ $s->tagline }}<br>
-@endif
+    {{-- INFO TRANSAKSI --}}
+    @php
+    $metodeLable = match($trx->payment_method) {
+        'transfer' => 'Transfer Bank',
+        'qris'     => 'QRIS',
+        'kredit'   => 'KREDIT',
+        default    => 'Cash / Tunai',
+    };
+    @endphp
 
-@if($s->alamat)
-{{ $s->alamat }}<br>
-@endif
+    <div>
+        No  : {{ $trx->trx_number }}<br>
+        Tgl : {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
+        Kasir: {{ $trx->user->name ?? auth()->user()->name }}<br>
 
-@if($s->kota)
-{{ strtoupper($s->kota) }}<br>
-@endif
+        @if($trx->member)
+            Member: {{ $trx->member->name }}<br>
+        @endif
 
-@if($s->tampil_npwp && $s->npwp)
-NPWP: {{ $s->npwp }}<br>
-@endif
+        Bayar : <strong>{{ strtoupper($metodeLable) }}</strong><br>
 
-@if($s->telepon)
-HP. {{ $s->telepon }}<br>
-@endif
+        @if($isKredit && $sisaHutang > 0)
+            Status: <strong>*** BELUM LUNAS ***</strong><br>
+        @elseif($isKredit && $sisaHutang <= 0)
+            Status: <strong>*** LUNAS ***</strong><br>
+        @endif
+    </div>
 
-@if($s->email)
-{{ $s->email }}<br>
-@endif
+    <hr>
 
-@if($s->website)
-{{ $s->website }}<br>
-@endif
+    {{-- DAFTAR ITEM --}}
+    <table>
+        @foreach($trx->items as $item)
+        <tr>
+            <td colspan="3">{{ $item->unit->product->name }} <small>({{ $item->unit->unit_name }})</small></td>
+        </tr>
+        <tr>
+            <td style="width: 25%">{{ $item->qty }} x</td>
+            <td class="text-end">{{ number_format($item->price) }}</td>
+            <td class="text-end">{{ number_format($item->price * $item->qty) }}</td>
+        </tr>
+        @endforeach
+    </table>
 
-</div>
+    <hr>
 
-<hr>
+    {{-- RINGKASAN PEMBAYARAN --}}
+    <table style="width:100%">
+        <tr>
+            <td>Subtotal</td>
+            <td class="text-end">{{ number_format($trx->total + ($trx->discount ?? 0)) }}</td>
+        </tr>
 
-{{-- INFO TRANSAKSI --}}
-@php
-$isKredit = $trx->payment_method === 'kredit' || $trx->status === 'kredit';
+        @if(($trx->discount ?? 0) > 0)
+        <tr>
+            <td>Diskon</td>
+            <td class="text-end">-{{ number_format($trx->discount) }}</td>
+        </tr>
+        @endif
 
-$metodeLable = match($trx->payment_method) {
-'transfer' => 'Transfer Bank',
-'qris'     => 'QRIS',
-'kredit'   => 'KREDIT',
-default    => 'Cash / Tunai',
-};
-@endphp
+        <tr>
+            <td><strong>Total</strong></td>
+            <td class="text-end"><strong>{{ number_format($trx->total) }}</strong></td>
+        </tr>
 
-<div>
-No  : {{ $trx->trx_number }}<br>
-Tgl : {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
-Kasir: {{ $trx->user->name ?? auth()->user()->name }}<br>
+        @if($isKredit)
+            <tr>
+                <td>DP/Tlh Bayar</td>
+                <td class="text-end">{{ number_format($totalSudahMasuk) }}</td>
+            </tr>
+            <tr>
+                <td><strong>Sisa Hutang</strong></td>
+                <td class="text-end"><strong>{{ number_format($sisaHutang) }}</strong></td>
+            </tr>
+        @else
+            <tr>
+                <td>Dibayar</td>
+                <td class="text-end">{{ number_format($trx->paid ?? $trx->total) }}</td>
+            </tr>
+            <tr>
+                <td>Kembali</td>
+                <td class="text-end">{{ number_format($trx->change ?? 0) }}</td>
+            </tr>
+        @endif
+    </table>
 
-@if($trx->member)
-Member: {{ $trx->member->name }}<br>
-Level : {{ $trx->member->level }}<br>
-@endif
+    {{-- KOTAK KREDIT --}}
+    @if($isKredit && $sisaHutang > 0)
+        <hr>
+        <div class="kredit-box">
+            *** NOTA KREDIT / HUTANG ***<br>
+            {{ $s->teks_kredit ?? 'Harap dilunasi secepatnya' }}<br>
+            {{-- PERBAIKAN DI SINI: Menampilkan sisa hutang, bukan total belanja --}}
+            Sisa Tagihan: Rp {{ number_format($sisaHutang) }}
+        </div>
+    @endif
 
-Bayar : {{ $metodeLable }}<br>
+    <hr>
 
-@if($isKredit)
-Status: *** BELUM LUNAS ***<br>
-@endif
-</div>
+    {{-- ================= FOOTER ================= --}}
+    <div class="footer">
+        <div class="text-center" style="width: 45%">
+            <small>{{ $s->label_tanda_terima ?? 'Tanda Terima' }}</small><br><br><br>
+            ( ....... )
+        </div>
+        <div class="text-center" style="width: 45%">
+            <small>{{ $s->label_hormat_kami ?? 'Hormat Kami' }}</small><br><br><br>
+            ( {{ strtoupper($s->nama_toko) }} )
+        </div>
+    </div>
 
-<hr>
-
-{{-- ITEM --}}
-@php
-$subtotalBersih = 0;
-@endphp
-
-<table style="width:100%">
-
-@foreach($trx->items as $item)
-
-@php
-$hargaSatuan = $item->price;
-$qty = $item->qty;
-$subtotalItem = $hargaSatuan * $qty;
-$subtotalBersih += $subtotalItem;
-@endphp
-
-<tr>
-<td colspan="3">
-{{ $item->unit->product->name }}
-<small>({{ $item->unit->unit_name }})</small>
-</td>
-</tr>
-
-<tr>
-<td>{{ $qty }} x</td>
-<td class="text-end">{{ number_format($hargaSatuan) }}</td>
-<td class="text-end">{{ number_format($subtotalItem) }}</td>
-</tr>
-
-@endforeach
-
-</table>
-
-<hr>
-
-{{-- RINGKASAN --}}
-@php
-$diskonRupiah = $trx->discount ?? 0;
-
-$totalBayar = $subtotalBersih - $diskonRupiah;
-if($totalBayar < 0) $totalBayar = 0;
-
-$sudahBayar = $isKredit ? 0 : ($trx->paid ?? 0);
-$kembalian  = $isKredit ? 0 : max($trx->change ?? 0,0);
-$sisaHutang = $isKredit ? $totalBayar : 0;
-@endphp
-
-<table style="width:100%">
-
-<tr>
-<td>Subtotal</td>
-<td class="text-end">{{ number_format($subtotalBersih) }}</td>
-</tr>
-
-@if($diskonRupiah>0)
-<tr>
-<td>Diskon</td>
-<td class="text-end">-{{ number_format($diskonRupiah) }}</td>
-</tr>
-@endif
-
-<tr>
-<td><strong>Total</strong></td>
-<td class="text-end"><strong>{{ number_format($totalBayar) }}</strong></td>
-</tr>
-
-@if($isKredit)
-
-<tr>
-<td>Dibayar</td>
-<td class="text-end">0</td>
-</tr>
-
-<tr>
-<td><strong>Sisa Hutang</strong></td>
-<td class="text-end"><strong>{{ number_format($sisaHutang) }}</strong></td>
-</tr>
-
-@else
-
-<tr>
-<td>Dibayar</td>
-<td class="text-end">{{ number_format($sudahBayar) }}</td>
-</tr>
-
-<tr>
-<td>Kembali</td>
-<td class="text-end">{{ number_format($kembalian) }}</td>
-</tr>
-
-@endif
-
-</table>
-
-
-@if($isKredit)
-
-<hr>
-
-<div class="kredit-box">
-*** NOTA KREDIT / HUTANG ***<br>
-{{ $s->teks_kredit ?? 'Harap dilunasi secepatnya' }}<br>
-Total: Rp {{ number_format($totalBayar) }}
-</div>
-
-@endif
-
-
-<hr><br>
-
-{{-- ================= FOOTER (EDITABLE) ================= --}}
-<div class="footer">
-
-<div class="left">
-{{ $s->label_tanda_terima ?? 'Tanda Terima' }}
-</div>
-
-<div class="right">
-{{ $s->label_hormat_kami ?? 'Hormat Kami' }}
-</div>
+    <div class="text-center" style="margin-top: 15px;">
+        <small><strong>{{ strtoupper($s->nama_toko) }}</strong></small><br>
+        <small>{{ strtoupper($s->kota) }}</small>
+    </div>
 
 </div>
-
-<br><br>
-
-<small class="text-center" style="display:block;margin-top:2px">
-
-{{ strtoupper($s->nama_toko) }}<br>
-
-{{ strtoupper($s->kota) }}
-
-</small>
-
-</div>
-
 
 <div class="text-center mt-3 d-print-none">
+    {{-- <button onclick="window.print()" class="btn btn-primary btn-sm">
+        🖨️ Print Struk
+    </button> --}}
 
-<button onclick="window.print()" class="btn btn-primary btn-sm">
-🖨️ Print Struk
-</button>
-
-<button onclick="window.close()" class="btn btn-secondary btn-sm ms-2">
-✕ Tutup
-</button>
-
+    <button id="btnClose" class="btn btn-secondary btn-sm ms-2">
+        ✕ Tutup
+    </button>
 </div>
 
-
 <script>
+window.onload = function() {
+    window.print();
 
-window.onload=function(){
+    const handleClose = () => {
+        window.close();
+        setTimeout(() => {
+            if (!window.closed) {
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    alert("Gunakan tombol 'Kembali' atau tekan 'Esc' untuk menutup tab.");
+                }
+            }
+        }, 500);
+    };
 
-window.print();
+    const btnClose = document.getElementById('btnClose');
+    if (btnClose) {
+        btnClose.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleClose();
+        });
+    }
 
-document.body.focus();
-
-document.body.addEventListener('keydown',function(e){
-
-if(e.key==='Enter'||e.key==='Escape'){
-window.close();
+    document.body.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === 'Escape') {
+            e.preventDefault();
+            handleClose();
+        }
+    });
 }
-
-});
-
-}
-
 </script>
-
 @endsection

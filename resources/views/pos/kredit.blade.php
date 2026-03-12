@@ -169,10 +169,10 @@
                     {{ ['cash'=>'💵 Cash','transfer'=>'🏦 Transfer','qris'=>'📱 QRIS'][$dpPayment->method] ?? $dpPayment->method }}
                 </span>
             </div>
-            <div class="dp-right">
+            {{-- <div class="dp-right">
                 Sisa hutang awal setelah DP:
                 <strong>Rp {{ number_format($trx->total - $dpPayment->amount) }}</strong>
-            </div>
+            </div> --}}
         </div>
         @endif
 
