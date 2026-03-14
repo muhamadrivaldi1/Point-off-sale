@@ -304,7 +304,7 @@
                         </div>
                         <span class="er-amt">Rp {{ number_format($exp->amount) }}</span>
                         @if(auth()->user()->role === 'owner')
-                        <button class="er-del" onclick="deleteExpense({{ $exp->id }})">🗑</button>
+                        {{-- <button class="er-del" onclick="deleteExpense({{ $exp->id }})">🗑</button> --}}
                         @endif
                     </div>
                     @empty
