@@ -18,6 +18,8 @@ use App\Http\Controllers\PriceRuleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\ExpenseController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -142,6 +144,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos/reopen-transaction', [PosController::class, 'reopenTransaction']);
     Route::post('/pos/bayar-tagihan', [PosController::class, 'bayarTagihan']);
     Route::get('/pos/tagihan-today',  [PosController::class, 'tagihanToday']);
+    Route::post('/pos/open-kredit', [PosController::class, 'openKreditTransaction'])->name('pos.open.kredit');
 
 
 
@@ -313,3 +316,12 @@ Route::get('/reports/neraca', [ReportController::class, 'neraca'])->name('report
 Route::resource('accounts', AccountController::class);
 Route::patch('accounts/{account}/toggle', [AccountController::class, 'toggle'])->name('accounts.toggle');
 Route::get('accounts/api/list', [AccountController::class, 'apiList'])->name('accounts.api.list');
+
+Route::prefix('expenses')->name('expenses.')->group(function () {
+    Route::get('/',        [ExpenseController::class, 'index'])->name('index');
+    Route::post('/',       [ExpenseController::class, 'store'])->name('store');
+    Route::get('/{expense}',    [ExpenseController::class, 'show'])->name('show');
+    Route::put('/{expense}',    [ExpenseController::class, 'update'])->name('update');
+    Route::delete('/{expense}', [ExpenseController::class, 'destroy'])->name('destroy');
+    Route::get('/api/today',    [ExpenseController::class, 'today'])->name('today');
+});

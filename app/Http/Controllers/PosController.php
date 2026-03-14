@@ -30,6 +30,32 @@ class PosController extends Controller
             ->first();
     }
 
+    // ================= HELPER CEK TRANSAKSI READONLY (kredit/paid) =================
+    /**
+     * Kembalikan response JSON error jika transaksi adalah kredit/paid (tidak bisa diedit).
+     * Kembalikan null jika transaksi boleh diedit.
+     */
+    private function guardReadOnly(Transaction $trx)
+    {
+        if ($trx->status === 'kredit') {
+            return response()->json([
+                'success'   => false,
+                'readonly'  => true,
+                'message'   => 'Transaksi kredit tidak dapat diedit. Gunakan halaman detail kredit untuk pembayaran.',
+            ], 403);
+        }
+
+        if ($trx->status === 'paid') {
+            return response()->json([
+                'success'   => false,
+                'readonly'  => true,
+                'message'   => 'Transaksi sudah lunas dan tidak dapat diedit.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     // ================= GENERATE TRX NUMBER =================
     private function generateTrxNumber(): string
     {
@@ -79,10 +105,11 @@ class PosController extends Controller
 
         $trx = null;
 
+        // Jika trx_id adalah transaksi kredit, tampilkan dalam mode read-only
         if ($request->filled('trx_id')) {
             $trx = Transaction::where('id', $request->trx_id)
                 ->where('user_id', $user->id)
-                ->where('status', 'pending')
+                ->whereIn('status', ['pending', 'kredit'])
                 ->first();
         }
 
@@ -108,6 +135,9 @@ class PosController extends Controller
         }
 
         $trx->load('items.unit.product', 'member');
+
+        // Flag apakah transaksi ini read-only (kredit)
+        $isReadOnly = $trx->status === 'kredit';
 
         foreach ($trx->items as $item) {
             $item->subtotal = ($item->price - ($item->discount ?? 0)) * $item->qty;
@@ -166,7 +196,8 @@ class PosController extends Controller
             'todayTransactions',
             'activeWarehouse',
             'warehouses',
-            'warehousesJson'
+            'warehousesJson',
+            'isReadOnly'
         ));
     }
 
@@ -271,6 +302,17 @@ class PosController extends Controller
             'override_password' => 'nullable|string',
         ]);
 
+        // Ambil transaksi tanpa batasi status agar bisa deteksi kredit
+        $trxAny = Transaction::where('id', $request->trx_id)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        // Guard: tolak jika kredit atau paid
+        if ($trxAny) {
+            $guard = $this->guardReadOnly($trxAny);
+            if ($guard) return $guard;
+        }
+
         $trx = $this->getActiveTransaction($request);
         if (!$trx) {
             return response()->json([
@@ -355,6 +397,15 @@ class PosController extends Controller
             'override_password' => 'nullable|string',
         ]);
 
+        // Guard: tolak jika kredit atau paid
+        $trxAny = Transaction::where('id', $request->trx_id)
+            ->where('user_id', Auth::id())
+            ->first();
+        if ($trxAny) {
+            $guard = $this->guardReadOnly($trxAny);
+            if ($guard) return $guard;
+        }
+
         $trx = $this->getActiveTransaction($request);
         if (!$trx) {
             return response()->json([
@@ -404,6 +455,15 @@ class PosController extends Controller
             'override_password' => 'nullable|string',
         ]);
 
+        // Guard: tolak jika kredit atau paid
+        $trxAny = Transaction::where('id', $request->trx_id)
+            ->where('user_id', Auth::id())
+            ->first();
+        if ($trxAny) {
+            $guard = $this->guardReadOnly($trxAny);
+            if ($guard) return $guard;
+        }
+
         $trx = $this->getActiveTransaction($request);
         if (!$trx) {
             return response()->json([
@@ -447,9 +507,51 @@ class PosController extends Controller
     // ================= REMOVE ITEM =================
     public function removeItem(Request $request)
     {
-        $item = TransactionItem::find($request->item_id);
-        if ($item) $item->delete();
+        // Guard: tolak hapus item jika transaksi kredit/paid
+        if ($request->filled('item_id')) {
+            $item = TransactionItem::find($request->item_id);
+            if ($item) {
+                $trx = Transaction::find($item->transaction_id);
+                if ($trx) {
+                    $guard = $this->guardReadOnly($trx);
+                    if ($guard) return $guard;
+                }
+                $item->delete();
+            }
+        }
         return response()->json(['success' => true]);
+    }
+
+    // ================= OPEN KREDIT (VIEW-ONLY dengan password) =================
+    /**
+     * Verifikasi password override lalu kembalikan redirect ke halaman detail kredit.
+     * Transaksi kredit dibuka hanya untuk dilihat, TIDAK bisa diedit.
+     */
+    public function openKreditTransaction(Request $request)
+    {
+        $request->validate([
+            'trx_id'   => 'required|exists:transactions,id',
+            'password' => 'required|string',
+        ]);
+
+        if ($request->password !== env('POS_OVERRIDE_PASSWORD')) {
+            return response()->json(['success' => false, 'message' => 'Password salah.'], 403);
+        }
+
+        $trx = Transaction::where('id', $request->trx_id)
+            ->where('user_id', Auth::id())
+            ->whereIn('status', ['kredit', 'paid'])
+            ->first();
+
+        if (!$trx) {
+            return response()->json(['success' => false, 'message' => 'Transaksi tidak ditemukan.'], 404);
+        }
+
+        return response()->json([
+            'success'   => true,
+            'is_kredit' => $trx->status === 'kredit',
+            'redirect'  => route('pos.kredit.show', $trx->id),
+        ]);
     }
 
     // ================= PAY =================

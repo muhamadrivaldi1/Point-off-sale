@@ -76,7 +76,13 @@
                                     <tr>
                                         <td>{{ $data->firstItem() + $index }}</td>
                                         <td class="fw-bold text-dark">{{ $row->po_number }}</td>
-                                        <td>{{ \Carbon\Carbon::parse($row->tanggal)->format('d/m/Y') }}</td>
+                                        <td>
+                                            {{ \Carbon\Carbon::parse($row->tanggal)->format('d/m/Y') }}
+                                            <br>
+                                            <small class="text-muted">
+                                            {{ \Carbon\Carbon::parse($row->created_at)->format('H:i:s') }}
+                                            </small>
+                                        </td>
                                         <td>{{ optional($row->supplier)->nama_supplier ?? '-' }}</td>
                                         <td><span class="text-uppercase small">{{ $row->jenis_pembayaran }}</span></td>
                                         <td class="fw-bold text-dark">Rp {{ number_format($row->total, 0, ',', '.') }}</td>

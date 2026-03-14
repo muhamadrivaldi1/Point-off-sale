@@ -14,30 +14,30 @@ class TransactionController extends Controller
      * LIST TRANSAKSI
      */
     public function index(Request $request)
-{
-    $query = Transaction::with('requests.user')->latest();
+    {
+        $query = Transaction::with('requests.user')->latest();
 
-    if ($request->filled('q')) {
-        $query->where('trx_number', 'like', '%' . $request->q . '%');
+        if ($request->filled('q')) {
+            $query->where('trx_number', 'like', '%' . $request->q . '%');
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+
+        // ✅ PERBAIKAN: Hanya tampilkan transaksi yang PAID atau pending dengan item
+        $query->where(function ($q) {
+            $q->where('status', 'paid')
+                ->orWhere(function ($subQuery) {
+                    $subQuery->where('status', 'pending')
+                        ->whereHas('items');
+                });
+        });
+
+        $data = $query->paginate(10)->withQueryString();
+
+        return view('transactions.index', compact('data'));
     }
-
-    if ($request->filled('date')) {
-        $query->whereDate('created_at', $request->date);
-    }
-
-    // ✅ PERBAIKAN: Hanya tampilkan transaksi yang PAID atau pending dengan item
-    $query->where(function($q) {
-        $q->where('status', 'paid')
-          ->orWhere(function($subQuery) {
-              $subQuery->where('status', 'pending')
-                       ->whereHas('items'); 
-          });
-    });
-
-    $data = $query->paginate(10)->withQueryString();
-
-    return view('transactions.index', compact('data'));
-}
 
     /**
      * FORM EDIT (OWNER)
@@ -215,10 +215,10 @@ class TransactionController extends Controller
     public function struk($id)
     {
         $trx = Transaction::with([
-                'items.unit.product',
-                'user',
-                'member'
-            ])
+            'items.unit.product',
+            'user',
+            'member'
+        ])
             ->findOrFail($id);
 
         if (
@@ -241,31 +241,31 @@ class TransactionController extends Controller
     /* ===============================
     LAPORAN PIUTANG (HUTANG BERJALAN)
 =============================== */
-public function piutang(Request $request)
-{
-    $from = $request->input('from', now()->startOfMonth()->toDateString());
-    $to   = $request->input('to', now()->toDateString());
+    public function piutang(Request $request)
+    {
+        $from = $request->input('from', now()->startOfMonth()->toDateString());
+        $to   = $request->input('to', now()->toDateString());
 
-    $data = Transaction::with(['member', 'payments'])
-        ->where('status', 'kredit')
-        // HANYA ambil yang jumlah bayar (accepted) masih kurang dari total tagihan
-        ->whereColumn('accepted', '<', 'total') 
-        ->whereDate('created_at', '>=', $from)
-        ->whereDate('created_at', '<=', $to)
-        ->orderBy('created_at', 'desc')
-        ->paginate(20)
-        ->withQueryString();
+        $data = Transaction::with(['member', 'payments'])
+            ->where('status', 'kredit')
+            // HANYA ambil yang jumlah bayar (accepted) masih kurang dari total tagihan
+            ->whereColumn('accepted', '<', 'total')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->orderBy('created_at', 'desc')
+            ->paginate(20)
+            ->withQueryString();
 
-    // Hitung sisa piutang untuk badge total di atas
-    $totalSisaPiutang = Transaction::where('status', 'kredit')
-        ->whereColumn('accepted', '<', 'total')
-        ->whereDate('created_at', '>=', $from)
-        ->whereDate('created_at', '<=', $to)
-        ->selectRaw('SUM(total - accepted) as sisa')
-        ->first()->sisa ?? 0;
+        // Hitung sisa piutang untuk badge total di atas
+        $totalSisaPiutang = Transaction::where('status', 'kredit')
+            ->whereColumn('accepted', '<', 'total')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->selectRaw('SUM(total - accepted) as sisa')
+            ->first()->sisa ?? 0;
 
-    return view('reports.piutang', compact('data', 'from', 'to', 'totalSisaPiutang'));
-}
+        return view('reports.piutang', compact('data', 'from', 'to', 'totalSisaPiutang'));
+    }
 
     /**
      * HELPER ROLE

@@ -13,16 +13,29 @@ class PurchaseOrder extends Model
         'tanggal',
         'nomor_faktur',
         'tanggal_faktur',
+        'jenis_transaksi',
         'jenis_pembayaran',
         'jk_waktu',
         'tanggal_jatuh_tempo',
         'ppn',
         'disc_nota_persen',
         'disc_nota_rupiah',
-        'total',
+        'total',            // ← satu-satunya kolom total yang dipakai
         'status',
         'keterangan',
+        'gudang',
+        'bulan_lapor',
     ];
+
+    protected $casts = [
+        'tanggal'             => 'date',
+        'tanggal_faktur'      => 'date',
+        'tanggal_jatuh_tempo' => 'date',
+        'total'               => 'decimal:2',
+        'ppn'                 => 'decimal:2',
+    ];
+
+    // ── Relasi ────────────────────────────────────────────────
     public function items()
     {
         return $this->hasMany(PurchaseOrderItem::class);
@@ -43,10 +56,22 @@ class PurchaseOrder extends Model
         return $this->belongsTo(\App\Models\Supplier::class);
     }
 
-    protected $casts = [
-        'tanggal'             => 'date',
-        'tanggal_faktur'      => 'date',
-        'tanggal_jatuh_tempo' => 'date',
-        'total'               => 'decimal:2',
-    ];
+    // ── Scopes ────────────────────────────────────────────────
+    public function scopeThisMonth($query)
+    {
+        return $query->whereMonth('tanggal', now()->month)
+                     ->whereYear('tanggal', now()->year);
+    }
+
+    public function scopeToday($query)
+    {
+        return $query->whereDate('tanggal', today());
+    }
+
+    public function scopeBelumLunas($query)
+    {
+        return $query->whereNotIn('status', [
+            'paid', 'received', 'Received', 'cancelled', 'canceled'
+        ]);
+    }
 }

@@ -41,13 +41,29 @@ class PurchaseOrderController extends Controller
     {
         $query = PurchaseOrder::with('supplier');
 
-        if ($request->supplier_id) $query->where('supplier_id', $request->supplier_id);
-        if ($request->status)      $query->where('status', $request->status);
-        if ($request->cari)        $query->where('po_number', 'like', '%' . $request->cari . '%');
-        if ($request->dari)        $query->whereDate('tanggal', '>=', $request->dari);
-        if ($request->sampai)      $query->whereDate('tanggal', '<=', $request->sampai);
+        // Filter
+        if ($request->supplier_id && $request->supplier_id !== 'all') {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+        if ($request->status && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+        if ($request->cari) {
+            $query->where('po_number', 'like', '%' . $request->cari . '%');
+        }
+        if ($request->dari) {
+            $query->whereDate('tanggal', '>=', $request->dari);
+        }
+        if ($request->sampai) {
+            $query->whereDate('tanggal', '<=', $request->sampai);
+        }
 
-        $pos       = $query->latest()->paginate(10)->withQueryString();
+        // Urutkan PO terbaru berdasarkan tanggal + jam (created_at)
+        $pos = $query
+            ->orderByRaw("tanggal DESC, created_at DESC")
+            ->paginate(10)
+            ->withQueryString();
+
         $suppliers = Supplier::orderBy('nama_supplier')->get();
 
         return view('po.index', compact('pos', 'suppliers'));
