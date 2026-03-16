@@ -38,6 +38,10 @@ class PurchaseOrderItem extends Model
         return $this->belongsTo(PurchaseOrder::class);
     }
 
+    public function po()
+    {
+        return $this->belongsTo(PurchaseOrder::class, 'purchase_order_id');
+    }
     /**
      * Relasi ke ProductUnit (barang yang dibeli)
      * Akses: $item->unit->product->name

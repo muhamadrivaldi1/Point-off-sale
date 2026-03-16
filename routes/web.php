@@ -210,8 +210,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('{id}',      [PurchaseOrderController::class, 'destroy'])->name('po.destroy');
         Route::post('{id}/update-header', [PurchaseOrderController::class, 'updateHeader'])->name('po.updateHeader');
         Route::post('{id}/item',   [PurchaseOrderController::class, 'addItem'])->name('po.addItem');
+        Route::post('/po/{id}/item', [PurchaseOrderController::class, 'addItem'])->name('po.item.add');
         Route::put('item/{id}',    [PurchaseOrderController::class, 'updateItem'])->name('po.updateItem');
         Route::delete('item/{id}', [PurchaseOrderController::class, 'deleteItem'])->name('po.deleteItem');
+        Route::delete('/po/item/{id}', [PurchaseOrderController::class, 'deleteItem'])->name('po.item.destroy');
         Route::post('{id}/approve', [PurchaseOrderController::class, 'approve'])->name('po.approve');
         Route::post('{id}/cancel',  [PurchaseOrderController::class, 'cancel'])->name('po.cancel');
         Route::post('{id}/receive', [PurchaseOrderController::class, 'receive'])->name('po.receive');
