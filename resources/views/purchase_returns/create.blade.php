@@ -4,7 +4,6 @@
 
 @section('content')
 <div class="container-fluid">
-    {{-- Notifikasi Error --}}
     @if(session('error'))
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <i class="bi bi-exclamation-triangle-fill"></i> {{ session('error') }}
@@ -20,7 +19,6 @@
         </div>
 
         <div class="card-body">
-            {{-- Header Informasi PO --}}
             <div class="row mb-4 pb-3 border-bottom">
                 <div class="col-md-4">
                     <label class="text-muted d-block">No PO</label>
@@ -36,7 +34,6 @@
                 </div>
             </div>
 
-            {{-- Form Input Retur --}}
             <form method="POST" action="{{ route('purchase_returns.store') }}">
                 @csrf
                 <input type="hidden" name="purchase_id" value="{{ $po->id }}">
@@ -54,22 +51,30 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($po->items as $item)
+                            @php
+                                // Kelompokkan items berdasarkan product_unit_id agar tidak muncul double di form
+                                $groupedItems = $po->items->groupBy('product_unit_id');
+                            @endphp
+
+                            @foreach($groupedItems as $unitId => $items)
                                 @php
-                                    // Hitung total yang sudah diretur sebelumnya
+                                    $item = $items->first(); // Ambil data produk
+                                    $totalDibeli = $items->sum('qty'); // Total qty produk ini di PO (jika ada baris ganda)
+                                    
+                                    // Hitung total yang sudah disetujui retur sebelumnya
                                     $totalRetur = \App\Models\PurchaseReturn::where('purchase_id', $po->id)
-                                        ->where('product_unit_id', $item->product_unit_id)
+                                        ->where('product_unit_id', $unitId)
                                         ->where('status', 'approved')
                                         ->sum('qty');
                                     
-                                    $sisaRetur = $item->qty - $totalRetur;
+                                    $sisaRetur = $totalDibeli - $totalRetur;
                                 @endphp
                                 <tr>
                                     <td>
                                         <span class="fw-bold">{{ $item->unit->product->name ?? '-' }}</span>
-                                        <input type="hidden" name="items[{{ $loop->index }}][product_unit_id]" value="{{ $item->product_unit_id }}">
+                                        <input type="hidden" name="items[{{ $loop->index }}][product_unit_id]" value="{{ $unitId }}">
                                     </td>
-                                    <td class="text-center">{{ number_format($item->qty, 0) }}</td>
+                                    <td class="text-center">{{ number_format($totalDibeli, 0) }}</td>
                                     <td class="text-center text-danger">{{ number_format($totalRetur, 0) }}</td>
                                     <td class="text-center text-success fw-bold">{{ number_format($sisaRetur, 0) }}</td>
                                     <td>
@@ -79,9 +84,9 @@
                                                    class="form-control" 
                                                    min="0" 
                                                    max="{{ $sisaRetur }}" 
-                                                   placeholder="0">
+                                                   value="0">
                                         @else
-                                            <span class="badge bg-secondary d-block p-2">Tidak bisa retur</span>
+                                            <span class="badge bg-secondary d-block p-2">Selesai</span>
                                         @endif
                                     </td>
                                     <td>

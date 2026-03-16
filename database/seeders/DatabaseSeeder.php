@@ -20,9 +20,11 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             ProductSeeder::class,
             ProductUnitSeeder::class,
+            WarehouseSeeder::class,
             StockSeeder::class,
-            PriceRuleSeeder::class,
             AccountSeeder::class,
+            SupplierSeeder::class,
+            PriceRuleSeeder::class,
 
         ]);
 

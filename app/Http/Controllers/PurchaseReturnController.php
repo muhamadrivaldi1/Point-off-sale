@@ -7,45 +7,38 @@ use App\Models\PurchaseReturn;
 use App\Models\PurchaseOrder;
 use App\Models\Stock;
 use App\Models\StockMutation;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 class PurchaseReturnController extends Controller
 {
-
-    /*
-    |--------------------------------------------------------------------------
-    | LIST RETUR PEMBELIAN
-    |--------------------------------------------------------------------------
-    */
+    /**
+     * Tampilkan Riwayat Retur
+     */
     public function index()
     {
-        $returns = PurchaseReturn::with('purchase')
+        $returns = PurchaseReturn::with(['purchase', 'productUnit.product'])
             ->latest()
             ->paginate(10);
 
         return view('purchase_returns.index', compact('returns'));
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | FORM RETUR DARI PURCHASE ORDER
-    |--------------------------------------------------------------------------
-    */
-    public function create($po)
+    /**
+     * Form Buat Retur
+     */
+    public function create($id)
     {
-        $po = PurchaseOrder::with('items.unit.product')->findOrFail($po);
+        // Load PO beserta item dan relasi produknya
+        $po = PurchaseOrder::with('items.unit.product')->findOrFail($id);
 
         return view('purchase_returns.create', compact('po'));
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | SIMPAN RETUR
-    |--------------------------------------------------------------------------
-    */
+    /**
+     * Simpan Data Retur & Potong Stok
+     */
     public function store(Request $request)
     {
         if (Auth::user()->role !== 'owner') {
@@ -59,168 +52,157 @@ class PurchaseReturnController extends Controller
             'items.*.product_unit_id' => 'required',
         ]);
 
-        $count = 0;
-
         try {
-            DB::transaction(function () use ($request, &$count) {
+            $processedCount = 0;
 
-                // Ambil warehouse aktif sekali saja di luar loop
-                $activeWarehouseId = \App\Models\Warehouse::where('is_active', 1)->value('id');
-
+            DB::transaction(function () use ($request, &$processedCount) {
+                $activeWarehouseId = Warehouse::where('is_active', 1)->value('id');
+                
+                // --- LANGKAH 1: GROUPING ---
+                // Jika user input Roti Sobek di baris 1 (qty:1) dan baris 2 (qty:1), 
+                // kita gabungkan jadi satu ID dengan total qty: 2.
+                $groupedItems = [];
                 foreach ($request->items as $item) {
-                    if (!isset($item['qty']) || $item['qty'] <= 0) continue;
+                    $qty = (float) ($item['qty'] ?? 0);
+                    if ($qty <= 0) continue;
 
-                    // 1. Ambil stok — cek location='toko' ATAU warehouse aktif
-                    $stock = Stock::where('product_unit_id', $item['product_unit_id'])
-                        ->where(function ($q) use ($activeWarehouseId) {
-                            $q->where('location', 'toko');
-                            if ($activeWarehouseId) {
-                                $q->orWhere('warehouse_id', $activeWarehouseId);
-                            }
-                        })
+                    $unitId = $item['product_unit_id'];
+                    if (!isset($groupedItems[$unitId])) {
+                        $groupedItems[$unitId] = [
+                            'qty'    => 0,
+                            'reason' => $item['reason'] ?? 'Tanpa alasan',
+                        ];
+                    }
+                    $groupedItems[$unitId]['qty'] += $qty;
+                }
+
+                if (empty($groupedItems)) {
+                    throw new \Exception('Masukkan setidaknya satu jumlah barang yang valid.');
+                }
+
+                // --- LANGKAH 2: PROSES STOK PER PRODUK ---
+                foreach ($groupedItems as $unitId => $data) {
+                    $totalQtyToReturn = $data['qty'];
+
+                    // Cari stok di Toko terlebih dahulu (Prioritas Utama)
+                    $stock = Stock::where('product_unit_id', $unitId)
+                        ->where('location', 'toko')
                         ->lockForUpdate()
                         ->first();
 
+                    // Jika di toko tidak ada, cari di Warehouse Aktif (Prioritas Kedua)
+                    if (!$stock && $activeWarehouseId) {
+                        $stock = Stock::where('product_unit_id', $unitId)
+                            ->where('warehouse_id', $activeWarehouseId)
+                            ->lockForUpdate()
+                            ->first();
+                    }
+
                     if (!$stock) {
-                        throw new \Exception('Stok produk tidak ditemukan.');
+                        throw new \Exception("Stok untuk produk tersebut tidak ditemukan di Toko maupun Gudang.");
                     }
 
-                    if ($stock->qty < $item['qty']) {
-                        throw new \Exception('Stok tidak mencukupi. Tersedia: ' . $stock->qty . ', diminta: ' . $item['qty']);
+                    if ($stock->qty < $totalQtyToReturn) {
+                        throw new \Exception("Stok tidak mencukupi. Tersedia: {$stock->qty}, Retur diminta: {$totalQtyToReturn}");
                     }
 
+                    // --- LANGKAH 3: EKSEKUSI POTONG STOK ---
                     $before = $stock->qty;
-
-                    // 2. Potong stok
-                    $stock->qty -= $item['qty'];
+                    $stock->qty -= $totalQtyToReturn;
                     $stock->save();
-
                     $after = $stock->qty;
 
-                    // 3. Catat mutasi stok
+                    // --- LANGKAH 4: CATAT MUTASI ---
                     StockMutation::create([
-                        'unit_id'      => $item['product_unit_id'],
+                        'unit_id'      => $unitId,
                         'user_id'      => Auth::id(),
                         'type'         => 'out',
                         'status'       => 'retur_pembelian',
-                        'qty'          => $item['qty'],
+                        'qty'          => $totalQtyToReturn,
                         'stock_before' => $before,
                         'stock_after'  => $after,
                         'reference'    => 'RET-PUR-' . $request->purchase_id,
-                        'description'  => 'Retur pembelian ke supplier',
+                        'description'  => 'Retur pembelian: ' . $data['reason'],
                     ]);
 
-                    // 4. Simpan retur dengan status approved langsung
+                    // --- LANGKAH 5: SIMPAN KE TABEL RETUR ---
                     PurchaseReturn::create([
                         'purchase_id'     => $request->purchase_id,
-                        'product_unit_id' => $item['product_unit_id'],
-                        'qty'             => $item['qty'],
-                        'reason'          => $item['reason'] ?? 'Tanpa alasan',
+                        'product_unit_id' => $unitId,
+                        'qty'             => $totalQtyToReturn,
+                        'reason'          => $data['reason'],
                         'user_id'         => Auth::id(),
                         'status'          => 'approved',
                     ]);
 
-                    $count++;
+                    $processedCount++;
                 }
             });
 
-            if ($count == 0) {
-                return redirect()->back()->with('error', 'Masukkan setidaknya 1 jumlah barang.');
-            }
-
             return redirect()->route('purchase_returns.index')
-                ->with('success', 'Berhasil meretur ' . $count . ' item. Stok sudah terpotong.');
+                ->with('success', "Berhasil memproses retur untuk $processedCount jenis produk.");
+
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal: ' . $e->getMessage())->withInput();
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | APPROVE RETUR
-    |--------------------------------------------------------------------------
-    */
+    /**
+     * Approve manual (Jika status awalnya pending)
+     */
     public function approve($id)
     {
         try {
-
             DB::transaction(function () use ($id) {
-
                 $return = PurchaseReturn::lockForUpdate()->findOrFail($id);
 
-                if ($return->status != 'pending') {
-                    throw new \Exception('Retur sudah diproses');
+                if ($return->status !== 'pending') {
+                    throw new \Exception('Retur sudah diproses sebelumnya.');
                 }
 
+                // Logika pemotongan stok sama seperti di store...
                 $stock = Stock::where('product_unit_id', $return->product_unit_id)
                     ->where('location', 'toko')
                     ->lockForUpdate()
                     ->firstOrFail();
 
                 if ($stock->qty < $return->qty) {
-                    throw new \Exception('Stok tidak mencukupi');
+                    throw new \Exception('Stok di Toko tidak mencukupi untuk persetujuan ini.');
                 }
 
                 $before = $stock->qty;
-
                 $stock->qty -= $return->qty;
                 $stock->save();
 
-                $after = $stock->qty;
-
                 StockMutation::create([
-                    'unit_id' => $return->product_unit_id,
-                    'user_id' => Auth::id(),
-                    'type' => 'out',
-                    'status' => 'retur_pembelian',
-                    'qty' => $return->qty,
+                    'unit_id'      => $return->product_unit_id,
+                    'user_id'      => Auth::id(),
+                    'type'         => 'out',
+                    'status'       => 'retur_pembelian',
+                    'qty'          => $return->qty,
                     'stock_before' => $before,
-                    'stock_after' => $after,
-                    'reference' => 'RET-PUR-' . $return->purchase_id,
-                    'description' => 'Retur pembelian ke supplier'
+                    'stock_after'  => $stock->qty,
+                    'reference'    => 'RET-PUR-' . $return->purchase_id,
+                    'description'  => 'Persetujuan retur: ' . $return->reason
                 ]);
 
-                $return->update([
-                    'status' => 'approved'
-                ]);
+                $return->update(['status' => 'approved']);
             });
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Retur pembelian disetujui'
-            ]);
-        } catch (\Throwable $e) {
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 422);
+            return response()->json(['success' => true, 'message' => 'Retur disetujui.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | REJECT RETUR
-    |--------------------------------------------------------------------------
-    */
     public function reject($id)
     {
         $return = PurchaseReturn::findOrFail($id);
-
-        if ($return->status != 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Retur sudah diproses'
-            ], 422);
+        if ($return->status !== 'pending') {
+            return response()->json(['success' => false, 'message' => 'Hanya status pending yang bisa ditolak.'], 422);
         }
 
-        $return->update([
-            'status' => 'rejected'
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Retur pembelian ditolak'
-        ]);
+        $return->update(['status' => 'rejected']);
+        return response()->json(['success' => true, 'message' => 'Retur berhasil ditolak.']);
     }
 }
