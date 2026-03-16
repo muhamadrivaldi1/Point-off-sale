@@ -7,24 +7,32 @@ use App\Models\Transaction;
 use App\Models\TransactionItem;
 use App\Models\ReturnItem;
 use App\Models\Stock;
+use App\Models\StockMutation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 class ReturnController extends Controller
 {
-    // Halaman daftar transaksi
+    /**
+     * Halaman daftar transaksi yang bisa diretur
+     */
     public function index()
     {
-        // Ambil semua transaksi yang sudah dibayar, beserta item & retur
-        $transactions = Transaction::with(['items.unit.product', 'items.returns'])
-            ->where('status', 'paid')
-            ->latest()
-            ->paginate(10);
+        $transactions = Transaction::with([
+            'items.unit.product',
+            'items.returns'
+        ])
+        ->where('status', 'paid')
+        ->latest()
+        ->paginate(10);
 
         return view('returns.index', compact('transactions'));
     }
 
-    // Kasir ajukan retur
+
+    /**
+     * Kasir mengajukan retur
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -34,31 +42,33 @@ class ReturnController extends Controller
         ]);
 
         try {
+
             DB::transaction(function () use ($request) {
 
                 $item = TransactionItem::with('unit')
                     ->lockForUpdate()
                     ->findOrFail($request->transaction_item_id);
 
-                // Cek apakah qty retur valid
                 if ($request->qty > $item->qty) {
                     throw new \Exception('Jumlah retur melebihi jumlah pembelian');
                 }
 
-                // Cek apakah sudah ada retur pending untuk item ini
+                // cek retur pending
                 if ($item->returns()->where('status', 'pending')->exists()) {
                     throw new \Exception('Item ini sudah memiliki pengajuan retur yang menunggu persetujuan');
                 }
 
-                // Hitung total qty yang sudah diretur (approved)
-                $totalReturned = $item->returns()->where('status', 'approved')->sum('qty');
-                $availableQty = $item->qty - $totalReturned;
+                // hitung total yang sudah diretur
+                $returnedQty = $item->returns()
+                    ->where('status', 'approved')
+                    ->sum('qty');
+
+                $availableQty = $item->qty - $returnedQty;
 
                 if ($request->qty > $availableQty) {
                     throw new \Exception("Jumlah retur melebihi sisa barang yang bisa diretur. Tersedia: {$availableQty}");
                 }
 
-                // Simpan pengajuan retur dengan status pending
                 ReturnItem::create([
                     'transaction_id'      => $item->transaction_id,
                     'transaction_item_id' => $item->id,
@@ -70,9 +80,6 @@ class ReturnController extends Controller
                     'user_id'             => Auth::id(),
                     'status'              => 'pending'
                 ]);
-
-                // JANGAN update stok atau item di sini
-                // Stok akan diupdate saat owner approve
             });
 
             return response()->json([
@@ -81,6 +88,7 @@ class ReturnController extends Controller
             ]);
 
         } catch (\Throwable $e) {
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -88,47 +96,98 @@ class ReturnController extends Controller
         }
     }
 
-    // Owner approve retur
+
+    /**
+     * Owner menyetujui retur
+     */
     public function approve($id)
     {
         $this->onlyOwner();
 
         try {
+
             DB::transaction(function () use ($id) {
+
                 $return = ReturnItem::where('status', 'pending')
                     ->lockForUpdate()
                     ->findOrFail($id);
 
-                // Update status retur menjadi approved
                 $return->update([
                     'status' => 'approved',
                     'approved_by' => Auth::id(),
                     'approved_at' => now()
                 ]);
 
-                // Update stok toko (kembalikan barang)
-                Stock::where('product_unit_id', $return->product_unit_id)
-                    ->where('location', 'toko')
-                    ->increment('qty', $return->qty);
 
-                // Update transaction item (kurangi qty)
-                $item = TransactionItem::lockForUpdate()->find($return->transaction_item_id);
-                
+                /**
+                 * Ambil stok produk
+                 */
+                $stock = Stock::where('product_unit_id', $return->product_unit_id)
+                    ->where('location', 'toko')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$stock) {
+                    throw new \Exception('Data stok tidak ditemukan.');
+                }
+
+                $beforeStock = $stock->qty;
+
+
+                /**
+                 * Tambah stok karena barang diretur
+                 */
+                $stock->qty += $return->qty;
+                $stock->save();
+
+                $afterStock = $stock->qty;
+
+
+                /**
+                 * Catat mutasi stok
+                 */
+                StockMutation::create([
+                    'unit_id'       => $return->product_unit_id,
+                    'user_id'       => Auth::id(),
+                    'type'          => 'in',
+                    'status'        => 'retur_penjualan',
+                    'qty'           => $return->qty,
+                    'stock_before'  => $beforeStock,
+                    'stock_after'   => $afterStock,
+                    'reference'     => 'RET-' . $return->transaction_id,
+                    'description'   => 'Retur penjualan disetujui'
+                ]);
+
+
+                /**
+                 * Update item transaksi
+                 */
+                $item = TransactionItem::lockForUpdate()
+                    ->find($return->transaction_item_id);
+
                 if ($item) {
+
                     $item->qty -= $return->qty;
-                    $item->subtotal = $item->qty * $item->price;
-                    
-                    if ($item->qty <= 0) {
-                        $item->delete();
-                    } else {
-                        $item->save();
+
+                    if ($item->qty < 0) {
+                        $item->qty = 0;
                     }
 
-                    // Update total transaksi
-                    $trx = Transaction::find($return->transaction_id);
-                    $trx->total = $trx->items()->sum('subtotal');
-                    $trx->save();
+                    $item->subtotal = $item->qty * $item->price;
+                    $item->save();
+
+                    /**
+                     * Update total transaksi
+                     */
+                    $trx = Transaction::lockForUpdate()
+                        ->find($return->transaction_id);
+
+                    if ($trx) {
+                        $trx->total = $trx->items()->sum('subtotal');
+                        $trx->save();
+                    }
                 }
+
             });
 
             return response()->json([
@@ -137,6 +196,7 @@ class ReturnController extends Controller
             ]);
 
         } catch (\Throwable $e) {
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -144,13 +204,18 @@ class ReturnController extends Controller
         }
     }
 
-    // Owner reject retur
+
+    /**
+     * Owner menolak retur
+     */
     public function reject($id)
     {
         $this->onlyOwner();
 
         try {
-            $return = ReturnItem::where('status', 'pending')->findOrFail($id);
+
+            $return = ReturnItem::where('status', 'pending')
+                ->findOrFail($id);
 
             $return->update([
                 'status' => 'rejected',
@@ -164,6 +229,7 @@ class ReturnController extends Controller
             ]);
 
         } catch (\Throwable $e) {
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -171,6 +237,9 @@ class ReturnController extends Controller
         }
     }
 
+    /**
+     * Hanya owner yang boleh approve/reject
+     */
     private function onlyOwner()
     {
         abort_if(Auth::user()->role !== 'owner', 403, 'Akses ditolak');

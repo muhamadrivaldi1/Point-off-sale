@@ -19,6 +19,7 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\PurchaseReturnController;
 
 
 /*
@@ -115,6 +116,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/stocks/{id}/edit', [StockController::class, 'edit'])->name('stocks.edit');
     Route::put('/stocks/{id}', [StockController::class, 'update'])->name('stocks.update');
     Route::delete('/stocks/{id}', [StockController::class, 'destroy'])->name('stocks.destroy');
+    Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('stocks.transfer');
+    Route::post('/stocks/opname', [StockController::class, 'opname'])->name('stocks.opname');
 
     Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('stocks.transfer');
     /*
@@ -324,4 +327,17 @@ Route::prefix('expenses')->name('expenses.')->group(function () {
     Route::put('/{expense}',    [ExpenseController::class, 'update'])->name('update');
     Route::delete('/{expense}', [ExpenseController::class, 'destroy'])->name('destroy');
     Route::get('/api/today',    [ExpenseController::class, 'today'])->name('today');
+});
+ 
+/*
+|--------------------------------------------------------------------------
+| Purchase Returns (Retur ke Supplier)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])->group(function () {
+    Route::prefix('purchase-return')->name('purchase_returns.')->group(function () {
+        Route::get('/{po}', [PurchaseReturnController::class, 'create'])->name('create');
+        Route::post('/store', [PurchaseReturnController::class, 'store'])->name('store');
+        Route::get('/', [PurchaseReturnController::class, 'index'])->name('index');
+    });
 });
