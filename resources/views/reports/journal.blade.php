@@ -115,8 +115,13 @@
                 </table>
             </div>
 
-            <div class="mt-4 d-print-none">
-                {{ $data->links() }}
+            <div class="mt-4 d-flex justify-content-between align-items-center d-print-none">
+                <div class="small text-muted">
+                    Menampilkan {{ $data->firstItem() ?? 0 }} - {{ $data->lastItem() ?? 0 }} dari {{ $data->total() }} data
+                </div>
+                <div>
+                    {{ $data->appends(request()->query())->links('pagination::bootstrap-5') }}
+                </div>
             </div>
         </div>
     </div>

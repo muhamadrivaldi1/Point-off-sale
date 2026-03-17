@@ -12,6 +12,7 @@
                 </div>
 
                 <div class="card-body">
+                    {{-- Form Filter --}}
                     <form action="{{ route('reports.penerimaan') }}" method="GET" class="row g-3 mb-4">
                         <div class="col-md-3">
                             <label class="form-label small fw-bold">Supplier</label>
@@ -47,12 +48,19 @@
                             <input type="date" name="to" class="form-control form-control-sm" value="{{ $to }}">
                         </div>
 
+                        {{-- Tombol Aksi --}}
                         <div class="col-md-3 d-flex align-items-end gap-2">
-                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1 shadow-sm">
                                 <i class="bi bi-search me-1"></i> Cari
                             </button>
-                            <a href="{{ route('reports.penerimaan.export', request()->query()) }}" class="btn btn-success btn-sm px-3">
-                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export CSV
+                            
+                            {{-- Tombol Reset --}}
+                            <a href="{{ route('reports.penerimaan') }}" class="btn btn-outline-danger btn-sm shadow-sm" title="Reset Filter">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </a>
+
+                            <a href="{{ route('reports.penerimaan.export', request()->query()) }}" class="btn btn-success btn-sm px-3 shadow-sm">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export
                             </a>
                         </div>
                     </form>
@@ -61,14 +69,14 @@
                         <table class="table table-hover align-middle border">
                             <thead class="table-light text-secondary small">
                                 <tr>
-                                    <th class="py-3">#</th>
+                                    <th class="py-3" style="width: 50px;">#</th>
                                     <th>NO. PO</th>
                                     <th>TANGGAL</th>
                                     <th>SUPPLIER</th>
                                     <th>PEMBAYARAN</th>
                                     <th>TOTAL</th>
                                     <th>STATUS</th>
-                                    <th class="text-center">AKSI</th>
+                                    <th class="text-center" style="width: 120px;">AKSI</th>
                                 </tr>
                             </thead>
                             <tbody class="small">
@@ -108,13 +116,13 @@
                                         </td>
                                         <td class="text-center">
                                             <div class="btn-group">
-                                                <a href="{{ route('po.show', $row->id) }}" class="btn btn-outline-info btn-sm">
+                                                <a href="{{ route('po.show', $row->id) }}" class="btn btn-outline-info btn-sm" title="Lihat Detail">
                                                     <i class="bi bi-eye"></i>
                                                 </a>
                                                 <form action="{{ route('po.destroy', $row->id) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus PO ini?')">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="btn btn-outline-danger btn-sm border-start-0">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm border-start-0" title="Hapus">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
                                                 </form>
@@ -124,7 +132,7 @@
                                 @empty
                                     <tr>
                                         <td colspan="8" class="text-center py-5 text-muted">
-                                            <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                                            <i class="bi bi-inbox display-4 d-block mb-2 opacity-25"></i>
                                             Tidak ada data penerimaan barang pada periode ini.
                                         </td>
                                     </tr>
@@ -133,12 +141,25 @@
                         </table>
                     </div>
 
-                    <div class="mt-4">
-                        {{ $data->appends(request()->query())->links('pagination::bootstrap-5') }}
+                    {{-- Pagination dengan Filter --}}
+                    <div class="mt-4 d-flex justify-content-between align-items-center">
+                        <div class="small text-muted">
+                            Menampilkan {{ $data->firstItem() ?? 0 }} - {{ $data->lastItem() ?? 0 }} dari {{ $data->total() }} data
+                        </div>
+                        <div>
+                            {{ $data->appends(request()->query())->links('pagination::bootstrap-5') }}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .card { border-radius: 0.75rem; }
+    .table th { font-weight: 700; letter-spacing: 0.5px; }
+    .btn-group .btn { padding: 0.25rem 0.6rem; }
+    .badge { padding: 0.4em 0.7em; }
+</style>
 @endsection

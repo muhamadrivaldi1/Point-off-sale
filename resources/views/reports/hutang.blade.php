@@ -26,9 +26,11 @@
                     <label class="form-label small fw-bold">Status</label>
                     <select name="status" class="form-select">
                         <option value="">-- Semua Status --</option>
+                        <option value="Approved" {{ request('status') == 'Approved' ? 'selected' : '' }}>Disetujui (Approved)</option>
                         <option value="Received" {{ request('status') == 'Received' ? 'selected' : '' }}>Lunas (Received)</option>
                         <option value="Draft" {{ request('status') == 'Draft' ? 'selected' : '' }}>Belum Bayar (Draft)</option>
                         <option value="Pending" {{ request('status') == 'Pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="Cancelled" {{ request('status') == 'Cancelled' ? 'selected' : '' }}>Dibatalkan</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -119,8 +121,13 @@
                 </table>
             </div>
 
-            <div class="mt-4">
-                {{ $data->appends(request()->query())->links() }}
+            <div class="mt-4 d-flex justify-content-between align-items-center">
+                <div class="small text-muted">
+                    Menampilkan {{ $data->firstItem() ?? 0 }} - {{ $data->lastItem() ?? 0 }} dari {{ $data->total() }} data
+                </div>
+                <div>
+                    {{ $data->appends(request()->query())->links('pagination::bootstrap-5') }}
+                </div>
             </div>
         </div>
     </div>

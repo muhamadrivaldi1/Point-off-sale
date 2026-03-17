@@ -118,7 +118,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/stocks/{id}', [StockController::class, 'destroy'])->name('stocks.destroy');
     Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('stocks.transfer');
     Route::post('/stocks/opname', [StockController::class, 'opname'])->name('stocks.opname');
-
+    Route::get('/stock/csv', [ReportController::class, 'stockCsv'])->name('reports.stock.csv');
     Route::post('/stocks/transfer', [StockController::class, 'transfer'])->name('stocks.transfer');
     /*
     |--------------------------------------------------------------------------
@@ -148,8 +148,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos/bayar-tagihan', [PosController::class, 'bayarTagihan']);
     Route::get('/pos/tagihan-today',  [PosController::class, 'tagihanToday']);
     Route::post('/pos/open-kredit', [PosController::class, 'openKreditTransaction'])->name('pos.open.kredit');
-
-
+    Route::get('/pos/kredit/{id}', [TransactionController::class, 'detail'])->name('kredit.detail');
 
     /*
     |--------------------------------------------------------------------------

@@ -99,7 +99,7 @@ class PurchaseOrderController extends Controller
             'gudang'           => 'Gudang Utama',
         ]);
 
-        return view('po.create', compact('suppliers', 'units', 'po'));
+        return redirect()->route('po.edit', $po->id);
     }
 
     public function edit($id)
@@ -177,20 +177,60 @@ class PurchaseOrderController extends Controller
     }
 
     public function receive($id)
-    {
-        DB::transaction(function () use ($id) {
-            $po = PurchaseOrder::with('items')->findOrFail($id);
-            if ($po->status !== 'approved') throw new \Exception('PO belum approved.');
+{
+    DB::transaction(function () use ($id) {
+        $po = PurchaseOrder::with('items.unit.product')->findOrFail($id);
+        if ($po->status !== 'approved') throw new \Exception('PO belum approved.');
 
-            $warehouseId = $this->resolveWarehouseId($po->gudang);
-            foreach ($po->items as $item) {
-                $this->incrementStock($item->product_unit_id, $warehouseId, $item->qty);
+        $warehouseId = $this->resolveWarehouseId($po->gudang);
+
+        foreach ($po->items as $item) {
+            // ✅ Update supplier_id di tabel products
+            if ($item->unit && $item->unit->product) {
+                $item->unit->product->update([
+                    'supplier_id' => $po->supplier_id
+                ]);
             }
-            $po->update(['status' => 'received']);
-        });
 
-        return back()->with('success', 'Barang diterima & stok bertambah.');
-    }
+            $this->incrementStock($item->product_unit_id, $warehouseId, $item->qty);
+        }
+
+        $po->update(['status' => 'received']);
+    });
+
+    return back()->with('success', 'Barang diterima & stok bertambah.');
+}
+
+    public function updateHeader(Request $request, $id)
+{
+    // 1. Validasi input
+    $request->validate([
+        'supplier_id' => 'required|exists:suppliers,id',
+        'tanggal'     => 'required|date',
+        'gudang'      => 'nullable|string',
+    ]);
+
+    // 2. Cari data PO
+    $po = PurchaseOrder::findOrFail($id);
+
+    // 3. Update data header
+    $po->update([
+        'supplier_id'      => $request->supplier_id,
+        'tanggal'          => $request->tanggal,
+        'gudang'           => $request->gudang,
+        'nomor_faktur'     => $request->nomor_faktur,
+        'jenis_pembayaran' => $request->jenis_pembayaran,
+        'jk_waktu'         => $request->jk_waktu ?? 0,
+        'tanggal_jatuh_tempo' => $request->tanggal_jatuh_tempo,
+        'ppn'              => $request->ppn,
+        'bulan_lapor'      => $request->bulan_lapor,
+        'jenis_transaksi'  => $request->jenis_transaksi,
+        'po_number'        => $request->po_number, 
+    ]);
+
+    // 4. Kembali ke halaman sebelumnya dengan pesan sukses
+    return redirect()->route('po.edit', $id)->with('success', 'Header transaksi berhasil disimpan.');
+}
 
     public function cancel($id)
     {

@@ -157,21 +157,28 @@ class PosController extends Controller
 
         $members = Member::where('status', 'aktif')->get();
 
+        // ★ FIX: Hitung sisa (total - paid) agar tampil benar di list pending
         $pendingTransactions = Transaction::where('user_id', $user->id)
             ->where('status', 'pending')
             ->whereHas('items')
             ->latest()
             ->get()
             ->map(function ($t) {
+                $subtotal = $t->items->sum(fn($i) => ($i->price - ($i->discount ?? 0)) * $i->qty);
+                $paid     = (float) ($t->paid ?? 0);
+                $sisa     = max($subtotal - $paid, 0);
                 return [
                     'id'         => $t->id,
                     'trx_number' => $t->trx_number,
                     'item_count' => $t->items->count(),
-                    'total'      => $t->items->sum(fn($i) => ($i->price - ($i->discount ?? 0)) * $i->qty),
+                    'total'      => $subtotal,   // total asli dari item
+                    'paid'       => $paid,        // sudah dibayar
+                    'sisa'       => $sisa,        // ★ sisa yang harus dibayar
                     'created_at' => $t->created_at,
                 ];
             });
 
+        // ★ FIX: Sertakan paid & sisa di todayTransactions juga
         $todayTransactions = Transaction::where('user_id', $user->id)
             ->whereDate('created_at', today())
             ->where(function ($q) {
@@ -179,7 +186,16 @@ class PosController extends Controller
             })
             ->latest()
             ->take(10)
-            ->get();
+            ->get()
+            ->map(function ($t) {
+                $subtotal = $t->items->sum(fn($i) => ($i->price - ($i->discount ?? 0)) * $i->qty);
+                $paid     = (float) ($t->paid ?? 0);
+                $sisa     = max($subtotal - $paid, 0);
+                $t->subtotal_items = $subtotal;
+                $t->paid_amount    = $paid;
+                $t->sisa           = $sisa;       // ★ sisa yang harus dibayar
+                return $t;
+            });
 
         $warehousesJson = $warehouses->map(function ($w, $i) {
             return [
@@ -523,10 +539,6 @@ class PosController extends Controller
     }
 
     // ================= OPEN KREDIT (VIEW-ONLY dengan password) =================
-    /**
-     * Verifikasi password override lalu kembalikan redirect ke halaman detail kredit.
-     * Transaksi kredit dibuka hanya untuk dilihat, TIDAK bisa diedit.
-     */
     public function openKreditTransaction(Request $request)
     {
         $request->validate([
@@ -700,18 +712,30 @@ class PosController extends Controller
 
             // ===== PEMBAYARAN BIASA: belum lunas =====
             if ($paid < $total) {
+                // ★ FIX: Akumulasi paid — tambahkan ke paid yang sudah ada sebelumnya
+                $alreadyPaid    = (int) ($trx->paid ?? 0);
+                $totalPaidSoFar = $alreadyPaid + $paid;
+                $sisa           = max($total - $totalPaidSoFar, 0);
+
                 $trx->update([
                     'member_id'      => $request->member_id,
                     'total'          => $total,
-                    'paid'           => $paid,
-                    'accepted'       => $paid,
+                    'paid'           => $totalPaidSoFar,   // ★ akumulasi, bukan hanya pembayaran sekarang
+                    'accepted'       => $totalPaidSoFar,
                     'change'         => 0,
                     'status'         => 'pending',
                     'discount'       => $discountAmount,
                     'payment_method' => $paymentMethod,
                 ]);
+
                 DB::commit();
-                return response()->json(['success' => true, 'paid_off' => false, 'trx_id' => $trx->id]);
+                return response()->json([
+                    'success'   => true,
+                    'paid_off'  => false,
+                    'trx_id'    => $trx->id,
+                    'sisa'      => $sisa,           // ★ kirim sisa ke frontend
+                    'paid_so_far' => $totalPaidSoFar,
+                ]);
             }
 
             // ===== PEMBAYARAN BIASA: lunas =====
@@ -1013,55 +1037,62 @@ class PosController extends Controller
             'note'     => 'nullable|string|max:500',
         ]);
 
-        $owner = User::where('role', 'owner')->first();
+        $owner = \App\Models\User::where('role', 'owner')->first();
 
+        // Jika password salah, kembali ke halaman sebelumnya dengan pesan error
         if (!$owner || !Hash::check($request->password, $owner->password)) {
-            return response()->json(['success' => false, 'message' => 'Password owner salah!'], 403);
+            return back()->with('error', 'Password owner salah!');
         }
 
-        DB::transaction(function () use ($request) {
-            $trx = Transaction::lockForUpdate()->findOrFail($request->trx_id);
+        $amountPaidFinal = 0;
 
-            if ($trx->status !== 'kredit') {
-                abort(400, 'Transaksi bukan kredit');
-            }
+        try {
+            DB::transaction(function () use ($request, &$amountPaidFinal) {
+                $trx = Transaction::lockForUpdate()->findOrFail($request->trx_id);
 
-            // Hitung sisa dari relasi payments (BUKAN dari accepted)
-            $totalTerbayar = KreditPayment::where('transaction_id', $trx->id)->sum('amount');
-            $sisa          = max($trx->total - $totalTerbayar, 0);
+                if ($trx->status !== 'kredit') {
+                    throw new \Exception('Transaksi bukan kredit');
+                }
 
-            if ($sisa <= 0) {
-                abort(400, 'Transaksi sudah lunas.');
-            }
+                $totalTerbayar = KreditPayment::where('transaction_id', $trx->id)->sum('amount');
+                $sisa = max($trx->total - $totalTerbayar, 0);
 
-            $amountPaid = min((float)$request->amount, $sisa);
+                if ($sisa <= 0) {
+                    throw new \Exception('Transaksi sudah lunas.');
+                }
 
-            KreditPayment::create([
-                'transaction_id' => $trx->id,
-                'amount'         => $amountPaid,
-                'method'         => $request->method,
-                'note'           => $request->note,
-                'paid_at'        => now(),
-                'created_by'     => Auth::id(),
-            ]);
+                $amountPaid = min((float)$request->amount, $sisa);
+                $amountPaidFinal = $amountPaid; // Ambil nilai untuk pesan sukses
 
-            // Hitung ulang total terbayar setelah insert
-            $totalTerbayarBaru = $totalTerbayar + $amountPaid;
-            $sisaBaru          = max($trx->total - $totalTerbayarBaru, 0);
+                KreditPayment::create([
+                    'transaction_id' => $trx->id,
+                    'amount'         => $amountPaid,
+                    'method'         => $request->method,
+                    'note'           => $request->note,
+                    'paid_at'        => now(),
+                    'created_by'     => Auth::id(),
+                ]);
 
-            // ★ SELALU update accepted agar sinkron dengan payments
-            $updateData = ['accepted' => $totalTerbayarBaru];
+                $totalTerbayarBaru = $totalTerbayar + $amountPaid;
+                $sisaBaru = max($trx->total - $totalTerbayarBaru, 0);
 
-            if ($sisaBaru <= 0) {
-                $updateData['status']         = 'paid';
-                $updateData['payment_method'] = $request->method;
-                $updateData['paid_at']        = now();
-            }
+                $updateData = ['accepted' => $totalTerbayarBaru];
 
-            $trx->update($updateData);
-        });
+                if ($sisaBaru <= 0) {
+                    $updateData['status']         = 'paid';
+                    $updateData['payment_method'] = $request->method;
+                    $updateData['paid_at']        = now();
+                }
 
-        return response()->json(['success' => true]);
+                $trx->update($updateData);
+            });
+
+            $nominal = number_format($amountPaidFinal, 0, ',', '.');
+            return back()->with('success', "Pembayaran sebesar Rp $nominal berhasil dicatat!");
+
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     // ================= KREDIT: INDEX =================

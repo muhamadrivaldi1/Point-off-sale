@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Transaction;
+use App\Models\User;
+use App\Models\Member;
 use App\Models\Stock;
 use App\Models\StockMutation;
 use App\Models\PurchaseOrder;
@@ -15,100 +17,132 @@ use App\Models\KreditPayment;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class ReportController extends Controller
 {
     /* ===============================
        LAPORAN PENJUALAN
     =============================== */
-    public function sales(Request $r)
-    {
-        $from = $r->input('from', now()->startOfMonth()->toDateString());
-        $to   = $r->input('to', now()->toDateString());
+public function sales(Request $r)
+{
+    // 1. Ambil data untuk dropdown filter
+    $users = \App\Models\User::orderBy('name')->get();
+    $members = \App\Models\Member::orderBy('name')->get();
 
-        $data = Transaction::with(['user', 'member'])
-            ->whereIn('status', ['paid', 'kredit'])
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->orderBy('created_at', 'desc')
-            ->paginate(20)
-            ->withQueryString();
+    // 2. Tangkap Input Filter
+    $from = $r->input('from', now()->startOfMonth()->toDateString());
+    $to   = $r->input('to', now()->toDateString());
+    $invoice = $r->input('invoice');
+    $kasir_id = $r->input('kasir_id');
+    $member_id = $r->input('member_id');
 
-        $totalOmzet = Transaction::whereIn('status', ['paid', 'kredit'])
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->sum('total');
+    // 3. Bangun Query
+    $query = Transaction::with(['user', 'member'])
+        ->whereIn('status', ['paid', 'kredit'])
+        ->whereDate('created_at', '>=', $from)
+        ->whereDate('created_at', '<=', $to);
 
-        return view('reports.sales', compact('data', 'from', 'to', 'totalOmzet'));
+    // Terapkan filter yang sama dengan CSV
+    if ($invoice) {
+        $query->where('trx_number', 'like', '%' . $invoice . '%');
+    }
+    if ($kasir_id) {
+        $query->where('user_id', $kasir_id);
+    }
+    if ($member_id) {
+        $query->where('member_id', $member_id);
     }
 
-    /* ===============================
-       EXPORT PENJUALAN KE CSV
-    =============================== */
-    public function salesCsv(Request $r)
-    {
-        $from = $r->input('from', now()->startOfMonth()->toDateString());
-        $to   = $r->input('to', now()->toDateString());
+    // 4. Eksekusi Data (Gunakan clone agar sum total tidak terpengaruh pagination)
+    $totalOmzet = (clone $query)->sum('total');
+    $data = $query->orderBy('created_at', 'desc')
+                  ->paginate(15)
+                  ->withQueryString();
 
-        $transactions = Transaction::with(['user', 'member', 'items.unit.product'])
-            ->whereIn('status', ['paid', 'kredit'])
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->orderBy('created_at', 'desc')
-            ->get();
+    return view('reports.sales', compact('data', 'from', 'to', 'totalOmzet', 'users', 'members'));
+}
 
-        $filename = 'Laporan_Penjualan_' . now()->format('d-M-Y_His') . '.csv';
-        $headers  = [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-            'Pragma'              => 'no-cache',
-            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires'             => '0',
-        ];
+/* ===============================
+    EXPORT PENJUALAN KE CSV
+=============================== */
+public function salesCsv(Request $r)
+{
+    $from = $r->input('from', now()->startOfMonth()->toDateString());
+    $to   = $r->input('to', now()->toDateString());
+    $invoice = $r->input('invoice');
+    $kasir_id = $r->input('kasir_id');
+    $member_id = $r->input('member_id');
 
-        $callback = function () use ($transactions, $from, $to) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
-            fputcsv($file, ['LAPORAN PENJUALAN'], ';');
-            fputcsv($file, ['Periode', date('d/m/Y', strtotime($from)) . ' s/d ' . date('d/m/Y', strtotime($to))], ';');
-            fputcsv($file, ['Dicetak', date('d/m/Y H:i:s')], ';');
-            fputcsv($file, ['Total Transaksi', $transactions->count() . ' transaksi'], ';');
-            fputcsv($file, [], ';');
-            fputcsv($file, ['No', 'Tanggal', 'Jam', 'Invoice', 'Kasir', 'Member', 'Subtotal', 'Diskon', 'Total', 'Bayar', 'Kembalian', 'Status', 'Jumlah Item'], ';');
+    $query = Transaction::with(['user', 'member', 'items.unit.product'])
+        ->whereIn('status', ['paid', 'kredit'])
+        ->whereDate('created_at', '>=', $from)
+        ->whereDate('created_at', '<=', $to);
 
-            $no = 1;
-            $grandTotal = 0;
-            $totalDiskon = 0;
-            $totalBayar = 0;
-            foreach ($transactions as $trx) {
-                $itemCount = $trx->items->sum('qty');
-                $subtotal  = $trx->items->sum(fn($i) => ($i->price - ($i->discount ?? 0)) * $i->qty);
-                fputcsv($file, [
-                    $no++,
-                    $trx->created_at?->format('d/m/Y') ?? '-',
-                    $trx->created_at?->format('H:i:s') ?? '-',
-                    $trx->trx_number ?? '-',
-                    $trx->user->name ?? '-',
-                    $trx->member->name ?? 'Non-Member',
-                    $subtotal,
-                    $trx->discount ?? 0,
-                    $trx->total,
-                    $trx->paid,
-                    $trx->change,
-                    strtoupper($trx->status),
-                    $itemCount,
-                ], ';');
-                $grandTotal  += $trx->total;
-                $totalDiskon += ($trx->discount ?? 0);
-                $totalBayar  += $trx->paid;
-            }
-            fputcsv($file, [], ';');
-            fputcsv($file, ['', '', '', '', '', 'TOTAL', '', $totalDiskon, $grandTotal, $totalBayar, '', '', ''], ';');
-            fclose($file);
-        };
-
-        return Response::stream($callback, 200, $headers);
+    if ($invoice) {
+        $query->where('trx_number', 'like', '%' . $invoice . '%');
     }
+    if ($kasir_id) {
+        $query->where('user_id', $kasir_id);
+    }
+    if ($member_id) {
+        $query->where('member_id', $member_id);
+    }
+
+    $transactions = $query->orderBy('created_at', 'desc')->get();
+
+    $filename = 'Laporan_Penjualan_' . now()->format('d-M-Y_His') . '.csv';
+    $headers  = [
+        'Content-Type'        => 'text/csv; charset=UTF-8',
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    ];
+
+    $callback = function () use ($transactions, $from, $to) {
+        $file = fopen('php://output', 'w');
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        fputcsv($file, ['LAPORAN PENJUALAN'], ';');
+        fputcsv($file, ['Periode', date('d/m/Y', strtotime($from)) . ' s/d ' . date('d/m/Y', strtotime($to))], ';');
+        fputcsv($file, ['Total Transaksi', $transactions->count()], ';');
+        fputcsv($file, [], ';');
+
+        fputcsv($file, ['No', 'Tanggal', 'Jam', 'Invoice', 'Kasir', 'Member', 'Subtotal', 'Diskon', 'Total', 'Bayar', 'Kembalian', 'Status', 'Jml Item'], ';');
+
+        $no = 1;
+        $grandTotal = 0;
+        $totalDiskon = 0;
+
+        foreach ($transactions as $trx) {
+            $itemCount = $trx->items->sum('qty');
+            $subtotal = $trx->items->sum(fn($i) => $i->price * $i->qty);
+
+            fputcsv($file, [
+                $no++,
+                $trx->created_at?->format('d/m/Y') ?? '-',
+                $trx->created_at?->format('H:i:s') ?? '-',
+                $trx->trx_number ?? '-',
+                $trx->user->name ?? '-',
+                $trx->member->name ?? 'Umum',
+                $subtotal,
+                $trx->discount ?? 0,
+                $trx->total,
+                $trx->paid,
+                $trx->change,
+                strtoupper($trx->status),
+                $itemCount,
+            ], ';');
+
+            $grandTotal  += $trx->total;
+            $totalDiskon += ($trx->discount ?? 0);
+        }
+
+        fputcsv($file, [], ';');
+        fputcsv($file, ['', '', '', '', '', 'TOTAL', '', $totalDiskon, $grandTotal, '', '', '', ''], ';');
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
 
     /* ===============================
        DETAIL PENJUALAN
@@ -123,294 +157,490 @@ class ReportController extends Controller
        EXPORT STOK KE CSV
     =============================== */
     public function stockCsv(Request $request)
-    {
-        $query = Stock::with('unit.product');
-        if ($request->filled('location')) $query->where('location', $request->location);
-        if ($request->filled('q')) $query->whereHas('unit.product', fn($q) => $q->where('name', 'like', '%' . $request->q . '%'));
+{
+    // 1. Ambil Parameter Filter yang sama dengan halaman Mutasi
+    $from = $request->input('from', now()->startOfMonth()->toDateString());
+    $to   = $request->input('to', now()->toDateString());
+    $status = $request->input('status');
+    $search = $request->input('search');
+    $supplier_id = $request->input('supplier_id');
 
-        $stocks   = $query->orderBy('id', 'desc')->get();
-        $filename = 'Laporan_Stok_' . now()->format('d-M-Y_His') . '.csv';
-        $headers  = ['Content-Type' => 'text/csv; charset=UTF-8', 'Content-Disposition' => 'attachment; filename="' . $filename . '"'];
+    // 2. Query ke tabel StockMutation (sesuaikan nama modelnya, misal StockMutation atau Stock)
+    // Di sini saya asumsikan tabel mutasi kamu namanya StockMutation
+    $query = \App\Models\StockMutation::with(['unit.product.supplier'])
+        ->whereDate('created_at', '>=', $from)
+        ->whereDate('created_at', '<=', $to);
 
-        $callback = function () use ($stocks) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
-            fputcsv($file, ['LAPORAN STOK BARANG'], ';');
-            fputcsv($file, ['Dicetak', date('d/m/Y H:i:s')], ';');
-            fputcsv($file, [], ';');
-            fputcsv($file, ['No', 'Nama Produk', 'Barcode', 'Satuan', 'Stok', 'Harga Jual', 'Harga Beli', 'Nilai Stok (HPP)'], ';');
-            $no = 1;
-            $totalNilai = 0;
-            foreach ($stocks as $stock) {
-                $hpp = $stock->unit->cost ?? 0;
-                $nilaiStok = ($stock->qty ?? 0) * $hpp;
-                $totalNilai += $nilaiStok;
-                fputcsv($file, [
-                    $no++,
-                    $stock->unit->product->name ?? '-',
-                    $stock->unit->barcode ?? '-',
-                    $stock->unit->unit_name ?? '-',
-                    $stock->qty ?? 0,
-                    $stock->unit->price ?? 0,
-                    $hpp,
-                    $nilaiStok,
-                ], ';');
-            }
-            fputcsv($file, [], ';');
-            fputcsv($file, ['', '', '', '', 'TOTAL NILAI STOK (HPP)', '', '', $totalNilai], ';');
-            fclose($file);
-        };
-
-        return Response::stream($callback, 200, $headers);
+    // 3. Terapkan Filter yang aktif (Sama dengan tampilan di web)
+    if ($status) {
+        $query->where('status', $status);
     }
+    if ($search) {
+        $query->whereHas('unit.product', fn($q) => $q->where('name', 'like', "%{$search}%"));
+    }
+    if ($supplier_id) {
+        $query->whereHas('unit.product', fn($q) => $q->where('supplier_id', $supplier_id));
+    }
+
+    $mutations = $query->orderBy('created_at', 'desc')->get();
+
+    // 4. Pengaturan Header File
+    $filename = 'History_Mutasi_Stok_' . now()->format('d-M-Y_His') . '.csv';
+    $headers  = [
+        'Content-Type' => 'text/csv; charset=UTF-8', 
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+    ];
+
+    $callback = function () use ($mutations, $from, $to) {
+        $file = fopen('php://output', 'w');
+        // Tambahkan BOM agar karakter khusus terbaca di Excel
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        
+        // Header Laporan
+        fputcsv($file, ['LAPORAN HISTORY MUTASI STOK'], ';');
+        fputcsv($file, ['Periode', $from . ' s/d ' . $to], ';');
+        fputcsv($file, ['Dicetak', date('d/m/Y H:i:s')], ';');
+        fputcsv($file, [], ';');
+
+        // Header Kolom (Disesuaikan dengan permintaan kamu sebelumnya)
+        fputcsv($file, ['No', 'Waktu', 'Nama Produk', 'Supplier', 'Status', 'Masuk', 'Keluar', 'Saldo Akhir', 'Referensi'], ';');
+
+        $no = 1;
+        foreach ($mutations as $row) {
+            fputcsv($file, [
+                $no++,
+                $row->created_at->format('d/m/Y H:i'),
+                $row->unit->product->name ?? '-',
+                $row->unit->product->supplier->nama_supplier ?? '-',
+                strtoupper($row->status),
+                $row->type == 'in' ? $row->qty : 0, // Kolom Masuk
+                $row->type == 'out' ? $row->qty : 0, // Kolom Keluar
+                $row->stock_after,
+                $row->reference ?? '-'
+            ], ';');
+        }
+        
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
 
     /* ===============================
        LAPORAN PENERIMAAN
     =============================== */
     public function penerimaan(Request $request)
-    {
-        $from = $request->input('from', now()->startOfMonth()->toDateString());
-        $to   = $request->input('to', now()->toDateString());
+{
+    // Menggunakan helper yang sama agar logic filter tidak ganda
+    $from = $request->input('from', now()->startOfMonth()->toDateString());
+    $to   = $request->input('to', now()->toDateString());
 
-        $query = PurchaseOrder::with('supplier')
-            ->whereDate('tanggal', '>=', $from)
-            ->whereDate('tanggal', '<=', $to);
+    $query = $this->getPenerimaanData($request);
+    
+    // Pagination 15 data sesuai permintaan sebelumnya
+    $data = $query->paginate(15)->withQueryString();
+    
+    return view('reports.penerimaan', compact('from', 'to', 'data'));
+}
 
-        if ($request->status && $request->status !== 'all') $query->where('status', $request->status);
-        if ($request->supplier_id && $request->supplier_id !== 'all') $query->where('supplier_id', $request->supplier_id);
+public function penerimaanExport(Request $request)
+{
+    $from = $request->input('from', now()->startOfMonth()->toDateString());
+    $to   = $request->input('to', now()->toDateString());
+    
+    // Ambil data berdasarkan filter yang sama
+    $dataQuery = $this->getPenerimaanData($request);
+    $results = $dataQuery->get(); // Ambil semua data tanpa paginate untuk export
 
-        $data = $query->orderBy('tanggal', 'desc')->paginate(10)->withQueryString();
-        return view('reports.penerimaan', compact('from', 'to', 'data'));
+    $fileName = "Laporan_Penerimaan_" . date('Ymd_His') . ".csv";
+    
+    $headers = [
+        "Content-type"        => "text/csv",
+        "Content-Disposition" => "attachment; filename=$fileName",
+        "Pragma"              => "no-cache",
+        "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+        "Expires"             => "0"
+    ];
+
+    $callback = function () use ($results, $from, $to) {
+        $file = fopen('php://output', 'w');
+        
+        // Tambahkan BOM agar karakter khusus (seperti simbol Rp) terbaca di Excel
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        // HEADER LAPORAN (Professional Style)
+        fputcsv($file, ['LAPORAN PENERIMAAN BARANG (PURCHASE ORDER)'], ';');
+        fputcsv($file, ['Periode:', $from . ' s/d ' . $to], ';');
+        fputcsv($file, ['Waktu Cetak:', date('d/m/Y H:i:s')], ';');
+        fputcsv($file, [], ';'); // Baris Kosong
+
+        // HEADER KOLOM
+        fputcsv($file, [
+            'NO', 
+            'NOMOR PO', 
+            'TANGGAL', 
+            'SUPPLIER', 
+            'METODE PEMBAYARAN', 
+            'STATUS', 
+            'TOTAL NOMINAL'
+        ], ';');
+
+        $no = 1;
+        $grandTotal = 0;
+
+        foreach ($results as $row) {
+            $total = (float) $row->total;
+            $grandTotal += $total;
+
+            fputcsv($file, [
+                $no++,
+                $row->po_number,
+                \Carbon\Carbon::parse($row->tanggal)->format('d/m/Y'),
+                $row->supplier->nama_supplier ?? '-',
+                strtoupper($row->jenis_pembayaran),
+                strtoupper($row->status),
+                $total // Biarkan angka murni agar bisa di-sum di Excel
+            ], ';');
+        }
+
+        // FOOTER (Total Akhir)
+        fputcsv($file, [], ';');
+        fputcsv($file, ['', '', '', '', '', 'GRAND TOTAL', $grandTotal], ';');
+
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
+
+private function getPenerimaanData(Request $request)
+{
+    $from = $request->input('from', now()->startOfMonth()->toDateString());
+    $to   = $request->input('to', now()->toDateString());
+
+    $query = \App\Models\PurchaseOrder::with('supplier')
+        ->whereBetween('tanggal', [$from, $to]);
+
+    if ($request->filled('supplier_id') && $request->supplier_id !== 'all') {
+        $query->where('supplier_id', $request->supplier_id);
     }
 
-    public function penerimaanExport(Request $request)
-    {
-        $dataQuery = $this->getPenerimaanData($request);
-        $fileName  = "Laporan_Penerimaan_Barang_" . date('Ymd_His') . ".csv";
-        $headers   = [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=$fileName",
-            "Pragma" => "no-cache",
-            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0"
-        ];
-        $callback = function () use ($dataQuery) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
-            fputcsv($file, ['No. PO', 'Tanggal', 'Supplier', 'Jenis Pembayaran', 'Total', 'Status']);
-            $dataQuery->chunk(500, function ($rows) use ($file) {
-                foreach ($rows as $row) {
-                    fputcsv($file, [
-                        $row->po_number,
-                        Carbon::parse($row->tanggal)->format('d/m/Y'),
-                        $row->supplier->nama_supplier ?? '-',
-                        $row->jenis_pembayaran,
-                        $row->total,
-                        strtoupper($row->status)
-                    ]);
-                }
-            });
-            fclose($file);
-        };
-        return response()->stream($callback, 200, $headers);
+    if ($request->filled('status') && $request->status !== 'all') {
+        $query->where('status', $request->status);
     }
 
-    private function getPenerimaanData(Request $request)
-    {
-        $from  = $request->input('from', date('Y-m-01'));
-        $to    = $request->input('to', date('Y-m-d'));
-        $query = PurchaseOrder::with('supplier')->orderBy('tanggal', 'desc')
-            ->whereBetween('tanggal', [$from, $to]);
-        if ($request->filled('supplier_id') && $request->supplier_id != 'all') $query->where('supplier_id', $request->supplier_id);
-        if ($request->filled('status') && $request->status != 'all') $query->where('status', $request->status);
-        return $query;
-    }
+    return $query->orderBy('tanggal', 'desc');
+}
 
     /* ===============================
        LAPORAN MUTASI STOK
     =============================== */
     public function stock(Request $request)
-    {
-        $from = $request->input('from', now()->startOfMonth()->toDateString());
-        $to   = $request->input('to', now()->toDateString());
-        $type = $request->input('type', '');
+{
+    $from = $request->input('from', now()->startOfMonth()->toDateString());
+    $to   = $request->input('to', now()->toDateString());
+    $status = $request->input('status'); // Sesuai name="status" di Blade
+    $search = $request->input('search');
+    $supplier_id = $request->input('supplier_id');
 
-        $query = StockMutation::with('unit.product');
-        if ($type === 'in' || $type === 'out') $query->where('type', $type);
-        $query->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->orderBy('created_at', 'desc');
+    // Gunakan query builder agar bisa dipakai ulang untuk Export
+    $query = StockMutation::with(['unit.product.supplier'])
+        ->whereDate('created_at', '>=', $from)
+        ->whereDate('created_at', '<=', $to);
 
-        $data = $query->paginate(20)->withQueryString();
-        return view('reports.stock', compact('data', 'from', 'to', 'type'));
+    // Filter berdasarkan Status Mutasi
+    if ($status) {
+        $query->where('status', $status);
     }
+
+    // Filter berdasarkan Pencarian Nama Produk / SKU
+    if ($search) {
+        $query->whereHas('unit.product', function($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%");
+        });
+    }
+
+    // Filter berdasarkan Supplier
+    if ($supplier_id) {
+        $query->whereHas('unit.product', function($q) use ($supplier_id) {
+            $q->where('supplier_id', $supplier_id);
+        });
+    }
+
+    $data = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
+    
+    // Ambil data supplier untuk dropdown filter
+    $suppliers = \App\Models\Supplier::all(); 
+
+    return view('reports.stock', compact('data', 'from', 'to', 'suppliers'));
+}
+
+
 
     /* ===============================
        LAPORAN PIUTANG
     =============================== */
     public function piutang(Request $request)
-    {
-        $from   = $request->input('from', now()->startOfMonth()->toDateString());
-        $to     = $request->input('to', now()->toDateString());
-        $status = $request->input('status');
-        $search = $request->input('search');
+{
+    // Mengambil parameter untuk dikirim kembali ke View (agar input filter tetap terisi)
+    $from   = $request->input('from', now()->startOfMonth()->toDateString());
+    $to     = $request->input('to', now()->toDateString());
+    $status = $request->input('status');
+    $search = $request->input('search');
 
-        $query = $this->getPiutangQuery($request);
+    // Gunakan query yang sama dengan export
+    $query = $this->getPiutangQuery($request);
 
-        $totalSisaPiutang = (clone $query)->get()->sum(function ($item) {
-            return $item->total - ($item->total_terbayar ?? 0);
+    // Hitung total sisa piutang dari data yang sudah difilter
+    $totalSisaPiutang = (clone $query)->get()->sum(function ($item) {
+        return $item->total - ($item->total_terbayar ?? 0);
+    });
+
+    $data = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
+    
+    return view('reports.piutang', compact('data', 'from', 'to', 'totalSisaPiutang', 'status', 'search'));
+}
+
+public function piutangExport(Request $request)
+{
+    $from   = $request->input('from', now()->startOfMonth()->toDateString());
+    $to     = $request->input('to', now()->toDateString());
+    $search = $request->input('search', 'Semua Pelanggan');
+
+    // Ambil data berdasarkan filter aktif di layar
+    $query = $this->getPiutangQuery($request);
+    
+    $fileName = "Laporan_Piutang_" . date('Ymd_His') . ".csv";
+    
+    $headers = [
+        "Content-type"        => "text/csv",
+        "Content-Disposition" => "attachment; filename=$fileName",
+        "Pragma"              => "no-cache",
+        "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+        "Expires"             => "0"
+    ];
+
+    $callback = function () use ($query, $from, $to, $search) {
+        $file = fopen('php://output', 'w');
+        
+        // Tambahkan BOM agar Excel membaca UTF-8 (mencegah karakter aneh)
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        // --- HEADER LAPORAN (STYLE PROFESSIONAL) ---
+        fputcsv($file, ['LAPORAN PIUTANG PELANGGAN'], ';');
+        fputcsv($file, ['Periode:', $from . ' s/d ' . $to], ';');
+        fputcsv($file, ['Pencarian:', $search], ';');
+        fputcsv($file, ['Waktu Cetak:', date('d/m/Y H:i:s')], ';');
+        fputcsv($file, [], ';'); // Baris Kosong
+
+        // HEADER KOLOM
+        fputcsv($file, [
+            'TANGGAL', 
+            'NO. INVOICE', 
+            'PELANGGAN', 
+            'TOTAL TRX', 
+            'TOTAL DIBAYAR', 
+            'SISA PIUTANG', 
+            'STATUS'
+        ], ';');
+
+        $grandTotalPiutang = 0;
+
+        $query->chunk(500, function ($rows) use ($file, &$grandTotalPiutang) {
+            foreach ($rows as $row) {
+                $dibayar = (float)($row->total_terbayar ?? 0);
+                $sisa    = (float)($row->total - $dibayar);
+                $grandTotalPiutang += $sisa;
+
+                // Logika Status Label
+                if ($dibayar >= $row->total && $row->total > 0) {
+                    $statusLabel = 'LUNAS';
+                } elseif ($dibayar > 0) {
+                    $statusLabel = 'CICILAN';
+                } else {
+                    $statusLabel = 'BELUM BAYAR';
+                }
+
+                fputcsv($file, [
+                    $row->created_at->format('d/m/Y H:i'),
+                    $row->trx_number,
+                    $row->member->name ?? 'Pelanggan Umum',
+                    (float)$row->total,
+                    $dibayar,
+                    $sisa,
+                    $statusLabel
+                ], ';');
+            }
         });
 
-        $data = $query->orderBy('created_at', 'desc')->paginate(20)->withQueryString();
-        return view('reports.piutang', compact('data', 'from', 'to', 'totalSisaPiutang', 'status', 'search'));
+        // --- FOOTER (TOTAL AKHIR) ---
+        fputcsv($file, [], ';');
+        fputcsv($file, ['', '', '', '', 'TOTAL SISA PIUTANG', $grandTotalPiutang, ''], ';');
+
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
+
+private function getPiutangQuery(Request $request)
+{
+    $from   = $request->input('from', now()->startOfMonth()->toDateString());
+    $to     = $request->input('to', now()->toDateString());
+    $status = $request->input('status');
+    $search = $request->input('search');
+
+    // Query dasar: Pastikan relasi 'cicilan' sesuai dengan nama relasi di Model Transaction
+    $query = Transaction::with(['member'])
+        ->withSum('cicilan as total_terbayar', 'amount')
+        ->where('status', 'kredit')
+        ->whereDate('created_at', '>=', $from)
+        ->whereDate('created_at', '<=', $to);
+
+    // Filter Berdasarkan Nama Pelanggan atau No Invoice
+    if ($search) {
+        $query->where(function ($q) use ($search) {
+            $q->where('trx_number', 'like', "%{$search}%")
+              ->orWhereHas('member', fn($m) => $m->where('name', 'like', "%{$search}%"));
+        });
     }
 
-    public function piutangExport(Request $request)
-    {
-        $query    = $this->getPiutangQuery($request);
-        $fileName = "Laporan_Piutang_" . date('Ymd_His') . ".csv";
-        $headers  = [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=$fileName",
-            "Pragma" => "no-cache",
-            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0"
-        ];
-        $callback = function () use ($query) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
-            fputcsv($file, ['Tanggal', 'No. Invoice', 'Pelanggan', 'Total TRX', 'Dibayar', 'Sisa Hutang', 'Status']);
-            $query->chunk(500, function ($rows) use ($file) {
-                foreach ($rows as $row) {
-                    $dibayar = $row->total_terbayar ?? 0;
-                    $sisa    = $row->total - $dibayar;
-                    $statusLabel = 'BELUM BAYAR';
-                    if ($dibayar >= $row->total && $row->total > 0) $statusLabel = 'LUNAS';
-                    elseif ($dibayar > 0) $statusLabel = 'CICILAN';
-                    fputcsv($file, [
-                        $row->created_at->format('d/m/Y'),
-                        $row->trx_number,
-                        $row->member->name ?? 'Pelanggan Umum',
-                        $row->total,
-                        $dibayar,
-                        $sisa,
-                        $statusLabel
-                    ]);
-                }
-            });
-            fclose($file);
-        };
-        return response()->stream($callback, 200, $headers);
+    // Filter Berdasarkan Status Pembayaran
+    if ($status === 'belum_bayar') {
+        $query->has('cicilan', '=', 0);
+    } elseif ($status === 'cicilan') {
+        // Menggunakan havingSum agar lebih akurat dibanding subquery manual
+        $query->havingRaw('total_terbayar > 0 AND total_terbayar < total');
+    } elseif ($status === 'lunas') {
+        $query->havingRaw('total_terbayar >= total');
     }
 
-    private function getPiutangQuery(Request $request)
-    {
-        $from   = $request->input('from', now()->startOfMonth()->toDateString());
-        $to     = $request->input('to', now()->toDateString());
-        $status = $request->input('status');
-        $search = $request->input('search');
-
-        $query = Transaction::with(['member'])
-            ->withSum('cicilan as total_terbayar', 'amount')
-            ->where('status', 'kredit')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to);
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('trx_number', 'like', "%{$search}%")
-                    ->orWhereHas('member', fn($m) => $m->where('name', 'like', "%{$search}%"));
-            });
-        }
-        if ($status === 'belum_bayar') {
-            $query->has('cicilan', '=', 0);
-        } elseif ($status === 'cicilan') {
-            $query->whereHas('cicilan')
-                ->whereRaw('(total - (select ifnull(sum(amount),0) from kredit_payments where transaction_id = transactions.id)) > 0');
-        } elseif ($status === 'lunas') {
-            $query->whereRaw('(total - (select ifnull(sum(amount),0) from kredit_payments where transaction_id = transactions.id)) <= 0');
-        }
-        return $query;
-    }
+    return $query;
+}
 
     /* ===============================
        LAPORAN HUTANG SUPPLIER
        ← Hanya pakai kolom `total`, bukan total_amount
     =============================== */
-    public function hutang(Request $request)
-    {
-        $from = $request->get('from', now()->startOfMonth()->toDateString());
-        $to   = $request->get('to', now()->toDateString());
+public function hutang(Request $request)
+{
+    $from = $request->get('from', now()->startOfMonth()->toDateString());
+    $to   = $request->get('to', now()->toDateString());
+    $search = $request->get('search');
+    $status = $request->get('status');
 
-        $query       = $this->getHutangQuery($request);
-        $totalHutang = (clone $query)->sum('total'); // ← pakai total
+    $query       = $this->getHutangQuery($request);
+    $totalHutang = (clone $query)->sum('total'); 
 
-        $data = $query->orderBy('tanggal', 'desc')->paginate(20)->withQueryString();
-        return view('reports.hutang', compact('data', 'from', 'to', 'totalHutang'));
+    $data = $query->orderBy('tanggal', 'desc')->paginate(15)->withQueryString();
+    
+    return view('reports.hutang', compact('data', 'from', 'to', 'totalHutang', 'search', 'status'));
+}
+
+public function hutangExport(Request $request)
+{
+    $from   = $request->get('from', now()->startOfMonth()->toDateString());
+    $to     = $request->get('to', now()->toDateString());
+    $search = $request->get('search', 'Semua Supplier');
+
+    $query    = $this->getHutangQuery($request);
+    $fileName = "Laporan_Hutang_Supplier_" . date('Ymd_His') . ".csv";
+    
+    $headers = [
+        "Content-type"        => "text/csv",
+        "Content-Disposition" => "attachment; filename=$fileName",
+        "Pragma"              => "no-cache",
+        "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+        "Expires"             => "0"
+    ];
+
+    $callback = function () use ($query, $from, $to, $search) {
+        $file = fopen('php://output', 'w');
+        
+        // Tambahkan BOM agar Excel membaca UTF-8 (mencegah karakter berantakan)
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        // --- HEADER LAPORAN ---
+        fputcsv($file, ['LAPORAN HUTANG KE SUPPLIER (UNPAID PO)'], ';');
+        fputcsv($file, ['Periode:', $from . ' s/d ' . $to], ';');
+        fputcsv($file, ['Pencarian:', $search], ';');
+        fputcsv($file, ['Waktu Cetak:', date('d/m/Y H:i:s')], ';');
+        fputcsv($file, [], ';'); // Baris Kosong
+
+        // HEADER KOLOM
+        fputcsv($file, [
+            'TANGGAL PO', 
+            'NO. PO', 
+            'SUPPLIER', 
+            'TOTAL HUTANG', 
+            'STATUS'
+        ], ';');
+
+        $grandTotalHutang = 0;
+
+        $query->chunk(500, function ($rows) use ($file, &$grandTotalHutang) {
+            foreach ($rows as $row) {
+                $totalRow = (float)$row->total;
+                $grandTotalHutang += $totalRow;
+
+                fputcsv($file, [
+                    $row->tanggal ? $row->tanggal->format('d/m/Y') : '-',
+                    $row->po_number,
+                    $row->supplier->nama_supplier ?? 'Supplier Umum',
+                    $totalRow,
+                    strtoupper($row->status ?? 'DRAFT')
+                ], ';');
+            }
+        });
+
+        // --- FOOTER (TOTAL AKHIR) ---
+        fputcsv($file, [], ';');
+        fputcsv($file, ['', '', 'TOTAL KESELURUHAN HUTANG', $grandTotalHutang, ''], ';');
+
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
+
+private function getHutangQuery(Request $request)
+{
+    $from   = $request->get('from', now()->startOfMonth()->toDateString());
+    $to     = $request->get('to', now()->toDateString());
+    $search = $request->get('search');
+    $status = $request->get('status');
+
+    // Filter dasar: Ambil yang belum lunas (menghindari paid, received, cancelled)
+    $query = PurchaseOrder::with('supplier')
+        ->whereNotIn('status', ['paid', 'received', 'Received', 'cancelled', 'canceled']);
+
+    if ($from) $query->whereDate('tanggal', '>=', $from);
+    if ($to)   $query->whereDate('tanggal', '<=', $to);
+
+    // Filter Pencarian (No PO atau Nama Supplier)
+    if ($search) {
+        $query->where(function ($q) use ($search) {
+            $q->where('po_number', 'like', "%{$search}%")
+                ->orWhereHas('supplier', fn($s) => $s->where('nama_supplier', 'like', "%{$search}%"));
+        });
     }
 
-    public function hutangExport(Request $request)
-    {
-        $query    = $this->getHutangQuery($request);
-        $fileName = "Laporan_Hutang_Supplier_" . date('Ymd_His') . ".csv";
-        $headers  = [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=$fileName",
-            "Pragma" => "no-cache",
-            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0"
-        ];
-        $callback = function () use ($query) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
-            fputcsv($file, ['Tanggal', 'No. PO', 'Supplier', 'Total', 'Status']);
-            $query->chunk(500, function ($rows) use ($file) {
-                foreach ($rows as $row) {
-                    fputcsv($file, [
-                        $row->tanggal ? $row->tanggal->format('d/m/Y') : '-',
-                        $row->po_number,
-                        $row->supplier->nama_supplier ?? 'Supplier Umum',
-                        $row->total,   // ← pakai total
-                        strtoupper($row->status ?? 'DRAFT')
-                    ]);
-                }
-            });
-            fclose($file);
-        };
-        return response()->stream($callback, 200, $headers);
+    // Filter Status Spesifik (jika dipilih)
+    if ($status) {
+        $query->where('status', $status);
     }
 
-    private function getHutangQuery(Request $request)
-    {
-        $from   = $request->get('from', now()->startOfMonth()->toDateString());
-        $to     = $request->get('to', now()->toDateString());
-        $search = $request->get('search');
-        $status = $request->get('status');
-
-        // PO yang belum lunas = hutang
-        $query = PurchaseOrder::with('supplier')
-            ->whereNotIn('status', ['paid', 'received', 'Received', 'cancelled', 'canceled']);
-
-        if ($from) $query->whereDate('tanggal', '>=', $from);
-        if ($to)   $query->whereDate('tanggal', '<=', $to);
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('po_number', 'like', "%{$search}%")
-                    ->orWhereHas('supplier', fn($s) => $s->where('nama_supplier', 'like', "%{$search}%"));
-            });
-        }
-        if ($status) $query->where('status', $status);
-
-        return $query;
-    }
+    return $query;
+}
 
     /* ===============================
        JURNAL
     =============================== */
     public function journal(Request $request)
     {
-        $from    = $request->get('from', date('Y-m-01'));
-        $to      = $request->get('to', date('Y-m-d'));
-        $search  = $request->get('search');
+        $from     = $request->get('from', date('Y-m-01'));
+        $to       = $request->get('to', date('Y-m-d'));
+        $search   = $request->get('search');
         $accounts = Account::orderBy('code', 'asc')->get();
 
         $query = Transaction::with(['user', 'member', 'account'])
@@ -431,7 +661,7 @@ class ReportController extends Controller
     }
 
     /* ===============================
-       SIMPAN TRANSAKSI MANUAL
+        SIMPAN TRANSAKSI MANUAL
     =============================== */
     public function store(Request $request)
     {
@@ -444,60 +674,116 @@ class ReportController extends Controller
         ]);
 
         $transaction = new Transaction();
-        $transaction->trx_number    = 'TRX-MANUAL-' . strtoupper(uniqid());
-        $transaction->user_id       = auth()->id();
-        $transaction->account_id    = $request->account_id;
-        $transaction->total         = $request->total;
-        $transaction->paid          = $request->total;
-        $transaction->accepted      = $request->total;
-        $transaction->change        = 0;
-        $transaction->description   = $request->description;
-        $transaction->type          = $request->type;
-        $transaction->status        = 'paid';
+        $transaction->trx_number     = 'TRX-MANUAL-' . strtoupper(uniqid());
+        $transaction->user_id        = Auth::id();
+        $transaction->account_id     = $request->account_id;
+        $transaction->total          = $request->total;
+        $transaction->paid           = $request->total;
+        $transaction->accepted       = $request->total;
+        $transaction->change         = 0;
+        $transaction->description    = $request->description;
+        $transaction->type           = $request->type;
+        $transaction->status         = 'paid';
         $transaction->payment_method = 'cash';
-        $transaction->created_at    = $request->date . ' ' . date('H:i:s');
-        $transaction->updated_at    = now();
+        $transaction->created_at     = $request->date . ' ' . date('H:i:s');
+        $transaction->updated_at     = now();
         $transaction->save();
 
         return redirect()->back()->with('success', 'Transaksi berhasil disimpan ke Jurnal!');
     }
 
     /* ===============================
-       EXPORT JURNAL (CSV)
+        EXPORT JURNAL (CSV) - REVISED
     =============================== */
-    public function journalExport(Request $request)
-    {
-        $from     = $request->get('from', date('Y-m-01'));
-        $to       = $request->get('to', date('Y-m-d'));
-        $fileName = "Jurnal_Umum_{$from}_to_{$to}.csv";
-        $headers  = ["Content-type" => "text/csv", "Content-Disposition" => "attachment; filename=$fileName"];
+public function journalExport(Request $request)
+{
+    $from     = $request->get('from', date('Y-m-01'));
+    $to       = $request->get('to', date('Y-m-d'));
+    $search   = $request->get('search'); // Ambil input pencarian
+    $fileName = "Jurnal_Umum_" . date('Ymd_His') . ".csv";
 
-        $callback = function () use ($from, $to) {
-            $file = fopen('php://output', 'w');
-            fputs($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
-            fputcsv($file, ['TANGGAL', 'NO. TRX', 'AKUN & KETERANGAN', 'REF', 'DEBIT', 'KREDIT']);
+    $headers = [
+        "Content-type"        => "text/csv",
+        "Content-Disposition" => "attachment; filename=$fileName",
+        "Pragma"              => "no-cache",
+        "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+        "Expires"             => "0"
+    ];
 
-            $transactions = Transaction::with('account')
-                ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-                ->get();
+    // PERBAIKAN: Tambahkan $search ke dalam 'use' agar bisa diakses di dalam closure
+    $callback = function () use ($from, $to, $search) {
+        $file = fopen('php://output', 'w');
+        
+        // BOM untuk UTF-8 Excel agar karakter tidak berantakan
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-            foreach ($transactions as $row) {
-                $isIncome = $row->type == 'income' || $row->type == null;
-                $akunNama = $row->account->name ?? ($isIncome ? 'Pendapatan Penjualan' : 'Beban/Lainnya');
-                $akunKode = $row->account->code ?? ($isIncome ? '4100' : '5100');
-                if ($isIncome) {
-                    fputcsv($file, [$row->created_at->format('d/m/Y'), $row->trx_number, 'Kas dan Bank', '1100', $row->total, 0]);
-                    fputcsv($file, ['', '', $akunNama . ' - ' . $row->description, $akunKode, 0, $row->total]);
-                } else {
-                    fputcsv($file, [$row->created_at->format('d/m/Y'), $row->trx_number, $akunNama . ' - ' . $row->description, $akunKode, $row->total, 0]);
-                    fputcsv($file, ['', '', 'Kas dan Bank', '1100', 0, $row->total]);
-                }
+        // Header Laporan
+        fputcsv($file, ['LAPORAN JURNAL UMUM'], ';');
+        fputcsv($file, ['Periode:', $from . ' s/d ' . $to], ';');
+        if ($search) {
+            fputcsv($file, ['Pencarian:', $search], ';');
+        }
+        fputcsv($file, ['Waktu Cetak:', date('d/m/Y H:i:s')], ';');
+        fputcsv($file, [], ';'); 
+
+        // Header Kolom
+        fputcsv($file, ['TANGGAL', 'NO. TRX', 'AKUN & KETERANGAN', 'REF', 'DEBIT', 'KREDIT'], ';');
+
+        // PERBAIKAN: Terapkan query filter yang sama dengan fungsi journal()
+        $query = Transaction::with(['account', 'member', 'user'])
+            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59']);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('trx_number', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  // Opsional: Jika ingin mencari berdasarkan nama akun juga
+                  ->orWhereHas('account', function($sq) use ($search) {
+                      $sq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $transactions = $query->orderBy('created_at', 'asc')->get();
+
+        $totalDebitAll = 0;
+        $totalKreditAll = 0;
+
+        foreach ($transactions as $row) {
+            $isIncome = $row->type == 'income' || $row->type == null;
+            
+            // Nama & Kode Akun
+            $akunNama = $row->account->name ?? ($isIncome ? 'Pendapatan Penjualan' : 'Beban/Lainnya');
+            $akunKode = $row->account->code ?? ($isIncome ? '4100' : '5100');
+            
+            // Logika Keterangan (Agar sama dengan gambar 2 yang Anda inginkan)
+            $memberInfo = $row->member->name ?? 'Pelanggan Umum';
+            $desc = $row->description ? " (" . $row->description . ")" : " (Penjualan ke $memberInfo)";
+
+            if ($isIncome) {
+                // Baris 1: Kas (Debit)
+                fputcsv($file, [$row->created_at->format('d/m/Y'), $row->trx_number, 'Kas dan Bank', '1100', $row->total, 0], ';');
+                // Baris 2: Akun Lawan (Kredit)
+                fputcsv($file, ['', '', '  ' . $akunNama . $desc, $akunKode, 0, $row->total], ';');
+            } else {
+                // Baris 1: Akun Lawan (Debit)
+                fputcsv($file, [$row->created_at->format('d/m/Y'), $row->trx_number, $akunNama . $desc, $akunKode, $row->total, 0], ';');
+                // Baris 2: Kas (Kredit)
+                fputcsv($file, ['', '', '  Kas dan Bank', '1100', 0, $row->total], ';');
             }
-            fclose($file);
-        };
+            
+            $totalDebitAll += $row->total;
+            $totalKreditAll += $row->total;
+        }
 
-        return response()->stream($callback, 200, $headers);
-    }
+        fputcsv($file, [], ';');
+        fputcsv($file, ['', '', 'TOTAL AKHIR', '', $totalDebitAll, $totalKreditAll], ';');
+
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
 
     /* ===============================
        HELPER: Harga beli terakhir
@@ -521,81 +807,109 @@ class ReportController extends Controller
        LAPORAN LABA / RUGI
     =============================== */
     public function labaRugi(Request $request)
-    {
-        $from = $request->input('from', now()->startOfMonth()->toDateString());
-        $to   = $request->input('to', now()->toDateString());
+{
+    // 1. Inisialisasi Parameter Filter
+    $from   = $request->input('from', now()->startOfMonth()->toDateString());
+    $to     = $request->input('to', now()->toDateString());
+    $search = $request->input('search'); // Tambahkan pencarian produk
 
-        $transactions = Transaction::whereIn('status', ['paid', 'kredit'])
-            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-            ->with(['items.unit.product'])
-            ->get();
+    // 2. Ambil Transaksi (Filter Status & Tanggal)
+    $transactions = Transaction::whereIn('status', ['paid', 'kredit'])
+        ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+        ->with(['items.unit.product'])
+        ->get();
 
-        $hargaBeli       = $this->getHargaBeli();
-        $totalPenjualan  = 0;
-        $totalModal      = 0;
-        $penjualanProduk = [];
-        $bulanData       = [];
+    $hargaBeli       = $this->getHargaBeli();
+    $totalPenjualan  = 0;
+    $totalModal      = 0;
+    $penjualanProduk = [];
+    $bulanData       = [];
 
-        foreach ($transactions as $trx) {
-            $bulan = $trx->created_at->format('Y-m');
-            if (!isset($bulanData[$bulan])) $bulanData[$bulan] = ['penjualan' => 0, 'modal' => 0, 'laba' => 0];
-
-            foreach ($trx->items as $item) {
-                $hargaJual       = ($item->price - ($item->discount ?? 0)) * $item->qty;
-                $beli            = $hargaBeli[$item->product_unit_id] ?? ($item->unit->cost ?? 0);
-                $hpp             = $beli * $item->qty;
-                $totalPenjualan += $hargaJual;
-                $totalModal     += $hpp;
-
-                $bulanData[$bulan]['penjualan'] += $hargaJual;
-                $bulanData[$bulan]['modal']     += $hpp;
-
-                $nama = $item->unit->product->name ?? 'Produk Tidak Diketahui';
-                if (!isset($penjualanProduk[$nama])) $penjualanProduk[$nama] = ['name' => $nama, 'qty' => 0, 'omzet' => 0, 'hpp' => 0, 'laba' => 0];
-                $penjualanProduk[$nama]['qty']   += $item->qty;
-                $penjualanProduk[$nama]['omzet'] += $hargaJual;
-                $penjualanProduk[$nama]['hpp']   += $hpp;
-                $penjualanProduk[$nama]['laba']  += ($hargaJual - $hpp);
-            }
+    // 3. Loop Data Transaksi
+    foreach ($transactions as $trx) {
+        $bulan = $trx->created_at->format('Y-m');
+        if (!isset($bulanData[$bulan])) {
+            $bulanData[$bulan] = ['penjualan' => 0, 'modal' => 0, 'laba' => 0];
         }
 
-        foreach ($bulanData as $b => $v) $bulanData[$b]['laba'] = $v['penjualan'] - $v['modal'];
-        ksort($bulanData);
+        foreach ($trx->items as $item) {
+            $namaProduk = $item->unit->product->name ?? 'Produk Tidak Diketahui';
 
-        $labaKotor             = $totalPenjualan - $totalModal;
-        $totalBiayaOperasional = DB::table('expenses')->whereBetween('date', [$from, $to])->sum('amount') ?? 0;
-        $labaBersih            = $labaKotor - $totalBiayaOperasional;
+            // FILTER SEARCH: Jika ada input search, lewati produk yang tidak cocok
+            if ($search && !str_contains(strtolower($namaProduk), strtolower($search))) {
+                continue;
+            }
 
-        usort($penjualanProduk, fn($a, $b) => $b['laba'] <=> $a['laba']);
+            $hargaJual      = ($item->price - ($item->discount ?? 0)) * $item->qty;
+            $beli           = $hargaBeli[$item->product_unit_id] ?? ($item->unit->cost ?? 0);
+            $hpp            = $beli * $item->qty;
+            
+            // Akumulasi Total Keseluruhan (Hanya yang masuk filter search)
+            $totalPenjualan += $hargaJual;
+            $totalModal     += $hpp;
 
-        $marginPersen     = $totalPenjualan > 0 ? round(($labaKotor / $totalPenjualan) * 100, 1) : 0;
-        $jumlahTrx        = $transactions->count();
-        $jumlahTrxPaid    = $transactions->where('status', 'paid')->count();
-        $jumlahTrxKredit  = $transactions->where('status', 'kredit')->count();
+            // Akumulasi per Bulan
+            $bulanData[$bulan]['penjualan'] += $hargaJual;
+            $bulanData[$bulan]['modal']     += $hpp;
 
-        $totalPiutang = Transaction::where('status', 'kredit')
-            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-            ->with('payments')
-            ->get()
-            ->sum(fn($t) => max($t->total - $t->payments->sum('amount'), 0));
-
-        return view('reports.laba_rugi', compact(
-            'from',
-            'to',
-            'totalPenjualan',
-            'totalModal',
-            'labaKotor',
-            'totalBiayaOperasional',
-            'labaBersih',
-            'marginPersen',
-            'penjualanProduk',
-            'bulanData',
-            'jumlahTrx',
-            'jumlahTrxPaid',
-            'jumlahTrxKredit',
-            'totalPiutang'
-        ));
+            // Akumulasi per Produk (Untuk Tabel Detail)
+            if (!isset($penjualanProduk[$namaProduk])) {
+                $penjualanProduk[$namaProduk] = [
+                    'name'  => $namaProduk, 
+                    'qty'   => 0, 
+                    'omzet' => 0, 
+                    'hpp'   => 0, 
+                    'laba'  => 0
+                ];
+            }
+            $penjualanProduk[$namaProduk]['qty']   += $item->qty;
+            $penjualanProduk[$namaProduk]['omzet'] += $hargaJual;
+            $penjualanProduk[$namaProduk]['hpp']   += $hpp;
+            $penjualanProduk[$namaProduk]['laba']  += ($hargaJual - $hpp);
+        }
     }
+
+    // 4. Hitung Laba per Bulan & Sorting
+    foreach ($bulanData as $b => $v) {
+        $bulanData[$b]['laba'] = $v['penjualan'] - $v['modal'];
+    }
+    ksort($bulanData);
+
+    // 5. Kalkulasi Akhir (Laba Bersih & Operasional)
+    $labaKotor             = $totalPenjualan - $totalModal;
+    // Biaya operasional disesuaikan dengan range tanggal
+    $totalBiayaOperasional = \DB::table('expenses')
+        ->whereBetween('date', [$from, $to])
+        ->sum('amount') ?? 0;
+    
+    $labaBersih            = $labaKotor - $totalBiayaOperasional;
+
+    // Urutkan produk berdasarkan laba tertinggi
+    usort($penjualanProduk, fn($a, $b) => $b['laba'] <=> $a['laba']);
+
+    // 6. Statistik Tambahan
+    $marginPersen     = $totalPenjualan > 0 ? round(($labaKotor / $totalPenjualan) * 100, 1) : 0;
+    $jumlahTrx        = $transactions->count();
+    $jumlahTrxPaid    = $transactions->where('status', 'paid')->count();
+    $jumlahTrxKredit  = $transactions->where('status', 'kredit')->count();
+
+    // Hitung Piutang (Status Kredit yang belum lunas)
+    $totalPiutang = Transaction::where('status', 'kredit')
+        ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+        ->with('payments')
+        ->get()
+        ->sum(fn($t) => max($t->total - $t->payments->sum('amount'), 0));
+
+    // 7. Return ke View
+    return view('reports.laba_rugi', compact(
+        'from', 'to', 'search', // Pastikan $search dikirim balik
+        'totalPenjualan', 'totalModal', 'labaKotor',
+        'totalBiayaOperasional', 'labaBersih', 'marginPersen',
+        'penjualanProduk', 'bulanData', 'jumlahTrx',
+        'jumlahTrxPaid', 'jumlahTrxKredit', 'totalPiutang'
+    ));
+}
+
 
     /* ===============================
        LAPORAN NERACA
@@ -838,7 +1152,7 @@ class ReportController extends Controller
         }
         if ($request->filled('status')) $query->where('status', $request->status);
 
-        $data = $query->latest()->paginate(25);
+        $data = $query->latest()->paginate(15);
         return view('reports.stock', compact('data', 'suppliers'));
     }
 }

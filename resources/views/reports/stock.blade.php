@@ -2,15 +2,17 @@
 
 @section('content')
 <div class="container-fluid">
+    {{-- Header Halaman --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h3 class="mb-0 fw-bold">History Mutasi Stok Detail</h3>
-            <p class="text-muted small mb-0">Lacak setiap perubahan stok barang masuk dan keluar.</p>
+            <h4 class="mb-0 fw-bold text-primary">History Mutasi Stok</h4>
+            <p class="text-muted small mb-0">Lacak setiap detail perubahan stok barang masuk dan keluar.</p>
         </div>
         <div class="text-end">
-            <span class="badge bg-primary px-3 py-2 shadow-sm">
-                <i class="bi bi-calendar3"></i> Periode: {{ \Carbon\Carbon::parse(request('from', date('Y-m-01')))->format('d/m/Y') }} - {{ \Carbon\Carbon::parse(request('to', date('Y-m-d')))->format('d/m/Y') }}
-            </span>
+            {{-- Tombol Export (Pastikan Route sudah ada) --}}
+            <a href="{{ route('reports.stock.csv', request()->all()) }}" class="btn btn-success btn-sm shadow-sm">
+                <i class="fas fa-file-excel me-1"></i> Export CSV
+            </a>
         </div>
     </div>
     
@@ -18,29 +20,23 @@
         <div class="card-header bg-white py-3 border-bottom">
             {{-- Form Filter --}}
             <form action="{{ route('reports.stock') }}" method="GET" class="row g-3">
-                {{-- Filter Tanggal --}}
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-secondary">Dari Tanggal</label>
+                    <label class="small fw-bold text-secondary">Dari Tanggal</label>
                     <input type="date" name="from" class="form-control form-control-sm" value="{{ request('from', date('Y-m-01')) }}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-secondary">Sampai Tanggal</label>
+                    <label class="small fw-bold text-secondary">Sampai Tanggal</label>
                     <input type="date" name="to" class="form-control form-control-sm" value="{{ request('to', date('Y-m-d')) }}">
                 </div>
 
-                {{-- Filter Nama Barang --}}
-                <div class="col-md-3">
-                    <label class="form-label small fw-bold text-secondary">Nama Barang / SKU</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                        <input type="text" name="search" class="form-control" placeholder="Cari produk..." value="{{ request('search') }}">
-                    </div>
+                <div class="col-md-2">
+                    <label class="small fw-bold text-secondary">Produk / SKU</label>
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="Cari nama/SKU..." value="{{ request('search') }}">
                 </div>
 
-                {{-- Filter Supplier --}}
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-secondary">Supplier</label>
-                    <select name="supplier_id" class="form-select form-control-sm">
+                    <label class="small fw-bold text-secondary">Supplier</label>
+                    <select name="supplier_id" class="form-select form-select-sm">
                         <option value="">-- Semua Supplier --</option>
                         @foreach($suppliers as $supplier)
                             <option value="{{ $supplier->id }}" {{ request('supplier_id') == $supplier->id ? 'selected' : '' }}>
@@ -50,115 +46,103 @@
                     </select>
                 </div>
 
-                {{-- Filter Status --}}
-                <div class="col-md-3">
-                    <label class="form-label small fw-bold text-secondary">Keterangan Status</label>
-                    <select name="status" class="form-select form-control-sm">
+                <div class="col-md-2">
+                    <label class="small fw-bold text-secondary">Status Mutasi</label>
+                    <select name="status" class="form-select form-select-sm">
                         <option value="">-- Semua Status --</option>
                         <option value="pembelian" {{ request('status') == 'pembelian' ? 'selected' : '' }}>Pembelian</option>
-                        <option value="penjualan" {{ request('status') == 'penjualan' ? 'selected' : '' }}>Penjualan (Terjual)</option>
-                        <option value="mutasi" {{ request('status') == 'mutasi' ? 'selected' : '' }}>Mutasi Barang</option>
+                        <option value="penjualan" {{ request('status') == 'penjualan' ? 'selected' : '' }}>Penjualan</option>
                         <option value="opname" {{ request('status') == 'opname' ? 'selected' : '' }}>Stok Opname</option>
                         <option value="retur_pembelian" {{ request('status') == 'retur_pembelian' ? 'selected' : '' }}>Retur Pembelian</option>
                         <option value="retur_penjualan" {{ request('status') == 'retur_penjualan' ? 'selected' : '' }}>Retur Penjualan</option>
                     </select>
                 </div>
 
-                <div class="col-12 d-flex justify-content-end gap-2 mt-3">
-                    <a href="{{ route('reports.stock') }}" class="btn btn-light btn-sm border px-3">
-                        <i class="bi bi-arrow-counterclockwise"></i> Reset
-                    </a>
-                    <button type="submit" class="btn btn-primary btn-sm px-4 shadow-sm">
-                        <i class="bi bi-funnel"></i> Terapkan Filter
+                <div class="col-md-2 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-grow-1 shadow-sm">
+                        <i class="fas fa-search me-1"></i> Cari
                     </button>
+                    
+                    <a href="{{ route('reports.stock') }}" class="btn btn-outline-danger btn-sm px-2 shadow-sm" title="Reset Filter">
+                        <i class="fas fa-undo"></i> Reset
+                    </a>
                 </div>
             </form>
         </div>
 
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
-                    <thead class="table-light text-secondary">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light border-bottom">
                         <tr>
-                            <th class="ps-3 py-3" style="width: 150px;">WAKTU</th>
-                            <th>PRODUK & SUPPLIER</th>
-                            <th class="text-center">STATUS</th>
-                            <th class="text-end">MASUK/KELUAR</th>
-                            <th class="text-end">SALDO STOK</th>
-                            <th class="ps-3">NO. REFERENSI</th>
+                            <th class="ps-3 py-3 text-secondary small" style="width: 130px;">WAKTU</th>
+                            <th class="text-secondary small">PRODUK & SUPPLIER</th>
+                            <th class="text-center text-secondary small">STATUS</th>
+                            <th class="text-end text-secondary small">MASUK/KELUAR</th>
+                            <th class="text-end text-secondary small">SALDO STOK</th>
+                            <th class="ps-3 text-secondary small">NO. REFERENSI</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($data as $row)
                             <tr>
                                 <td class="ps-3">
-                                    <span class="d-block fw-bold text-dark">{{ $row->created_at->format('d/m/Y') }}</span>
+                                    <div class="fw-bold text-dark">{{ $row->created_at->format('d/m/Y') }}</div>
                                     <small class="text-muted">{{ $row->created_at->format('H:i') }} WIB</small>
                                 </td>
 
                                 <td>
                                     <div class="fw-bold text-primary">{{ $row->unit->product->name ?? 'Produk Terhapus' }}</div>
                                     <div class="small text-muted">
-                                        {{-- Perbaikan: Memastikan memanggil nama_supplier sesuai DB --}}
-                                        <i class="bi bi-truck me-1"></i> {{ $row->unit->product->supplier->nama_supplier ?? 'N/A' }}
+                                        <i class="fas fa-truck me-1"></i> {{ $row->unit->product->supplier->nama_supplier ?? 'Tanpa Supplier' }}
                                     </div>
                                 </td>
 
                                 <td class="text-center">
                                     @php
                                         $statusRaw = $row->status ?? ($row->type == 'in' ? 'masuk' : 'keluar');
-                                        $statusClass = [
+                                        $badges = [
                                             'pembelian' => 'bg-info text-dark',
                                             'penjualan' => 'bg-success',
                                             'mutasi'    => 'bg-warning text-dark',
                                             'opname'    => 'bg-secondary',
                                             'retur_pembelian' => 'bg-danger',
                                             'retur_penjualan' => 'bg-primary',
-                                        ][$statusRaw] ?? ($row->type == 'in' ? 'bg-success' : 'bg-danger');
-
-                                        $statusText = [
-                                            'penjualan' => 'Terjual',
-                                            'pembelian' => 'Pembelian',
-                                            'opname'    => 'Opname',
-                                        ][$statusRaw] ?? str_replace('_', ' ', $statusRaw);
+                                        ];
+                                        $class = $badges[$statusRaw] ?? ($row->type == 'in' ? 'bg-success' : 'bg-danger');
+                                        $label = str_replace('_', ' ', $statusRaw);
                                     @endphp
-
-                                    <span class="badge {{ $statusClass }} text-uppercase shadow-xs" style="font-size: 0.65rem; letter-spacing: 0.5px;">
-                                        {{ $statusText }}
+                                    <span class="badge {{ $class }} text-uppercase" style="font-size: 0.65rem;">
+                                        {{ $label == 'penjualan' ? 'TERJUAL' : $label }}
                                     </span>
                                 </td>
 
                                 <td class="text-end fw-bold {{ $row->type == 'in' ? 'text-success' : 'text-danger' }}">
                                     @if($row->type == 'in')
-                                        <span class="me-1">+</span>{{ number_format($row->qty) }}
-                                        <i class="bi bi-arrow-down-left small"></i>
+                                        <span class="me-1">+{{ number_format($row->qty) }}</span><i class="fas fa-arrow-down small"></i>
                                     @else
-                                        <span class="me-1">-</span>{{ number_format($row->qty) }}
-                                        <i class="bi bi-arrow-up-right small"></i>
+                                        <span class="me-1">-{{ number_format($row->qty) }}</span><i class="fas fa-arrow-up small"></i>
                                     @endif
                                 </td>
 
                                 <td class="text-end">
-                                    <span class="fw-bold text-dark" style="font-family: 'Courier New', Courier, monospace;">
+                                    <span class="fw-bold text-dark" style="font-family: 'Monaco', 'Consolas', monospace;">
                                         {{ number_format($row->stock_after) }}
                                     </span>
                                 </td>
 
                                 <td class="ps-3">
-                                    <code class="d-block text-dark fw-bold mb-1">{{ $row->reference ?? '-' }}</code>
-                                    <div class="small text-muted" style="font-style: italic; font-size: 0.75rem;">
-                                        <i class="bi bi-info-circle me-1"></i> {{ $row->description }}
+                                    <span class="badge bg-light text-dark border fw-normal mb-1">{{ $row->reference ?? '-' }}</span>
+                                    <div class="small text-muted" style="font-size: 0.7rem;">
+                                        <i class="fas fa-info-circle me-1"></i> {{ $row->description }}
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-5">
-                                    <div class="py-4">
-                                        <i class="bi bi-box-seam text-light-emphasis display-1 d-block mb-3"></i>
-                                        <h5 class="text-muted">Data mutasi tidak ditemukan</h5>
-                                        <p class="small text-secondary">Coba ubah filter atau kata kunci pencarian Anda.</p>
-                                    </div>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="fas fa-box-open fa-3x mb-3 d-block opacity-25"></i>
+                                    Data mutasi tidak ditemukan.
                                 </td>
                             </tr>
                         @endforelse
@@ -168,19 +152,20 @@
         </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mt-3">
+    {{-- Pagination --}}
+    <div class="d-flex justify-content-between align-items-center mt-2">
         <div class="small text-muted">
-            Menampilkan {{ $data->firstItem() }} sampai {{ $data->lastItem() }} dari {{ $data->total() }} mutasi
+            Menampilkan {{ $data->firstItem() ?? 0 }} - {{ $data->lastItem() ?? 0 }} dari {{ $data->total() }} mutasi
         </div>
         <div>
-            {{ $data->appends(request()->query())->links('pagination::bootstrap-5') }}
+            {{ $data->appends(request()->query())->links() }}
         </div>
     </div>
 </div>
 
 <style>
-    .shadow-xs { box-shadow: 0 .125rem .25rem rgba(0,0,0,.075); }
-    .table th { font-size: 0.75rem; letter-spacing: 1px; }
-    .badge { font-weight: 600; padding: 0.4em 0.8em; }
+    .table th { font-weight: 700; letter-spacing: 0.5px; }
+    .badge { padding: 0.4em 0.7em; border-radius: 4px; }
+    .table-hover tbody tr:hover { background-color: rgba(0,0,0,.02); }
 </style>
 @endsection
