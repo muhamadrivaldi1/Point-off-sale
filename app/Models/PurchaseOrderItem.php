@@ -16,23 +16,22 @@ class PurchaseOrderItem extends Model
         'product_unit_id',
         'qty',
         'price',
+        'diskon_persen',  // ✅ FIX — sebelumnya tidak ada, makanya diskon tidak tersimpan
         'bonus_nama',
         'bonus_qty',
     ];
 
     protected $casts = [
-        'qty'       => 'decimal:2',
-        'price'     => 'decimal:2',
-        'bonus_qty' => 'decimal:2',
+        'qty'           => 'decimal:2',
+        'price'         => 'decimal:2',
+        'diskon_persen' => 'decimal:2',  // ✅ FIX — cast supaya konsisten
+        'bonus_qty'     => 'decimal:2',
     ];
 
     // -----------------------------------------------
     // RELASI
     // -----------------------------------------------
 
-    /**
-     * Relasi ke PurchaseOrder
-     */
     public function purchaseOrder()
     {
         return $this->belongsTo(PurchaseOrder::class);
@@ -42,18 +41,12 @@ class PurchaseOrderItem extends Model
     {
         return $this->belongsTo(PurchaseOrder::class, 'purchase_order_id');
     }
-    /**
-     * Relasi ke ProductUnit (barang yang dibeli)
-     * Akses: $item->unit->product->name
-     */
+
     public function unit()
     {
         return $this->belongsTo(ProductUnit::class, 'product_unit_id');
     }
 
-    /**
-     * Alias — akses: $item->productUnit->product->name
-     */
     public function productUnit()
     {
         return $this->belongsTo(ProductUnit::class, 'product_unit_id');

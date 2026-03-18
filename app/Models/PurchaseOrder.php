@@ -55,7 +55,7 @@ class PurchaseOrder extends Model
     {
         return $this->belongsTo(\App\Models\Supplier::class);
     }
-
+    
     // ── Scopes ────────────────────────────────────────────────
     public function scopeThisMonth($query)
     {

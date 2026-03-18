@@ -36,9 +36,11 @@ public function sales(Request $r)
     $invoice = $r->input('invoice');
     $kasir_id = $r->input('kasir_id');
     $member_id = $r->input('member_id');
+    $product    = $r->input('product');
+    $supplier   = $r->input('supplier');
 
     // 3. Bangun Query
-    $query = Transaction::with(['user', 'member'])
+    $query = Transaction::with(['user', 'member', 'items.unit.product.supplier'])
         ->whereIn('status', ['paid', 'kredit'])
         ->whereDate('created_at', '>=', $from)
         ->whereDate('created_at', '<=', $to);
@@ -53,6 +55,16 @@ public function sales(Request $r)
     if ($member_id) {
         $query->where('member_id', $member_id);
     }
+    if ($product) {
+        $query->whereHas('items.unit.product', function ($q) use ($product) {
+            $q->where('name', 'like', '%' . $product . '%');
+        });
+    }
+    if ($supplier) {
+    $query->whereHas('items.unit.product.supplier', function ($q) use ($supplier) {
+        $q->where('nama_supplier', 'like', '%' . $supplier . '%');
+    });
+}
 
     // 4. Eksekusi Data (Gunakan clone agar sum total tidak terpengaruh pagination)
     $totalOmzet = (clone $query)->sum('total');
@@ -68,13 +80,15 @@ public function sales(Request $r)
 =============================== */
 public function salesCsv(Request $r)
 {
-    $from = $r->input('from', now()->startOfMonth()->toDateString());
-    $to   = $r->input('to', now()->toDateString());
-    $invoice = $r->input('invoice');
-    $kasir_id = $r->input('kasir_id');
-    $member_id = $r->input('member_id');
+    $from       = $r->input('from', now()->startOfMonth()->toDateString());
+    $to         = $r->input('to', now()->toDateString());
+    $invoice    = $r->input('invoice');
+    $kasir_id   = $r->input('kasir_id');
+    $member_id  = $r->input('member_id');
+    $product    = $r->input('product');   // 🔥 TAMBAHAN
+    $supplier   = $r->input('supplier');  // 🔥 TAMBAHAN
 
-    $query = Transaction::with(['user', 'member', 'items.unit.product'])
+    $query = Transaction::with(['user', 'member', 'items.unit.product.supplier'])
         ->whereIn('status', ['paid', 'kredit'])
         ->whereDate('created_at', '>=', $from)
         ->whereDate('created_at', '<=', $to);
@@ -82,15 +96,31 @@ public function salesCsv(Request $r)
     if ($invoice) {
         $query->where('trx_number', 'like', '%' . $invoice . '%');
     }
+
     if ($kasir_id) {
         $query->where('user_id', $kasir_id);
     }
+
     if ($member_id) {
         $query->where('member_id', $member_id);
     }
 
+    if ($product) {
+        $query->whereHas('items.unit.product', function ($q) use ($product) {
+            $q->where('name', 'like', '%' . $product . '%');
+        });
+    }
+
+    if ($supplier) {
+        $query->whereHas('items.unit.product.supplier', function ($q) use ($supplier) {
+            $q->where('nama_supplier', 'like', '%' . $supplier . '%');
+        });
+    }
+
+    // EKSEKUSI
     $transactions = $query->orderBy('created_at', 'desc')->get();
 
+    // FILE
     $filename = 'Laporan_Penjualan_' . now()->format('d-M-Y_His') . '.csv';
     $headers  = [
         'Content-Type'        => 'text/csv; charset=UTF-8',
@@ -101,20 +131,46 @@ public function salesCsv(Request $r)
         $file = fopen('php://output', 'w');
         fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
+        // HEADER
         fputcsv($file, ['LAPORAN PENJUALAN'], ';');
         fputcsv($file, ['Periode', date('d/m/Y', strtotime($from)) . ' s/d ' . date('d/m/Y', strtotime($to))], ';');
         fputcsv($file, ['Total Transaksi', $transactions->count()], ';');
         fputcsv($file, [], ';');
 
-        fputcsv($file, ['No', 'Tanggal', 'Jam', 'Invoice', 'Kasir', 'Member', 'Subtotal', 'Diskon', 'Total', 'Bayar', 'Kembalian', 'Status', 'Jml Item'], ';');
+        fputcsv($file, [
+            'No',
+            'Tanggal',
+            'Jam',
+            'Invoice',
+            'Kasir',
+            'Member',
+            'Barang',
+            'Supplier',
+            'Subtotal',
+            'Diskon',
+            'Total',
+            'Bayar',
+            'Kembalian',
+            'Status',
+            'Jml Item'
+        ], ';');
 
         $no = 1;
         $grandTotal = 0;
         $totalDiskon = 0;
 
         foreach ($transactions as $trx) {
+
             $itemCount = $trx->items->sum('qty');
-            $subtotal = $trx->items->sum(fn($i) => $i->price * $i->qty);
+            $subtotal  = $trx->items->sum(fn($i) => $i->price * $i->qty);
+
+            $barang = $trx->items->map(function ($i) {
+                return $i->unit->product->name . ' x' . $i->qty;
+            })->implode(', ');
+
+            $supplier = $trx->items->map(function ($i) {
+                return optional($i->unit->product->supplier)->nama_supplier;
+            })->filter()->unique()->implode(', ');
 
             fputcsv($file, [
                 $no++,
@@ -123,6 +179,8 @@ public function salesCsv(Request $r)
                 $trx->trx_number ?? '-',
                 $trx->user->name ?? '-',
                 $trx->member->name ?? 'Umum',
+                $barang,
+                $supplier ?: '-',
                 $subtotal,
                 $trx->discount ?? 0,
                 $trx->total,
@@ -137,7 +195,8 @@ public function salesCsv(Request $r)
         }
 
         fputcsv($file, [], ';');
-        fputcsv($file, ['', '', '', '', '', 'TOTAL', '', $totalDiskon, $grandTotal, '', '', '', ''], ';');
+        fputcsv($file, ['', '', '', '', '', 'TOTAL', '', '', '', $totalDiskon, $grandTotal, '', '', '', ''], ';');
+
         fclose($file);
     };
 
@@ -229,83 +288,98 @@ public function salesCsv(Request $r)
     /* ===============================
        LAPORAN PENERIMAAN
     =============================== */
-    public function penerimaan(Request $request)
+public function penerimaan(Request $request)
 {
-    // Menggunakan helper yang sama agar logic filter tidak ganda
     $from = $request->input('from', now()->startOfMonth()->toDateString());
     $to   = $request->input('to', now()->toDateString());
 
-    $query = $this->getPenerimaanData($request);
-    
-    // Pagination 15 data sesuai permintaan sebelumnya
-    $data = $query->paginate(15)->withQueryString();
-    
+    $data = $this->getPenerimaanData($request)
+                 ->paginate(15)
+                 ->withQueryString();
+
     return view('reports.penerimaan', compact('from', 'to', 'data'));
 }
 
 public function penerimaanExport(Request $request)
 {
-    $from = $request->input('from', now()->startOfMonth()->toDateString());
-    $to   = $request->input('to', now()->toDateString());
-    
-    // Ambil data berdasarkan filter yang sama
-    $dataQuery = $this->getPenerimaanData($request);
-    $results = $dataQuery->get(); // Ambil semua data tanpa paginate untuk export
-
+    $from     = $request->input('from', now()->startOfMonth()->toDateString());
+    $to       = $request->input('to', now()->toDateString());
+    $keyword  = $request->input('product');
+    $results  = $this->getPenerimaanData($request)->get();
     $fileName = "Laporan_Penerimaan_" . date('Ymd_His') . ".csv";
-    
+
     $headers = [
         "Content-type"        => "text/csv",
         "Content-Disposition" => "attachment; filename=$fileName",
         "Pragma"              => "no-cache",
         "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-        "Expires"             => "0"
+        "Expires"             => "0",
     ];
 
-    $callback = function () use ($results, $from, $to) {
+    $callback = function () use ($results, $from, $to, $keyword) {
         $file = fopen('php://output', 'w');
-        
-        // Tambahkan BOM agar karakter khusus (seperti simbol Rp) terbaca di Excel
+
+        // BOM agar Excel baca karakter UTF-8 dengan benar
         fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-        // HEADER LAPORAN (Professional Style)
+        // Header laporan
         fputcsv($file, ['LAPORAN PENERIMAAN BARANG (PURCHASE ORDER)'], ';');
         fputcsv($file, ['Periode:', $from . ' s/d ' . $to], ';');
         fputcsv($file, ['Waktu Cetak:', date('d/m/Y H:i:s')], ';');
-        fputcsv($file, [], ';'); // Baris Kosong
+        fputcsv($file, [], ';');
 
-        // HEADER KOLOM
+        // Header kolom — 9 kolom
         fputcsv($file, [
-            'NO', 
-            'NOMOR PO', 
-            'TANGGAL', 
-            'SUPPLIER', 
-            'METODE PEMBAYARAN', 
-            'STATUS', 
-            'TOTAL NOMINAL'
+            'NO',
+            'NOMOR PO',
+            'TANGGAL',
+            'SUPPLIER',
+            'BARANG',
+            'QTY',
+            'METODE PEMBAYARAN',
+            'STATUS',
+            'TOTAL NOMINAL',
         ], ';');
 
-        $no = 1;
+        $no         = 1;
         $grandTotal = 0;
 
         foreach ($results as $row) {
-            $total = (float) $row->total;
+            $total       = (float) $row->total;
             $grandTotal += $total;
+
+            // Filter item sesuai keyword (sama seperti di blade)
+            $filteredItems = $keyword
+                ? $row->items->filter(function ($item) use ($keyword) {
+                    $name = $item->productUnit->product->name ?? '';
+                    return stripos($name, $keyword) !== false;
+                  })
+                : $row->items;
+
+            // (int) cast: 1.00 → 1, 10.00 → 10
+            $barang = $filteredItems->map(function ($item) {
+                $name = optional($item->productUnit->product)->name ?? '-';
+                return $name . ' x' . (int) $item->qty;
+            })->implode(', ');
+
+            $qty = (int) $filteredItems->sum('qty');
 
             fputcsv($file, [
                 $no++,
                 $row->po_number,
                 \Carbon\Carbon::parse($row->tanggal)->format('d/m/Y'),
-                $row->supplier->nama_supplier ?? '-',
+                optional($row->supplier)->nama_supplier ?? '-',
+                $barang,
+                $qty,
                 strtoupper($row->jenis_pembayaran),
                 strtoupper($row->status),
-                $total // Biarkan angka murni agar bisa di-sum di Excel
+                $total,
             ], ';');
         }
 
-        // FOOTER (Total Akhir)
+        // Grand total: 9 kolom, label kolom ke-8, nilai kolom ke-9
         fputcsv($file, [], ';');
-        fputcsv($file, ['', '', '', '', '', 'GRAND TOTAL', $grandTotal], ';');
+        fputcsv($file, ['', '', '', '', '', '', '', 'GRAND TOTAL', $grandTotal], ';');
 
         fclose($file);
     };
@@ -315,11 +389,14 @@ public function penerimaanExport(Request $request)
 
 private function getPenerimaanData(Request $request)
 {
-    $from = $request->input('from', now()->startOfMonth()->toDateString());
-    $to   = $request->input('to', now()->toDateString());
+    $from    = $request->input('from', now()->startOfMonth()->toDateString());
+    $to      = $request->input('to', now()->toDateString());
+    $product = $request->input('product');
 
-    $query = \App\Models\PurchaseOrder::with('supplier')
-        ->whereBetween('tanggal', [$from, $to]);
+    $query = \App\Models\PurchaseOrder::with([
+        'supplier',
+        'items.productUnit.product',
+    ])->whereBetween('tanggal', [$from, $to]);
 
     if ($request->filled('supplier_id') && $request->supplier_id !== 'all') {
         $query->where('supplier_id', $request->supplier_id);
@@ -327,6 +404,12 @@ private function getPenerimaanData(Request $request)
 
     if ($request->filled('status') && $request->status !== 'all') {
         $query->where('status', $request->status);
+    }
+
+    if ($product) {
+        $query->whereHas('items.productUnit.product', function ($q) use ($product) {
+            $q->where('name', 'like', '%' . $product . '%');
+        });
     }
 
     return $query->orderBy('tanggal', 'desc');

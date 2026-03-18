@@ -25,6 +25,7 @@ class ProductUnit extends Model
     {
         return $this->belongsTo(Product::class);
     }
+    
 
     /**
      * Relasi ke Stock

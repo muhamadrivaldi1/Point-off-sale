@@ -185,7 +185,6 @@ class PosController extends Controller
                 $q->whereIn('status', ['paid', 'kredit'])->orWhereHas('items');
             })
             ->latest()
-            ->take(10)
             ->get()
             ->map(function ($t) {
                 $subtotal = $t->items->sum(fn($i) => ($i->price - ($i->discount ?? 0)) * $i->qty);

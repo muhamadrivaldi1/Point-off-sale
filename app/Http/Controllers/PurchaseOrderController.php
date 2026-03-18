@@ -26,7 +26,7 @@ class PurchaseOrderController extends Controller
     private function recalculateTotal(PurchaseOrder $po): void
     {
         $po->refresh();
-        $grandTotal = $po->items->sum(fn($i) => (float)$i->qty * (float)$i->price);
+        $grandTotal = $po->items->sum(fn($i) => (float)$i->qty * (float)$i->price * (1 - ($i->diskon_persen ?? 0) / 100));
         $ppnRp = $grandTotal * ($po->ppn ?? 0) / 100;
 
         $po->update([
@@ -85,7 +85,7 @@ class PurchaseOrderController extends Controller
     public function create()
     {
         $suppliers = Supplier::orderBy('nama_supplier')->get();
-        $units = ProductUnit::with('product')->get(); 
+        $units = ProductUnit::with('product')->get();
 
         $po = PurchaseOrder::create([
             'user_id'          => Auth::id(),
@@ -111,10 +111,10 @@ class PurchaseOrderController extends Controller
             ->get()
             ->map(function ($unit) {
                 return (object) [
-                    'id' => $unit->id,
+                    'id'        => $unit->id,
                     'unit_name' => $unit->unit_name,
-                    'price' => $unit->price,
-                    'product' => (object) [
+                    'price'     => $unit->price,
+                    'product'   => (object) [
                         'name' => $unit->product->nama_produk ?? $unit->product->name ?? '-'
                     ],
                     'stok' => $unit->total_stok ?? 0
@@ -153,6 +153,9 @@ class PurchaseOrderController extends Controller
                         'product_unit_id'   => $itemData['product_id'],
                         'qty'               => $itemData['qty'],
                         'price'             => $itemData['harga_satuan'],
+                        'diskon_persen'     => $itemData['diskon_persen'] ?? 0,
+                        'bonus_nama'        => $itemData['bonus_nama'] ?? null,
+                        'bonus_qty'         => $itemData['bonus_qty'] ?? 0,
                     ]);
 
                     if ($po->status === 'received') {
@@ -171,71 +174,68 @@ class PurchaseOrderController extends Controller
     {
         $po = PurchaseOrder::findOrFail($id);
         if ($po->status !== 'draft') return back()->with('error', 'PO sudah diproses.');
-        
+
         $po->update(['status' => 'approved']);
         return back()->with('success', 'PO Approved.');
     }
 
     public function receive($id)
-{
-    DB::transaction(function () use ($id) {
-        $po = PurchaseOrder::with('items.unit.product')->findOrFail($id);
-        if ($po->status !== 'approved') throw new \Exception('PO belum approved.');
+    {
+        DB::transaction(function () use ($id) {
+            $po = PurchaseOrder::with('items.unit.product')->findOrFail($id);
+            if ($po->status !== 'approved') throw new \Exception('PO belum approved.');
 
-        $warehouseId = $this->resolveWarehouseId($po->gudang);
+            $warehouseId = $this->resolveWarehouseId($po->gudang);
 
-        foreach ($po->items as $item) {
-            // ✅ Update supplier_id di tabel products
-            if ($item->unit && $item->unit->product) {
-                $item->unit->product->update([
-                    'supplier_id' => $po->supplier_id
-                ]);
+            foreach ($po->items as $item) {
+                if ($item->unit && $item->unit->product) {
+                    $item->unit->product->update([
+                        'supplier_id' => $po->supplier_id
+                    ]);
+                }
+
+                $this->incrementStock($item->product_unit_id, $warehouseId, $item->qty);
             }
 
-            $this->incrementStock($item->product_unit_id, $warehouseId, $item->qty);
-        }
+            $po->update(['status' => 'received']);
+        });
 
-        $po->update(['status' => 'received']);
-    });
-
-    return back()->with('success', 'Barang diterima & stok bertambah.');
-}
+        return back()->with('success', 'Barang diterima & stok bertambah.');
+    }
 
     public function updateHeader(Request $request, $id)
-{
-    // 1. Validasi input
-    $request->validate([
-        'supplier_id' => 'required|exists:suppliers,id',
-        'tanggal'     => 'required|date',
-        'gudang'      => 'nullable|string',
-    ]);
+    {
+        $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'tanggal'     => 'required|date',
+            'gudang'      => 'nullable|string',
+        ]);
 
-    // 2. Cari data PO
-    $po = PurchaseOrder::findOrFail($id);
+        $po = PurchaseOrder::findOrFail($id);
 
-    // 3. Update data header
-    $po->update([
-        'supplier_id'      => $request->supplier_id,
-        'tanggal'          => $request->tanggal,
-        'gudang'           => $request->gudang,
-        'nomor_faktur'     => $request->nomor_faktur,
-        'jenis_pembayaran' => $request->jenis_pembayaran,
-        'jk_waktu'         => $request->jk_waktu ?? 0,
-        'tanggal_jatuh_tempo' => $request->tanggal_jatuh_tempo,
-        'ppn'              => $request->ppn,
-        'bulan_lapor'      => $request->bulan_lapor,
-        'jenis_transaksi'  => $request->jenis_transaksi,
-        'po_number'        => $request->po_number, 
-    ]);
+        $po->update([
+            'supplier_id'         => $request->supplier_id,
+            'tanggal'             => $request->tanggal,
+            'gudang'              => $request->gudang,
+            'nomor_faktur'        => $request->nomor_faktur,
+            'jenis_pembayaran'    => $request->jenis_pembayaran,
+            'jk_waktu'            => $request->jk_waktu ?? 0,
+            'tanggal_jatuh_tempo' => $request->tanggal_jatuh_tempo,
+            'ppn'                 => $request->ppn,
+            'bulan_lapor'         => $request->bulan_lapor,
+            'jenis_transaksi'     => $request->jenis_transaksi,
+            'po_number'           => $request->po_number,
+        ]);
 
-    // 4. Kembali ke halaman sebelumnya dengan pesan sukses
-    return redirect()->route('po.edit', $id)->with('success', 'Header transaksi berhasil disimpan.');
-}
+        return redirect()->route('po.edit', $id)->with('success', 'Header transaksi berhasil disimpan.');
+    }
 
     public function cancel($id)
     {
         $po = PurchaseOrder::findOrFail($id);
-        if ($po->status === 'received') return back()->with('error', 'Tidak bisa membatalkan PO yang sudah diterima.');
+        if ($po->status === 'received') {
+            return back()->with('error', 'Tidak bisa membatalkan PO yang sudah diterima.');
+        }
 
         $po->update(['status' => 'canceled']);
         return back()->with('success', 'PO dibatalkan.');
@@ -266,13 +266,13 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * Menghapus satu item barang dan kembali ke halaman edit
+     * Menghapus satu item barang
      */
     public function deleteItem($id)
     {
         DB::transaction(function () use ($id) {
             $item = PurchaseOrderItem::with('purchaseOrder')->findOrFail($id);
-            $po = $item->purchaseOrder;
+            $po   = $item->purchaseOrder;
 
             if ($po->status === 'received') {
                 $warehouseId = $this->resolveWarehouseId($po->gudang);
@@ -287,14 +287,17 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * Menambah satu item barang dan kembali ke halaman edit
+     * Menambah satu item barang
+     * 🔥 FIX: diskon_persen, bonus_nama, bonus_qty sekarang ikut disimpan
      */
     public function addItem(Request $request, $id)
     {
         $request->validate([
             'product_unit_id' => 'required|exists:product_units,id',
-            'qty' => 'required|numeric|min:0.01',
-            'price' => 'required|numeric|min:0',
+            'qty'             => 'required|numeric|min:0.01',
+            'price'           => 'required|numeric|min:0',
+            'diskon_persen'   => 'nullable|numeric|min:0|max:100',
+            'bonus_qty'       => 'nullable|numeric|min:0',
         ]);
 
         DB::transaction(function () use ($request, $id) {
@@ -305,6 +308,9 @@ class PurchaseOrderController extends Controller
                 'product_unit_id'   => $request->product_unit_id,
                 'qty'               => $request->qty,
                 'price'             => $request->price,
+                'diskon_persen'     => $request->diskon_persen ?? 0,   // ✅ FIX
+                'bonus_nama'        => $request->bonus_nama ?? null,    // ✅ FIX
+                'bonus_qty'         => $request->bonus_qty ?? 0,        // ✅ FIX
             ]);
 
             if ($po->status === 'received') {
