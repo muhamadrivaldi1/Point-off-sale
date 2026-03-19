@@ -16,7 +16,8 @@ class PurchaseOrderItem extends Model
         'product_unit_id',
         'qty',
         'price',
-        'diskon_persen',  // ✅ FIX — sebelumnya tidak ada, makanya diskon tidak tersimpan
+        'diskon_persen',
+        'ongkir',          // ✅ Ongkir per item
         'bonus_nama',
         'bonus_qty',
     ];
@@ -24,13 +25,10 @@ class PurchaseOrderItem extends Model
     protected $casts = [
         'qty'           => 'decimal:2',
         'price'         => 'decimal:2',
-        'diskon_persen' => 'decimal:2',  // ✅ FIX — cast supaya konsisten
+        'diskon_persen' => 'decimal:2',
+        'ongkir'        => 'decimal:2',
         'bonus_qty'     => 'decimal:2',
     ];
-
-    // -----------------------------------------------
-    // RELASI
-    // -----------------------------------------------
 
     public function purchaseOrder()
     {
