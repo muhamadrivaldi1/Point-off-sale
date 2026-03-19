@@ -156,7 +156,69 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .jr-spinner { width: 24px; height: 24px; border: 3px solid #ddd6fe; border-top-color: #6d28d9; border-radius: 50%; animation: spin .7s linear infinite; }
 #jurnalFrame { flex: 1; border: none; width: 100%; min-height: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ══ PASSWORD MODAL ══ */
+#pwdModalOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 9999; display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(3px);
+}
+#pwdModalOverlay.show { display: flex; }
+#pwdModalBox {
+    background: #fff; border-radius: 12px; padding: 24px 28px;
+    width: 340px; box-shadow: 0 8px 40px rgba(0,0,0,.25);
+    animation: popIn .18s ease;
+}
+@keyframes popIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.pwd-modal-icon  { font-size: 28px; text-align: center; margin-bottom: 6px; }
+.pwd-modal-title { font-size: 14px; font-weight: 800; color: #1f2937; text-align: center; margin-bottom: 4px; }
+.pwd-modal-sub   { font-size: 11px; color: #6b7280; text-align: center; margin-bottom: 14px; line-height: 1.5; }
+.pwd-modal-label { font-size: 11px; font-weight: 700; color: #374151; margin-bottom: 4px; display: block; }
+.pwd-modal-wrap  { position: relative; margin-bottom: 6px; }
+.pwd-modal-input {
+    width: 100%; font-size: 14px; padding: 8px 40px 8px 12px;
+    border: 2px solid #d1d5db; border-radius: 8px;
+    outline: none; transition: border-color .15s; letter-spacing: 2px;
+}
+.pwd-modal-input:focus { border-color: #6d28d9; box-shadow: 0 0 0 3px rgba(109,40,217,.15); }
+.pwd-modal-eye {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; font-size: 16px; color: #9ca3af;
+    padding: 0; line-height: 1;
+}
+.pwd-modal-eye:hover { color: #374151; }
+.pwd-modal-error { font-size: 11px; color: #dc2626; min-height: 16px; margin-bottom: 10px; text-align: center; }
+.pwd-modal-btns { display: flex; gap: 8px; }
+.pwd-modal-btns button {
+    flex: 1; padding: 9px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 700; transition: all .15s;
+}
+.pwd-btn-ok     { background: #6d28d9; color: #fff; }
+.pwd-btn-ok:hover { background: #5b21b6; }
+.pwd-btn-cancel { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.pwd-btn-cancel:hover { background: #e5e7eb; }
 </style>
+
+{{-- ══ PASSWORD MODAL (menggantikan prompt) ══ --}}
+<div id="pwdModalOverlay">
+    <div id="pwdModalBox">
+        <div class="pwd-modal-icon" id="pwdModalIcon">🔐</div>
+        <div class="pwd-modal-title" id="pwdModalTitle">Verifikasi Password Owner</div>
+        <div class="pwd-modal-sub"  id="pwdModalSub">Masukkan password owner untuk melanjutkan.</div>
+        <label class="pwd-modal-label">Password Owner</label>
+        <div class="pwd-modal-wrap">
+            <input type="password" id="pwdModalInput" class="pwd-modal-input"
+                   placeholder="Masukkan password..." autocomplete="current-password">
+            <button type="button" class="pwd-modal-eye" id="pwdModalEye"
+                    onclick="togglePwdVisibility()" title="Tampilkan/sembunyikan password">👁</button>
+        </div>
+        <div class="pwd-modal-error" id="pwdModalError"></div>
+        <div class="pwd-modal-btns">
+            <button class="pwd-btn-cancel" onclick="pwdModalCancel()">✕ Batal</button>
+            <button class="pwd-btn-ok"     onclick="pwdModalConfirm()">🔓 Konfirmasi</button>
+        </div>
+    </div>
+</div>
 
 <div class="pos-wrapper">
 
@@ -243,7 +305,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                 </div>
             </div>
 
-            {{-- ★ TRANSAKSI HARI INI — 7 KOLOM --}}
+            {{-- TRANSAKSI HARI INI --}}
             <div class="trx-today-header">
                 <span class="section-label">Transaksi Hari Ini</span>
                 @php $pendingCount = $todayTransactions->where('status','pending')->count(); @endphp
@@ -283,37 +345,20 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                             @endif
                         >
                             <td>{{ $loop->iteration }}</td>
-                            <td style="max-width:72px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; color:#333;">
-                                {{ $t->trx_number }}
-                            </td>
+                            <td style="max-width:72px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; color:#333;">{{ $t->trx_number }}</td>
                             <td style="text-align:center; color:#6c757d;">{{ $t->created_at->format('H:i') }}</td>
-
-                            {{-- Total harga --}}
-                            <td class="num-col" style="color:#333; font-weight:600;">
-                                {{ number_format($tTotal / 1000, 0) }}K
-                            </td>
-
-                            {{-- Sudah Dibayar --}}
+                            <td class="num-col" style="color:#333; font-weight:600;">{{ number_format($tTotal / 1000, 0) }}K</td>
                             <td class="num-col" style="color:#059669; font-weight:600;">
-                                @if($tPaid > 0)
-                                    {{ number_format($tPaid / 1000, 0) }}K
-                                @else
-                                    <span style="color:#ccc;">—</span>
-                                @endif
+                                @if($tPaid > 0){{ number_format($tPaid / 1000, 0) }}K
+                                @else<span style="color:#ccc;">—</span>@endif
                             </td>
-
-                            {{-- Sisa --}}
                             <td class="num-col">
                                 @if($t->status === 'paid' || $tSisa <= 0)
                                     <span style="color:#059669; font-weight:700;">✓</span>
                                 @else
-                                    <span style="color:{{ $hasPart ? '#dc2626' : '#e67e00' }}; font-weight:700;">
-                                        {{ number_format($tSisa / 1000, 0) }}K
-                                    </span>
+                                    <span style="color:{{ $hasPart ? '#dc2626' : '#e67e00' }}; font-weight:700;">{{ number_format($tSisa / 1000, 0) }}K</span>
                                 @endif
                             </td>
-
-                            {{-- Status --}}
                             <td style="text-align:center;">
                                 @if($t->status === 'paid')
                                     <span class="badge bg-success" style="font-size:8px; padding:2px 4px;">Paid</span>
@@ -412,7 +457,6 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                 @php
                     $totalTerbayar = $trx->payments ? $trx->payments->sum('amount') : ($trx->accepted ?? 0);
                     $sisaHutang    = max($trx->total - $totalTerbayar, 0);
-                    $dpPayment     = $trx->payments ? $trx->payments->where('note', 'DP / Uang Muka')->first() : null;
                 @endphp
                 <div class="kredit-readonly-summary">
                     <div class="krs-header">
@@ -440,7 +484,6 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                 <div style="margin-top:8px; text-align:center;"><button class="btn btn-outline-secondary btn-sm w-100" style="font-size:12px;" onclick="createNewTransaction()">+ Transaksi Baru</button></div>
 
                 @else
-                {{-- NORMAL PAY UI --}}
                 @php $alreadyPaid = (float)($trx->paid ?? 0); @endphp
                 @if($alreadyPaid > 0)
                 <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:5px 10px; margin-bottom:5px; font-size:12px; color:#856404;">
@@ -500,13 +543,19 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                         <div class="kredit-field" style="margin-bottom:4px;">
                             <label>📅 Estimasi Jatuh Tempo</label>
                             <input type="date" id="kreditJatuhTempo" oninput="updateJatuhTempoInfo()">
-                            <div class="jatuh-tempo-chips" id="jtChips"><span class="jt-chip" onclick="setJatuhTempo(7)">7 hari</span><span class="jt-chip" onclick="setJatuhTempo(14)">14 hari</span><span class="jt-chip active" onclick="setJatuhTempo(30)">30 hari</span><span class="jt-chip" onclick="setJatuhTempo(60)">2 bulan</span><span class="jt-chip" onclick="setJatuhTempo(90)">3 bulan</span></div>
+                            <div class="jatuh-tempo-chips" id="jtChips">
+                                <span class="jt-chip" onclick="setJatuhTempo(7)">7 hari</span>
+                                <span class="jt-chip" onclick="setJatuhTempo(14)">14 hari</span>
+                                <span class="jt-chip active" onclick="setJatuhTempo(30)">30 hari</span>
+                                <span class="jt-chip" onclick="setJatuhTempo(60)">2 bulan</span>
+                                <span class="jt-chip" onclick="setJatuhTempo(90)">3 bulan</span>
+                            </div>
                             <div class="jt-info" id="jtInfo"><span>⏳ Jatuh tempo:</span><span class="jt-date" id="jtInfoDate">—</span></div>
                         </div>
                         <div class="kredit-field" style="margin-bottom:0; margin-top:0;"><label>📝 Catatan / Keterangan</label><textarea id="kreditCatatan" placeholder="Misal: pembayaran saat gajian, transfer ke BCA 123xxx..."></textarea></div>
                     </div>
                 </div>
-                <button id="btnPay" class="btn btn-primary btn-sm w-100 mt-1" style="font-size:13px;" onclick="processPay()">💳 Simpan / Bayar</button>
+                <button id="btnPay"    class="btn btn-primary btn-sm w-100 mt-1" style="font-size:13px;" onclick="processPay()">💳 Simpan / Bayar</button>
                 <button id="btnKredit" class="btn btn-sm w-100 mt-1" style="font-size:13px; display:none; color:#fff; background:#e67e00; border:none; border-radius:6px; font-weight:700; padding:8px;" onclick="processPay()">📋 Simpan sebagai Kredit / Hutang</button>
                 @endif
             </div>
@@ -520,7 +569,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
         <div class="jr-header">
             <div><div class="jr-header-title">📒 Jurnal Umum Detail</div><div class="jr-header-sub">Data transaksi dalam format jurnal akuntansi · Halaman kasir tetap aktif</div></div>
             <div style="display:flex; gap:8px; align-items:center;">
-                <a id="jurnalNewTabBtn" href="{{ route('reports.journal') }}" target="_blank" style="background:rgba(255,255,255,.22); color:#fff; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">↗ Tab Baru</a>
+                <a id="jurnalNewTabBtn" href="{{ route('reports.journal') }}" target="_blank"
+                   style="background:rgba(255,255,255,.22); color:#fff; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">↗ Tab Baru</a>
                 <button class="jr-close-btn" onclick="closeJurnal()">✕ Tutup</button>
             </div>
         </div>
@@ -540,6 +590,63 @@ const jsonHeaders = { 'Content-Type':'application/json', 'X-CSRF-TOKEN':csrf, 'A
 let memberUnlocked = false, manualDiscountRp = 0, manualDiscountPercent = 0, memberDiscount = 0;
 let selectedPaymentMethod = 'cash', isAdding = false, isScanPending = false, selectedSearchIdx = -1;
 
+// ══════════════════════════════════════════════════════
+//  PASSWORD MODAL — menggantikan prompt() biasa
+//  Mengembalikan Promise<string|null>
+// ══════════════════════════════════════════════════════
+let _pwdResolve = null;
+
+function askPassword(title = 'Verifikasi Password Owner', sub = 'Masukkan password owner untuk melanjutkan.', icon = '🔐') {
+    return new Promise(resolve => {
+        _pwdResolve = resolve;
+        document.getElementById('pwdModalIcon').textContent  = icon;
+        document.getElementById('pwdModalTitle').textContent = title;
+        document.getElementById('pwdModalSub').textContent   = sub;
+        document.getElementById('pwdModalInput').value       = '';
+        document.getElementById('pwdModalError').textContent = '';
+        document.getElementById('pwdModalInput').type        = 'password';
+        document.getElementById('pwdModalEye').textContent   = '👁';
+        document.getElementById('pwdModalOverlay').classList.add('show');
+        setTimeout(() => document.getElementById('pwdModalInput').focus(), 80);
+    });
+}
+
+function pwdModalCancel() {
+    document.getElementById('pwdModalOverlay').classList.remove('show');
+    if (_pwdResolve) { _pwdResolve(null); _pwdResolve = null; }
+}
+
+function pwdModalConfirm() {
+    const val = document.getElementById('pwdModalInput').value;
+    if (!val.trim()) {
+        document.getElementById('pwdModalError').textContent = '⚠️ Password tidak boleh kosong.';
+        document.getElementById('pwdModalInput').focus();
+        return;
+    }
+    document.getElementById('pwdModalOverlay').classList.remove('show');
+    if (_pwdResolve) { _pwdResolve(val); _pwdResolve = null; }
+}
+
+function togglePwdVisibility() {
+    const inp = document.getElementById('pwdModalInput');
+    const eye = document.getElementById('pwdModalEye');
+    if (inp.type === 'password') { inp.type = 'text';     eye.textContent = '🙈'; }
+    else                         { inp.type = 'password'; eye.textContent = '👁'; }
+    inp.focus();
+}
+
+// Enter di input modal = konfirmasi, Escape = batal
+document.getElementById('pwdModalInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); pwdModalConfirm(); }
+    if (e.key === 'Escape') { e.preventDefault(); pwdModalCancel(); }
+});
+document.getElementById('pwdModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('pwdModalOverlay')) pwdModalCancel();
+});
+
+// ══════════════════════════════════════════════════════
+//  SEARCH & NAVIGATION
+// ══════════════════════════════════════════════════════
 function updateSearchHighlight() {
     const rows = document.querySelectorAll('#searchResult tr[data-unit-id]');
     rows.forEach((r,i) => r.classList.toggle('search-row-active', i === selectedSearchIdx));
@@ -569,13 +676,22 @@ if (!IS_READ_ONLY) {
         if (isScanPending || isAdding) return;
         const code = this.value.trim(); if (!code) { focusNext('barcode'); return; }
         isScanPending = true;
-        document.getElementById('barcode').classList.add('adding'); document.getElementById('search').classList.add('adding');
+        document.getElementById('barcode').classList.add('adding');
+        document.getElementById('search').classList.add('adding');
         const bEl = this;
         fetch('/pos/scan', {method:'POST', headers:jsonHeaders, body:JSON.stringify({code, warehouse_id:getWarehouseId()})})
             .then(r=>r.json()).then(r=>{
-                isScanPending = false; document.getElementById('barcode').classList.remove('adding'); document.getElementById('search').classList.remove('adding');
-                if (!r.success) { alert(r.message); return; } bEl.value = ''; add(r.id); bEl.focus(); highlightActive('barcode');
-            }).catch(err=>{ isScanPending=false; document.getElementById('barcode').classList.remove('adding'); document.getElementById('search').classList.remove('adding'); console.error(err); alert('Gagal scan barcode. Coba lagi.'); });
+                isScanPending = false;
+                document.getElementById('barcode').classList.remove('adding');
+                document.getElementById('search').classList.remove('adding');
+                if (!r.success) { alert(r.message); return; }
+                bEl.value = ''; add(r.id); bEl.focus(); highlightActive('barcode');
+            }).catch(err=>{
+                isScanPending=false;
+                document.getElementById('barcode').classList.remove('adding');
+                document.getElementById('search').classList.remove('adding');
+                console.error(err); alert('Gagal scan barcode. Coba lagi.');
+            });
     });
     document.getElementById('barcode').addEventListener('focus', ()=>highlightActive('barcode'));
 }
@@ -583,12 +699,18 @@ if (!IS_READ_ONLY) {
 let isFromKeyboard = false;
 if (!IS_READ_ONLY) {
     document.getElementById('search').addEventListener('keydown', function(e) {
-        const box = document.getElementById('searchBox'), rows = document.querySelectorAll('#searchResult tr[data-unit-id]'), rc = rows.length;
-        if (e.key==='ArrowDown') { e.preventDefault(); if(rc){ selectedSearchIdx=Math.min(selectedSearchIdx+1,rc-1); updateSearchHighlight(); } return; }
-        if (e.key==='ArrowUp')   { e.preventDefault(); if(rc){ selectedSearchIdx=selectedSearchIdx<=0?-1:selectedSearchIdx-1; updateSearchHighlight(); } return; }
-        if (e.key==='ArrowRight'){ e.preventDefault(); box.scrollLeft+=80; return; }
-        if (e.key==='ArrowLeft') { e.preventDefault(); box.scrollLeft-=80; return; }
-        if (e.key==='Escape') { e.preventDefault(); document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`; this.value=''; resetSearchSelection(); return; }
+        const box = document.getElementById('searchBox');
+        const rows = document.querySelectorAll('#searchResult tr[data-unit-id]');
+        const rc   = rows.length;
+        if (e.key==='ArrowDown')  { e.preventDefault(); if(rc){ selectedSearchIdx=Math.min(selectedSearchIdx+1,rc-1); updateSearchHighlight(); } return; }
+        if (e.key==='ArrowUp')    { e.preventDefault(); if(rc){ selectedSearchIdx=selectedSearchIdx<=0?-1:selectedSearchIdx-1; updateSearchHighlight(); } return; }
+        if (e.key==='ArrowRight') { e.preventDefault(); box.scrollLeft+=80; return; }
+        if (e.key==='ArrowLeft')  { e.preventDefault(); box.scrollLeft-=80; return; }
+        if (e.key==='Escape') {
+            e.preventDefault();
+            document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+            this.value=''; resetSearchSelection(); return;
+        }
         if (e.key==='Enter') {
             e.preventDefault(); if(isScanPending||isAdding) return;
             if (selectedSearchIdx>=0&&rows[selectedSearchIdx]) { isFromKeyboard=true; addFromSearch(Number(rows[selectedSearchIdx].dataset.unitId)); setTimeout(()=>{isFromKeyboard=false;},300); return; }
@@ -599,14 +721,25 @@ if (!IS_READ_ONLY) {
     document.getElementById('search').addEventListener('keyup', function(e) {
         if (['Enter','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Escape'].includes(e.key)) return;
         const q = this.value.trim();
-        if (q.length<2) { document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`; resetSearchSelection(); document.getElementById('searchBox').scrollLeft=0; return; }
+        if (q.length<2) {
+            document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+            resetSearchSelection(); document.getElementById('searchBox').scrollLeft=0; return;
+        }
         fetch(`/pos/search?q=${encodeURIComponent(q)}&warehouse_id=${getWarehouseId()}`).then(r=>r.json()).then(items=>{
             selectedSearchIdx=-1; let html='';
-            items.forEach((p,i)=>{ let sc=''; (p.stocks||[]).forEach(s=>{const col=s>0?'#155724':'#666',bg=s>0?'#d4edda':'#e9ecef'; sc+=`<td style="text-align:center;min-width:58px;"><span style="background:${bg};color:${col};padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;">${s}</span></td>`; }); html+=`<tr style="cursor:pointer;" data-unit-id="${p.id}" onclick="if(!isFromKeyboard) addFromSearch(${p.id})"><td style="width:28px;">${i+1}</td><td style="min-width:110px;">${p.barcode??'-'}</td><td style="min-width:140px;">${p.name}</td><td style="min-width:50px;">${p.unit}</td>${sc}</tr>`; });
-            const cc=4+warehouseList.length; document.getElementById('searchResult').innerHTML=html||`<tr><td colspan="${cc}" class="text-center text-muted" style="font-size:11px;padding:6px;">Tidak ada hasil untuk "<strong>${q}</strong>"</td></tr>`; document.getElementById('searchBox').scrollLeft=0; showSearchHint(items.length>0);
+            items.forEach((p,i)=>{
+                let sc=''; (p.stocks||[]).forEach(s=>{const col=s>0?'#155724':'#666',bg=s>0?'#d4edda':'#e9ecef'; sc+=`<td style="text-align:center;min-width:58px;"><span style="background:${bg};color:${col};padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;">${s}</span></td>`;});
+                html+=`<tr style="cursor:pointer;" data-unit-id="${p.id}" onclick="if(!isFromKeyboard) addFromSearch(${p.id})"><td style="width:28px;">${i+1}</td><td style="min-width:110px;">${p.barcode??'-'}</td><td style="min-width:140px;">${p.name}</td><td style="min-width:50px;">${p.unit}</td>${sc}</tr>`;
+            });
+            const cc=4+warehouseList.length;
+            document.getElementById('searchResult').innerHTML=html||`<tr><td colspan="${cc}" class="text-center text-muted" style="font-size:11px;padding:6px;">Tidak ada hasil untuk "<strong>${q}</strong>"</td></tr>`;
+            document.getElementById('searchBox').scrollLeft=0; showSearchHint(items.length>0);
         });
     });
-    document.getElementById('search').addEventListener('focus', function(){ highlightActive('search'); if(document.querySelectorAll('#searchResult tr[data-unit-id]').length>0) showSearchHint(true); });
+    document.getElementById('search').addEventListener('focus', function(){
+        highlightActive('search');
+        if(document.querySelectorAll('#searchResult tr[data-unit-id]').length>0) showSearchHint(true);
+    });
     document.getElementById('search').addEventListener('blur', ()=>setTimeout(()=>showSearchHint(false),200));
     ['member','discount_rp','discount_percent','paid'].forEach(id=>{
         const el=document.getElementById(id); if(!el) return;
@@ -620,71 +753,145 @@ window.addEventListener('load', ()=>{ if(!IS_READ_ONLY){ document.getElementById
 function createNewTransaction() { window.location.href='/pos?new_transaction=1'; }
 function openKreditReadOnly(id) { window.location.href=`/pos?trx_id=${id}`; }
 
-function unlockMember() {
-    if(IS_READ_ONLY||memberUnlocked) return;
-    const pwd=prompt("Masukkan password owner:"); if(!pwd) return;
-    fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:pwd})}).then(r=>r.json()).then(r=>{ if(!r.success){alert("Password salah");return;} memberUnlocked=true; const el=document.getElementById('member'); el.readOnly=false; el.classList.remove('locked'); el.focus(); highlightActive('member'); });
+// ── UNLOCK MEMBER (async, pakai modal) ──
+async function unlockMember() {
+    if (IS_READ_ONLY || memberUnlocked) return;
+    const pwd = await askPassword('Buka Input Member', 'Masukkan password owner untuk mengisi data member.');
+    if (!pwd) return;
+    fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:pwd})}).then(r=>r.json()).then(r=>{
+        if (!r.success) { document.getElementById('pwdModalError'); alert("❌ Password salah"); return; }
+        memberUnlocked=true;
+        const el=document.getElementById('member'); el.readOnly=false; el.classList.remove('locked'); el.focus(); highlightActive('member');
+    });
 }
-function unlockDiscountRp() {
-    if(IS_READ_ONLY) return; const el=document.getElementById('discount_rp'); if(!el.classList.contains('locked')) return;
-    const pwd=prompt("Masukkan password owner:"); if(!pwd) return;
-    fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:pwd})}).then(r=>r.json()).then(r=>{ if(!r.success){alert("Password salah");return;} el.readOnly=false; el.classList.remove('locked'); el.focus(); highlightActive('discount_rp'); });
+
+// ── UNLOCK DISKON RP ──
+async function unlockDiscountRp() {
+    if (IS_READ_ONLY) return;
+    const el=document.getElementById('discount_rp'); if(!el.classList.contains('locked')) return;
+    const pwd = await askPassword('Buka Diskon (Rp)', 'Masukkan password owner untuk memberi diskon rupiah.');
+    if (!pwd) return;
+    fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:pwd})}).then(r=>r.json()).then(r=>{
+        if (!r.success) { alert("❌ Password salah"); return; }
+        el.readOnly=false; el.classList.remove('locked'); el.focus(); highlightActive('discount_rp');
+    });
 }
-function unlockDiscountPercent() {
-    if(IS_READ_ONLY) return; const el=document.getElementById('discount_percent'); if(!el.classList.contains('locked')) return;
-    const pwd=prompt("Masukkan password owner:"); if(!pwd) return;
-    fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:pwd})}).then(r=>r.json()).then(r=>{ if(!r.success){alert("Password salah");return;} el.readOnly=false; el.classList.remove('locked'); el.focus(); highlightActive('discount_percent'); });
+
+// ── UNLOCK DISKON % ──
+async function unlockDiscountPercent() {
+    if (IS_READ_ONLY) return;
+    const el=document.getElementById('discount_percent'); if(!el.classList.contains('locked')) return;
+    const pwd = await askPassword('Buka Diskon (%)', 'Masukkan password owner untuk memberi diskon persen.');
+    if (!pwd) return;
+    fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:pwd})}).then(r=>r.json()).then(r=>{
+        if (!r.success) { alert("❌ Password salah"); return; }
+        el.readOnly=false; el.classList.remove('locked'); el.focus(); highlightActive('discount_percent');
+    });
 }
+
 if (!IS_READ_ONLY) {
-    document.getElementById('discount_rp').addEventListener('input', function(){ const v=this.value.trim(); if(v===''||Number(v)<=0){manualDiscountRp=0;this.value='';}else{manualDiscountRp=Number(v);manualDiscountPercent=0;document.getElementById('discount_percent').value='';} applyDiscountLive(); });
-    document.getElementById('discount_percent').addEventListener('input', function(){ const v=this.value.trim(); if(v===''||Number(v)<=0){manualDiscountPercent=0;this.value='';}else{manualDiscountPercent=Number(v);manualDiscountRp=0;document.getElementById('discount_rp').value='';} applyDiscountLive(); });
+    document.getElementById('discount_rp').addEventListener('input', function(){
+        const v=this.value.trim(); if(v===''||Number(v)<=0){manualDiscountRp=0;this.value='';}else{manualDiscountRp=Number(v);manualDiscountPercent=0;document.getElementById('discount_percent').value='';}
+        applyDiscountLive();
+    });
+    document.getElementById('discount_percent').addEventListener('input', function(){
+        const v=this.value.trim(); if(v===''||Number(v)<=0){manualDiscountPercent=0;this.value='';}else{manualDiscountPercent=Number(v);manualDiscountRp=0;document.getElementById('discount_rp').value='';}
+        applyDiscountLive();
+    });
 }
 
 function onMethodChange(m) {
     if(IS_READ_ONLY) return; selectedPaymentMethod=m;
-    const pC=document.getElementById('panelCash'),pK=document.getElementById('panelKredit'),pN=document.getElementById('panelNotice'),bP=document.getElementById('btnPay'),bK=document.getElementById('btnKredit'),total=Number(document.getElementById('totalText').dataset.total);
+    const pC=document.getElementById('panelCash'),pK=document.getElementById('panelKredit'),pN=document.getElementById('panelNotice'),bP=document.getElementById('btnPay'),bK=document.getElementById('btnKredit');
+    const total=Number(document.getElementById('totalText').dataset.total);
     pC.style.display=pK.style.display=pN.style.display='none'; bP.style.display=''; bK.style.display='none';
-    if(m==='kredit'){pK.style.display='';bP.style.display='none';bK.style.display=''; document.getElementById('kreditTotalBelanja').innerText='Rp '+total.toLocaleString('id-ID'); document.getElementById('kreditTotal').innerText='Rp '+total.toLocaleString('id-ID'); document.getElementById('kreditDP').value=''; document.getElementById('kreditSisaBox').style.display='none'; const mEl=document.getElementById('member'); if(mEl&&mEl.value.trim()){const kN=document.getElementById('kreditNama'); if(!kN.value) kN.value=mEl.value;}}
-    else if(m==='transfer'){pC.style.display='';pN.style.display='';pN.innerHTML='⚠️ Pastikan bukti <strong>transfer bank</strong> sudah diterima sebelum proses bayar.';document.getElementById('paid').value=total;updateKembalian();}
-    else if(m==='qris'){pC.style.display='';pN.style.display='';pN.innerHTML='📱 Pastikan notifikasi <strong>QRIS</strong> sudah diterima sebelum proses bayar.';document.getElementById('paid').value=total;updateKembalian();}
-    else {pC.style.display='';document.getElementById('paid').value='';updateKembalian();}
+    if(m==='kredit'){
+        pK.style.display='';bP.style.display='none';bK.style.display='';
+        document.getElementById('kreditTotalBelanja').innerText='Rp '+total.toLocaleString('id-ID');
+        document.getElementById('kreditTotal').innerText='Rp '+total.toLocaleString('id-ID');
+        document.getElementById('kreditDP').value=''; document.getElementById('kreditSisaBox').style.display='none';
+        const mEl=document.getElementById('member'); if(mEl&&mEl.value.trim()){const kN=document.getElementById('kreditNama');if(!kN.value)kN.value=mEl.value;}
+    } else if(m==='transfer'){
+        pC.style.display='';pN.style.display='';pN.innerHTML='⚠️ Pastikan bukti <strong>transfer bank</strong> sudah diterima sebelum proses bayar.';
+        document.getElementById('paid').value=total; updateKembalian();
+    } else if(m==='qris'){
+        pC.style.display='';pN.style.display='';pN.innerHTML='📱 Pastikan notifikasi <strong>QRIS</strong> sudah diterima sebelum proses bayar.';
+        document.getElementById('paid').value=total; updateKembalian();
+    } else {
+        pC.style.display=''; document.getElementById('paid').value=''; updateKembalian();
+    }
 }
+
 function updateKreditSisa() {
-    if(IS_READ_ONLY) return; const t=Number(document.getElementById('totalText').dataset.total),dp=parseFloat(document.getElementById('kreditDP').value)||0,s=Math.max(t-dp,0),box=document.getElementById('kreditSisaBox');
-    if(dp>0){box.style.display='';document.getElementById('kreditDPText').innerText='Rp '+dp.toLocaleString('id-ID');document.getElementById('kreditSisaText').innerText='Rp '+s.toLocaleString('id-ID');document.getElementById('kreditTotal').innerText='Rp '+s.toLocaleString('id-ID');}else{box.style.display='none';document.getElementById('kreditTotal').innerText='Rp '+t.toLocaleString('id-ID');} hitungCicilan();
+    if(IS_READ_ONLY) return;
+    const t=Number(document.getElementById('totalText').dataset.total),dp=parseFloat(document.getElementById('kreditDP').value)||0,s=Math.max(t-dp,0),box=document.getElementById('kreditSisaBox');
+    if(dp>0){box.style.display='';document.getElementById('kreditDPText').innerText='Rp '+dp.toLocaleString('id-ID');document.getElementById('kreditSisaText').innerText='Rp '+s.toLocaleString('id-ID');document.getElementById('kreditTotal').innerText='Rp '+s.toLocaleString('id-ID');}
+    else{box.style.display='none';document.getElementById('kreditTotal').innerText='Rp '+t.toLocaleString('id-ID');}
+    hitungCicilan();
 }
+
 function setJatuhTempo(days) {
-    if(IS_READ_ONLY) return; const d=new Date(); d.setDate(d.getDate()+days); const yyyy=d.getFullYear(),mm=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); document.getElementById('kreditJatuhTempo').value=`${yyyy}-${mm}-${dd}`;
-    document.querySelectorAll('.jt-chip').forEach(c=>c.classList.remove('active')); const map={7:0,14:1,30:2,60:3,90:4}; if(map[days]!==undefined) document.querySelectorAll('.jt-chip')[map[days]]?.classList.add('active'); updateJatuhTempoInfo();
+    if(IS_READ_ONLY) return;
+    const d=new Date(); d.setDate(d.getDate()+days);
+    const yyyy=d.getFullYear(),mm=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');
+    document.getElementById('kreditJatuhTempo').value=`${yyyy}-${mm}-${dd}`;
+    document.querySelectorAll('.jt-chip').forEach(c=>c.classList.remove('active'));
+    const map={7:0,14:1,30:2,60:3,90:4}; if(map[days]!==undefined) document.querySelectorAll('.jt-chip')[map[days]]?.classList.add('active');
+    updateJatuhTempoInfo();
 }
+
 function updateJatuhTempoInfo() {
-    if(IS_READ_ONLY) return; const val=document.getElementById('kreditJatuhTempo').value; if(!val) return;
-    const today=new Date();today.setHours(0,0,0,0); const due=new Date(val);due.setHours(0,0,0,0); const diff=Math.round((due-today)/(864e5)),tgl=due.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),hari=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][due.getDay()];
+    if(IS_READ_ONLY) return;
+    const val=document.getElementById('kreditJatuhTempo').value; if(!val) return;
+    const today=new Date();today.setHours(0,0,0,0);
+    const due=new Date(val);due.setHours(0,0,0,0);
+    const diff=Math.round((due-today)/(864e5)),tgl=due.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),hari=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][due.getDay()];
     document.getElementById('jtInfoDate').innerText=`${hari}, ${tgl} (${diff} hari lagi)`;
     const cd=[7,14,30,60,90],matched=cd.find(d=>{const t=new Date();t.setDate(t.getDate()+d);t.setHours(0,0,0,0);return t.getTime()===due.getTime();});
-    document.querySelectorAll('.jt-chip').forEach(c=>c.classList.remove('active')); if(matched!==undefined){const map={7:0,14:1,30:2,60:3,90:4};document.querySelectorAll('.jt-chip')[map[matched]]?.classList.add('active');} hitungCicilan();
+    document.querySelectorAll('.jt-chip').forEach(c=>c.classList.remove('active'));
+    if(matched!==undefined){const map={7:0,14:1,30:2,60:3,90:4};document.querySelectorAll('.jt-chip')[map[matched]]?.classList.add('active');}
+    hitungCicilan();
 }
-if(!IS_READ_ONLY){const kCB=document.getElementById('kreditCaraBayar');if(kCB){kCB.addEventListener('change',function(){const ic=this.value==='cicilan';document.getElementById('kreditCicilanGroup').style.display=ic?'':'none';if(ic)hitungCicilan();else document.getElementById('angsuranInfo').style.display='none';});}}
+
+if(!IS_READ_ONLY){
+    const kCB=document.getElementById('kreditCaraBayar');
+    if(kCB){kCB.addEventListener('change',function(){const ic=this.value==='cicilan';document.getElementById('kreditCicilanGroup').style.display=ic?'':'none';if(ic)hitungCicilan();else document.getElementById('angsuranInfo').style.display='none';});}
+}
+
 function hitungCicilan() {
     if(IS_READ_ONLY) return; if(document.getElementById('kreditCaraBayar').value!=='cicilan') return;
     const t=Number(document.getElementById('totalText').dataset.total),dp=parseFloat(document.getElementById('kreditDP').value)||0,s=Math.max(t-dp,0),n=parseInt(document.getElementById('kreditCicilan').value)||1,pc=Math.ceil(s/n),infoEl=document.getElementById('angsuranInfo'),jv=document.getElementById('kreditJatuhTempo').value;
     let cd=''; if(jv){const due=new Date(jv),today=new Date();today.setHours(0,0,0,0);const diff=Math.round((due-today)/864e5),intv=Math.round(diff/n),pts=[];for(let i=1;i<=Math.min(n,4);i++){const d=new Date(today);d.setDate(d.getDate()+intv*i);pts.push(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'}));}if(n>4)pts.push('...');cd=` <small style="color:#555">(${pts.join(' · ')})</small>`;}
     infoEl.innerHTML=`📆 ${n}x cicilan = <strong>Rp ${pc.toLocaleString('id-ID')}</strong>/cicilan${cd}`; infoEl.style.display='';
 }
+
 function addFromSearch(id) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;} if(isScanPending||isAdding) return;
-    add(id); document.getElementById('search').value=''; document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+    add(id);
+    document.getElementById('search').value='';
+    document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
     resetSearchSelection(); document.getElementById('searchBox').scrollLeft=0; document.getElementById('barcode').focus(); highlightActive('barcode');
 }
-function add(id, ow=null) {
+
+// ── ADD ITEM (override pakai modal) ──
+async function add(id, ow=null) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;} if(isAdding) return; isAdding=true;
     document.getElementById('barcode').classList.add('adding'); document.getElementById('search').classList.add('adding');
     fetch('/pos/add-item',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,product_unit_id:id,warehouse_id:getWarehouseId(),override_password:ow})})
-    .then(r=>r.json()).then(r=>{
+    .then(r=>r.json()).then(async r=>{
         isAdding=false; document.getElementById('barcode').classList.remove('adding'); document.getElementById('search').classList.remove('adding');
-        if(r.readonly){alert('🔒 '+r.message);return;} if(r.need_override){const p=prompt("Stok tidak cukup!\nMasukkan password owner:");if(!p)return;add(id,p);return;} if(!r.success){alert(r.message);return;} loadCart();
-    }).catch(err=>{isAdding=false;document.getElementById('barcode').classList.remove('adding');document.getElementById('search').classList.remove('adding');console.error(err);alert('Terjadi error saat menambah item. Coba lagi.');});
+        if(r.readonly){alert('🔒 '+r.message);return;}
+        if(r.need_override){
+            const p = await askPassword('Override Stok', `Stok tidak cukup!\nMasukkan password owner untuk melanjutkan.`, '⚠️');
+            if(!p) return; add(id,p); return;
+        }
+        if(!r.success){alert(r.message);return;} loadCart();
+    }).catch(err=>{
+        isAdding=false; document.getElementById('barcode').classList.remove('adding'); document.getElementById('search').classList.remove('adding');
+        console.error(err); alert('Terjadi error saat menambah item. Coba lagi.');
+    });
 }
+
 function loadCart() {
     if(IS_READ_ONLY) return;
     fetch(`/pos?trx_id=${TRX}`).then(r=>r.text()).then(html=>{
@@ -693,88 +900,188 @@ function loadCart() {
         document.querySelector('#cartBody').innerHTML=doc.querySelector('#cartBody').innerHTML;
         document.getElementById('totalText').dataset.original=orig; document.getElementById('totalText').dataset.total=orig; document.getElementById('totalText').innerText='Rp '+orig.toLocaleString('id-ID');
         const nb=doc.querySelector('#pendingBadge'); if(nb){const b=document.getElementById('pendingBadge');b.innerText=nb.innerText;b.classList.toggle('hidden',nb.classList.contains('hidden'));}
-        applyDiscountLive(); updateKembalian(); if(selectedPaymentMethod==='kredit'){const t=Number(document.getElementById('totalText').dataset.total);document.getElementById('kreditTotalBelanja').innerText='Rp '+t.toLocaleString('id-ID');updateKreditSisa();}
+        applyDiscountLive(); updateKembalian();
+        if(selectedPaymentMethod==='kredit'){const t=Number(document.getElementById('totalText').dataset.total);document.getElementById('kreditTotalBelanja').innerText='Rp '+t.toLocaleString('id-ID');updateKreditSisa();}
     });
 }
+
 function applyDiscountLive() {
     if(IS_READ_ONLY) return; const tEl=document.getElementById('totalText'); if(!tEl) return;
     const awal=Math.round(Number(tEl.dataset.original)); let akhir=awal;
-    if(manualDiscountRp>0)akhir=awal-Math.round(manualDiscountRp);else if(manualDiscountPercent>0)akhir=awal-Math.round(awal*manualDiscountPercent/100);else if(memberDiscount>0)akhir=awal-Math.round(awal*memberDiscount/100);
+    if(manualDiscountRp>0)akhir=awal-Math.round(manualDiscountRp);
+    else if(manualDiscountPercent>0)akhir=awal-Math.round(awal*manualDiscountPercent/100);
+    else if(memberDiscount>0)akhir=awal-Math.round(awal*memberDiscount/100);
     if(akhir<0)akhir=0; tEl.innerText='Rp '+akhir.toLocaleString('id-ID'); tEl.dataset.total=akhir; updateKembalian();
     if(selectedPaymentMethod==='kredit'){document.getElementById('kreditTotalBelanja').innerText='Rp '+akhir.toLocaleString('id-ID');updateKreditSisa();}
 }
+
 function plusQty(id){if(IS_READ_ONLY)return;updateQtyManual(id,getQty(id)+1);}
 function minusQty(id){if(IS_READ_ONLY)return;updateQtyManual(id,Math.max(getQty(id)-1,1));}
 function getQty(id){return Number(document.querySelector(`input[onchange="updateQtyManual(${id},this.value)"]`).value);}
-function updateQtyManual(iId,qty,ow=null) {
+
+// ── UPDATE QTY (override pakai modal) ──
+async function updateQtyManual(iId,qty,ow=null) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;}
-    fetch('/pos/update-qty-manual',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,item_id:iId,qty,warehouse_id:getWarehouseId(),override_password:ow})}).then(r=>r.json()).then(r=>{if(r.readonly){alert('🔒 '+r.message);return;}if(r.need_override){const p=prompt("Stok tidak cukup!\nMasukkan password owner:");if(!p)return;updateQtyManual(iId,qty,p);return;}loadCart();});
-}
-function updateUnit(iId,uId) {
-    if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;}
-    fetch('/pos/update-unit',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,item_id:iId,product_unit_id:uId,warehouse_id:getWarehouseId()})}).then(r=>r.json()).then(r=>{if(r.readonly){alert('🔒 '+r.message);return;}loadCart();});
-}
-function removeItemWithAuth(iId,name) {
-    if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;}
-    const p=prompt("🔐 Masukkan password owner untuk menghapus item:"); if(!p) return;
-    fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:p})}).then(r=>r.json()).then(r=>{
-        if(!r.success){alert("❌ Password salah!");return;} if(!confirm("⚠️ Hapus item:\n"+name+"\n\nYakin?")) return;
-        fetch('/pos/remove-item',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,item_id:iId})}).then(r=>r.json()).then(r=>{if(r.readonly){alert('🔒 '+r.message);return;}if(r.success)loadCart();else alert("Gagal menghapus item.");});
+    fetch('/pos/update-qty-manual',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,item_id:iId,qty,warehouse_id:getWarehouseId(),override_password:ow})})
+    .then(r=>r.json()).then(async r=>{
+        if(r.readonly){alert('🔒 '+r.message);return;}
+        if(r.need_override){
+            const p = await askPassword('Override Stok', `Stok tidak cukup!\nMasukkan password owner.`, '⚠️');
+            if(!p) return; updateQtyManual(iId,qty,p); return;
+        }
+        loadCart();
     });
 }
-if(!IS_READ_ONLY){const pEl=document.getElementById('paid');if(pEl)pEl.addEventListener('input',updateKembalian);}
-function updateKembalian() {
-    if(IS_READ_ONLY) return; const tEl=document.getElementById('totalText'),pEl=document.getElementById('paid'),cEl=document.getElementById('changeText');
-    if(!tEl||!pEl||!cEl) return; const total=Number(tEl.dataset.total),bayar=Number(pEl.value||0); cEl.innerText='Rp '+Math.max(bayar-total,0).toLocaleString('id-ID');
+
+function updateUnit(iId,uId) {
+    if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;}
+    fetch('/pos/update-unit',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,item_id:iId,product_unit_id:uId,warehouse_id:getWarehouseId()})})
+    .then(r=>r.json()).then(r=>{ if(r.readonly){alert('🔒 '+r.message);return;} loadCart(); });
 }
+
+// ── HAPUS ITEM (pakai modal) ──
+async function removeItemWithAuth(iId, name) {
+    if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;}
+    const p = await askPassword('Hapus Item', `Masukkan password owner untuk menghapus:\n"${name}"`, '🗑');
+    if (!p) return;
+    fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:p})}).then(r=>r.json()).then(r=>{
+        if(!r.success){alert("❌ Password salah!");return;}
+        if(!confirm(`⚠️ Hapus item:\n${name}\n\nYakin?`)) return;
+        fetch('/pos/remove-item',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,item_id:iId})})
+        .then(r=>r.json()).then(r=>{ if(r.readonly){alert('🔒 '+r.message);return;} if(r.success)loadCart(); else alert("Gagal menghapus item."); });
+    });
+}
+
+if(!IS_READ_ONLY){ const pEl=document.getElementById('paid'); if(pEl) pEl.addEventListener('input',updateKembalian); }
+
+function updateKembalian() {
+    if(IS_READ_ONLY) return;
+    const tEl=document.getElementById('totalText'),pEl=document.getElementById('paid'),cEl=document.getElementById('changeText');
+    if(!tEl||!pEl||!cEl) return;
+    const total=Number(tEl.dataset.total),bayar=Number(pEl.value||0);
+    cEl.innerText='Rp '+Math.max(bayar-total,0).toLocaleString('id-ID');
+}
+
 async function processPay() {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diproses ulang dari sini. Gunakan halaman detail kredit.');return;}
-    const tEl=document.getElementById('totalText'),total=Number(tEl.dataset.total),pm=selectedPaymentMethod,bayar=pm==='kredit'?0:Number(document.getElementById('paid').value||0),memberId=document.getElementById('member')?.dataset.memberId||null;
+    const tEl=document.getElementById('totalText'),total=Number(tEl.dataset.total),pm=selectedPaymentMethod;
+    const bayar=pm==='kredit'?0:Number(document.getElementById('paid').value||0);
+    const memberId=document.getElementById('member')?.dataset.memberId||null;
     if(pm!=='kredit'&&bayar<=0){alert('Masukkan jumlah bayar terlebih dahulu!');document.getElementById('paid').focus();return;}
-    if(pm==='kredit'){const jv=document.getElementById('kreditJatuhTempo').value;if(!jv){alert('Tentukan jatuh tempo terlebih dahulu!');return;}const dp=parseFloat(document.getElementById('kreditDP').value)||0;if(dp>=total){alert('DP tidak boleh sama atau melebihi total belanja. Gunakan pembayaran biasa.');return;}}
-    const kd=pm==='kredit'?{nama_peminjam:document.getElementById('kreditNama').value.trim(),telepon:document.getElementById('kreditTelp').value.trim(),cara_bayar:document.getElementById('kreditCaraBayar').value,cicilan:document.getElementById('kreditCaraBayar').value==='cicilan'?parseInt(document.getElementById('kreditCicilan').value)||1:null,jatuh_tempo:document.getElementById('kreditJatuhTempo').value,catatan:document.getElementById('kreditCatatan').value.trim(),dp:parseFloat(document.getElementById('kreditDP').value)||0,dp_method:document.getElementById('kreditDPMethod').value}:null;
+    if(pm==='kredit'){
+        const jv=document.getElementById('kreditJatuhTempo').value;
+        if(!jv){alert('Tentukan jatuh tempo terlebih dahulu!');return;}
+        const dp=parseFloat(document.getElementById('kreditDP').value)||0;
+        if(dp>=total){alert('DP tidak boleh sama atau melebihi total belanja. Gunakan pembayaran biasa.');return;}
+    }
+    const kd=pm==='kredit'?{
+        nama_peminjam : document.getElementById('kreditNama').value.trim(),
+        telepon       : document.getElementById('kreditTelp').value.trim(),
+        cara_bayar    : document.getElementById('kreditCaraBayar').value,
+        cicilan       : document.getElementById('kreditCaraBayar').value==='cicilan'?parseInt(document.getElementById('kreditCicilan').value)||1:null,
+        jatuh_tempo   : document.getElementById('kreditJatuhTempo').value,
+        catatan       : document.getElementById('kreditCatatan').value.trim(),
+        dp            : parseFloat(document.getElementById('kreditDP').value)||0,
+        dp_method     : document.getElementById('kreditDPMethod').value,
+    }:null;
     const sw=pm!=='kredit'?window.open('','_blank'):null;
     try {
         const res=await fetch('/pos/pay',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,paid:bayar,member_id:memberId,payment_method:pm,frontend_total:total,kredit_data:kd})}),r=await res.json();
         if(r.success){
             if(r.is_kredit){showKreditSuccess(r.trx_id,total,kd);return;}
-            if(r.paid_off){const lb={cash:'💵 Cash / Tunai',transfer:'🏦 Transfer Bank',qris:'📱 QRIS'};alert('✅ Transaksi lunas!\nMetode   : '+(lb[pm]||pm)+'\nKembalian: Rp '+Math.max(bayar-total,0).toLocaleString('id-ID'));if(sw)sw.location.href=`/transactions/${r.trx_id}/struk`;setTimeout(()=>{window.location.href='/pos?new_transaction=1';},500);}
-            else{const st=(r.sisa!==undefined?r.sisa:(total-bayar)).toLocaleString('id-ID');alert('💵 Pembayaran diterima!\nSudah dibayar: Rp '+r.paid_so_far.toLocaleString('id-ID')+'\nSisa         : Rp '+st);if(sw)sw.close();window.location.reload();}
-        }else{alert(r.message||'Gagal menyimpan transaksi');if(sw)sw.close();}
-    }catch(err){alert('Terjadi error: '+err.message);if(sw)sw.close();}
+            if(r.paid_off){
+                const lb={cash:'💵 Cash / Tunai',transfer:'🏦 Transfer Bank',qris:'📱 QRIS'};
+                alert('✅ Transaksi lunas!\nMetode   : '+(lb[pm]||pm)+'\nKembalian: Rp '+Math.max(bayar-total,0).toLocaleString('id-ID'));
+                if(sw)sw.location.href=`/transactions/${r.trx_id}/struk`;
+                setTimeout(()=>{window.location.href='/pos?new_transaction=1';},500);
+            } else {
+                const st=(r.sisa!==undefined?r.sisa:(total-bayar)).toLocaleString('id-ID');
+                alert('💵 Pembayaran diterima!\nSudah dibayar: Rp '+r.paid_so_far.toLocaleString('id-ID')+'\nSisa         : Rp '+st);
+                if(sw)sw.close(); window.location.reload();
+            }
+        } else { alert(r.message||'Gagal menyimpan transaksi'); if(sw)sw.close(); }
+    } catch(err) { alert('Terjadi error: '+err.message); if(sw)sw.close(); }
 }
+
 function showKreditSuccess(trxId,total,kd){
-    const pk=document.getElementById('panelKredit');let dueStr='—';if(kd&&kd.jatuh_tempo){const d=new Date(kd.jatuh_tempo);dueStr=d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+    const pk=document.getElementById('panelKredit');
+    let dueStr='—'; if(kd&&kd.jatuh_tempo){const d=new Date(kd.jatuh_tempo);dueStr=d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
     const cbl={cash:'💵 Cash',transfer:'🏦 Transfer',qris:'📱 QRIS',cicilan:'📆 Cicilan'},dp=kd?.dp||0,sisa=Math.max(total-dp,0);
-    let dpInfo='';if(dp>0){const md={cash:'💵 Cash',transfer:'🏦 Transfer',qris:'📱 QRIS'};dpInfo=`<div style="background:#d1fae5;border:1px solid #a7f3d0;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:11px;color:#065f46;">💰 DP dibayar: <strong>Rp ${dp.toLocaleString('id-ID')}</strong> (${md[kd.dp_method]||kd.dp_method})<br>📌 Sisa hutang: <strong style="color:#dc2626;">Rp ${sisa.toLocaleString('id-ID')}</strong></div>`;}
-    let ei='';if(kd&&kd.cara_bayar==='cicilan'&&kd.cicilan){const pc=Math.ceil(sisa/kd.cicilan);ei=`<div style="font-size:11px;color:#7a3b00;margin-bottom:4px;">📆 ${kd.cicilan}x cicilan = <strong>Rp ${pc.toLocaleString('id-ID')}</strong>/cicilan</div>`;}
+    let dpInfo=''; if(dp>0){const md={cash:'💵 Cash',transfer:'🏦 Transfer',qris:'📱 QRIS'};dpInfo=`<div style="background:#d1fae5;border:1px solid #a7f3d0;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:11px;color:#065f46;">💰 DP dibayar: <strong>Rp ${dp.toLocaleString('id-ID')}</strong> (${md[kd.dp_method]||kd.dp_method})<br>📌 Sisa hutang: <strong style="color:#dc2626;">Rp ${sisa.toLocaleString('id-ID')}</strong></div>`;}
+    let ei=''; if(kd&&kd.cara_bayar==='cicilan'&&kd.cicilan){const pc=Math.ceil(sisa/kd.cicilan);ei=`<div style="font-size:11px;color:#7a3b00;margin-bottom:4px;">📆 ${kd.cicilan}x cicilan = <strong>Rp ${pc.toLocaleString('id-ID')}</strong>/cicilan</div>`;}
     pk.innerHTML=`<div class="kredit-success-box"><div class="ks-icon">✅</div><div class="ks-title">Kredit Berhasil Disimpan!</div><div class="ks-trx">Transaksi #${trxId}</div><div class="ks-total">Total Belanja: <strong>Rp ${total.toLocaleString('id-ID')}</strong></div>${dpInfo}${ei}<div class="ks-due">📅 Jatuh Tempo: ${dueStr}</div>${kd?.cara_bayar?`<div style="font-size:11px;color:#888;margin-bottom:6px;">Rencana bayar: ${cbl[kd.cara_bayar]||kd.cara_bayar}</div>`:''}<div class="ks-btns"><a href="/pos/kredit/${trxId}" style="background:#e67e00;color:#fff;">📋 Detail Kredit</a><button onclick="window.location.href='/pos?new_transaction=1'" style="background:#28a745;color:#fff;">✚ Transaksi Baru</button></div></div>`;
     document.getElementById('btnKredit').style.display='none';
 }
-if(!IS_READ_ONLY){const mBox=document.getElementById('memberResult'),mEl=document.getElementById('member');if(mEl){mEl.addEventListener('keyup',function(e){if(!memberUnlocked||e.key==='Enter') return;const q=this.value;if(q.length<2){mBox.innerHTML='';return;}fetch(`/pos/search-member?q=${q}`).then(r=>r.json()).then(items=>{mBox.innerHTML='';items.forEach(m=>{mBox.innerHTML+=`<div class="p-1 border-bottom" style="cursor:pointer;font-size:12px;" onclick="selectMember(${m.id})"><strong>${m.name}</strong> — <small class="text-muted">${m.phone}</small></div>`;});});});}}
+
+if(!IS_READ_ONLY){
+    const mBox=document.getElementById('memberResult'), mEl=document.getElementById('member');
+    if(mEl){mEl.addEventListener('keyup',function(e){
+        if(!memberUnlocked||e.key==='Enter') return;
+        const q=this.value; if(q.length<2){mBox.innerHTML='';return;}
+        fetch(`/pos/search-member?q=${q}`).then(r=>r.json()).then(items=>{
+            mBox.innerHTML='';
+            items.forEach(m=>{mBox.innerHTML+=`<div class="p-1 border-bottom" style="cursor:pointer;font-size:12px;" onclick="selectMember(${m.id})"><strong>${m.name}</strong> — <small class="text-muted">${m.phone}</small></div>`;});
+        });
+    });}
+}
+
 function selectMember(id) {
     if(IS_READ_ONLY) return; manualDiscountRp=manualDiscountPercent=0;
     fetch(`/pos/get-member?id=${id}`).then(r=>r.json()).then(m=>{
         const el=document.getElementById('member'); el.value=m.name; el.dataset.memberId=m.id; document.getElementById('memberResult').innerHTML='';
         memberDiscount=Number(m.discount||0); document.getElementById('discount_rp').value=''; document.getElementById('discount_percent').value=memberDiscount>0?memberDiscount:'';
-        const dp=document.getElementById('discount_percent');dp.readOnly=false;dp.classList.remove('locked');
+        const dp=document.getElementById('discount_percent'); dp.readOnly=false; dp.classList.remove('locked');
         document.getElementById('memberInfo').innerHTML=`<strong>Nama:</strong> ${m.name} | <strong>Level:</strong> ${m.level} | <strong>Disc:</strong> ${m.discount}% | <strong>Poin:</strong> ${m.points}`;
-        const kN=document.getElementById('kreditNama');if(kN&&!kN.value)kN.value=m.name; applyDiscountLive();
-        fetch('/pos/set-member',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,member_id:m.id})}).then(()=>fetch('/pos/set-discount',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,discount:getFinalDiscount()})})).then(()=>loadCart());
+        const kN=document.getElementById('kreditNama'); if(kN&&!kN.value) kN.value=m.name;
+        applyDiscountLive();
+        fetch('/pos/set-member',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,member_id:m.id})})
+        .then(()=>fetch('/pos/set-discount',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,discount:getFinalDiscount()})}))
+        .then(()=>loadCart());
     });
 }
-function getFinalDiscount(){const tEl=document.getElementById('totalText');if(!tEl)return 0;const t=Number(tEl.dataset.original||0);if(t<=0)return 0;if(manualDiscountPercent>0)return manualDiscountPercent;if(manualDiscountRp>0)return(manualDiscountRp/t)*100;if(memberDiscount>0)return memberDiscount;return 0;}
-function openPending(id){if(!id)return;if(confirm("Lanjutkan transaksi ini?"))window.location.href=`/pos?trx_id=${id}`;}
-function openPaidTransaction(id){
-    if(!id)return;const p=prompt("🔐 Masukkan password owner untuk membuka kembali transaksi ini:");if(!p)return;
-    document.body.style.cursor='wait';
-    fetch('/pos/reopen-transaction',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:id,password:p})}).then(r=>r.json()).then(r=>{document.body.style.cursor='';if(!r.success){alert("❌ "+(r.message||"Gagal membuka transaksi"));return;}window.location.href=`/pos?trx_id=${r.trx_id}`;}).catch(err=>{document.body.style.cursor='';console.error(err);alert("Terjadi error. Coba lagi.");});
+
+function getFinalDiscount(){
+    const tEl=document.getElementById('totalText'); if(!tEl) return 0;
+    const t=Number(tEl.dataset.original||0); if(t<=0) return 0;
+    if(manualDiscountPercent>0) return manualDiscountPercent;
+    if(manualDiscountRp>0) return (manualDiscountRp/t)*100;
+    if(memberDiscount>0) return memberDiscount;
+    return 0;
 }
+
+function openPending(id){ if(!id)return; if(confirm("Lanjutkan transaksi ini?")) window.location.href=`/pos?trx_id=${id}`; }
+
+// ── BUKA TRANSAKSI PAID (pakai modal) ──
+async function openPaidTransaction(id) {
+    if(!id) return;
+    const p = await askPassword('Buka Kembali Transaksi', 'Masukkan password owner untuk membuka kembali transaksi yang sudah selesai.', '🔓');
+    if (!p) return;
+    document.body.style.cursor='wait';
+    fetch('/pos/reopen-transaction',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:id,password:p})})
+    .then(r=>r.json()).then(r=>{
+        document.body.style.cursor='';
+        if(!r.success){alert("❌ "+(r.message||"Gagal membuka transaksi"));return;}
+        window.location.href=`/pos?trx_id=${r.trx_id}`;
+    }).catch(err=>{ document.body.style.cursor=''; console.error(err); alert("Terjadi error. Coba lagi."); });
+}
+
 let jurnalLoaded=false;
-function openJurnal(){document.getElementById('jurnalOverlay').classList.add('show');const f=document.getElementById('jurnalFrame'),l=document.getElementById('jurnalLoading');if(!jurnalLoaded){l.style.display='flex';f.style.display='none';f.src=JURNAL_URL;jurnalLoaded=true;}}
-function closeJurnal(){document.getElementById('jurnalOverlay').classList.remove('show');}
-function onJurnalFrameLoad(){const f=document.getElementById('jurnalFrame'),l=document.getElementById('jurnalLoading');if(f.src&&f.src!=='about:blank'){l.style.display='none';f.style.display='';}}
-function handleJurnalOverlayClick(e){if(e.target===document.getElementById('jurnalOverlay'))closeJurnal();}
-document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(document.getElementById('jurnalOverlay').classList.contains('show')){closeJurnal();return;}});
+function openJurnal(){
+    document.getElementById('jurnalOverlay').classList.add('show');
+    const f=document.getElementById('jurnalFrame'),l=document.getElementById('jurnalLoading');
+    if(!jurnalLoaded){l.style.display='flex';f.style.display='none';f.src=JURNAL_URL;jurnalLoaded=true;}
+}
+function closeJurnal(){ document.getElementById('jurnalOverlay').classList.remove('show'); }
+function onJurnalFrameLoad(){
+    const f=document.getElementById('jurnalFrame'),l=document.getElementById('jurnalLoading');
+    if(f.src&&f.src!=='about:blank'){l.style.display='none';f.style.display='';}
+}
+function handleJurnalOverlayClick(e){ if(e.target===document.getElementById('jurnalOverlay')) closeJurnal(); }
+
+document.addEventListener('keydown', e=>{
+    if(e.key!=='Escape') return;
+    if(document.getElementById('pwdModalOverlay').classList.contains('show')) return; // modal handle sendiri
+    if(document.getElementById('jurnalOverlay').classList.contains('show')){ closeJurnal(); return; }
+});
 </script>
 @endsection
