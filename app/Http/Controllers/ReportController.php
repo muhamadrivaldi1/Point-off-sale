@@ -868,47 +868,55 @@ public function journalExport(Request $request)
     return response()->stream($callback, 200, $headers);
 }
 
-    /* ===============================
-       HELPER: Harga beli terakhir
-    =============================== */
-    private function getHargaBeli(): array
-    {
-        $latestItemIds = DB::table('purchase_order_items as poi')
-            ->join('purchase_orders as po', 'poi.purchase_order_id', '=', 'po.id')
-            ->whereIn(DB::raw('LOWER(po.status)'), ['received', 'approved', 'paid'])
-            ->select(DB::raw('MAX(poi.id) as max_id'))
-            ->groupBy('poi.product_unit_id')
-            ->pluck('max_id');
+/* ===============================
+   HELPER: Harga beli terakhir
+=============================== */
+private function getHargaBeli(): array
+{
+    // ✅ Ambil harga beli + ongkir per unit dari PO terakhir
+    $latestItemIds = DB::table('purchase_order_items as poi')
+        ->join('purchase_orders as po', 'poi.purchase_order_id', '=', 'po.id')
+        ->whereIn('po.status', ['received', 'approved', 'Received', 'Approved'])
+        ->select(DB::raw('MAX(poi.id) as max_id'))
+        ->groupBy('poi.product_unit_id')
+        ->pluck('max_id');
 
-        return DB::table('purchase_order_items')
-            ->whereIn('id', $latestItemIds)
-            ->pluck('price', 'product_unit_id')
-            ->toArray();
+    $items = DB::table('purchase_order_items')
+        ->whereIn('id', $latestItemIds)
+        ->select('product_unit_id', 'price', 'ongkir', 'qty')
+        ->get();
+
+    $result = [];
+    foreach ($items as $item) {
+        // ✅ HPP per unit = harga beli + (ongkir ÷ qty)
+        $ongkirPerUnit = ($item->qty > 0) ? ((float)($item->ongkir ?? 0) / (float)$item->qty) : 0;
+        $result[$item->product_unit_id] = (float)$item->price + $ongkirPerUnit;
     }
 
-    /* ===============================
-       LAPORAN LABA / RUGI
-    =============================== */
-    public function labaRugi(Request $request)
+    return $result;
+}
+
+/* ===============================
+   LAPORAN LABA / RUGI
+=============================== */
+public function labaRugi(Request $request)
 {
-    // 1. Inisialisasi Parameter Filter
     $from   = $request->input('from', now()->startOfMonth()->toDateString());
     $to     = $request->input('to', now()->toDateString());
-    $search = $request->input('search'); // Tambahkan pencarian produk
+    $search = $request->input('search');
 
-    // 2. Ambil Transaksi (Filter Status & Tanggal)
     $transactions = Transaction::whereIn('status', ['paid', 'kredit'])
         ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
         ->with(['items.unit.product'])
         ->get();
 
+    // ✅ Ambil harga beli dari PO
     $hargaBeli       = $this->getHargaBeli();
     $totalPenjualan  = 0;
     $totalModal      = 0;
     $penjualanProduk = [];
     $bulanData       = [];
 
-    // 3. Loop Data Transaksi
     foreach ($transactions as $trx) {
         $bulan = $trx->created_at->format('Y-m');
         if (!isset($bulanData[$bulan])) {
@@ -918,31 +926,29 @@ public function journalExport(Request $request)
         foreach ($trx->items as $item) {
             $namaProduk = $item->unit->product->name ?? 'Produk Tidak Diketahui';
 
-            // FILTER SEARCH: Jika ada input search, lewati produk yang tidak cocok
             if ($search && !str_contains(strtolower($namaProduk), strtolower($search))) {
                 continue;
             }
 
-            $hargaJual      = ($item->price - ($item->discount ?? 0)) * $item->qty;
-            $beli           = $hargaBeli[$item->product_unit_id] ?? ($item->unit->cost ?? 0);
-            $hpp            = $beli * $item->qty;
-            
-            // Akumulasi Total Keseluruhan (Hanya yang masuk filter search)
+            $hargaJual = ($item->price - ($item->discount ?? 0)) * $item->qty;
+
+            // ✅ FIX: fallback ke price item sendiri jika tidak ada di PO
+            $hargaBeliSatuan = $hargaBeli[$item->product_unit_id] ?? $item->price ?? 0;
+            $hpp             = $hargaBeliSatuan * $item->qty;
+
             $totalPenjualan += $hargaJual;
             $totalModal     += $hpp;
 
-            // Akumulasi per Bulan
             $bulanData[$bulan]['penjualan'] += $hargaJual;
             $bulanData[$bulan]['modal']     += $hpp;
 
-            // Akumulasi per Produk (Untuk Tabel Detail)
             if (!isset($penjualanProduk[$namaProduk])) {
                 $penjualanProduk[$namaProduk] = [
-                    'name'  => $namaProduk, 
-                    'qty'   => 0, 
-                    'omzet' => 0, 
-                    'hpp'   => 0, 
-                    'laba'  => 0
+                    'name'  => $namaProduk,
+                    'qty'   => 0,
+                    'omzet' => 0,
+                    'hpp'   => 0,
+                    'laba'  => 0,
                 ];
             }
             $penjualanProduk[$namaProduk]['qty']   += $item->qty;
@@ -952,47 +958,53 @@ public function journalExport(Request $request)
         }
     }
 
-    // 4. Hitung Laba per Bulan & Sorting
     foreach ($bulanData as $b => $v) {
         $bulanData[$b]['laba'] = $v['penjualan'] - $v['modal'];
     }
     ksort($bulanData);
 
-    // 5. Kalkulasi Akhir (Laba Bersih & Operasional)
-    $labaKotor             = $totalPenjualan - $totalModal;
-    // Biaya operasional disesuaikan dengan range tanggal
-    $totalBiayaOperasional = \DB::table('expenses')
-        ->whereBetween('date', [$from, $to])
-        ->sum('amount') ?? 0;
-    
-    $labaBersih            = $labaKotor - $totalBiayaOperasional;
+    $labaKotor = $totalPenjualan - $totalModal;
 
-    // Urutkan produk berdasarkan laba tertinggi
+    // ✅ FIX: Wrap expenses dalam try-catch jika tabel belum ada
+    try {
+        $totalBiayaOperasional = DB::table('expenses')
+            ->whereBetween('date', [$from, $to])
+            ->sum('amount') ?? 0;
+    } catch (\Exception $e) {
+        $totalBiayaOperasional = 0;
+    }
+
+    $labaBersih = $labaKotor - $totalBiayaOperasional;
+
     usort($penjualanProduk, fn($a, $b) => $b['laba'] <=> $a['laba']);
 
-    // 6. Statistik Tambahan
-    $marginPersen     = $totalPenjualan > 0 ? round(($labaKotor / $totalPenjualan) * 100, 1) : 0;
-    $jumlahTrx        = $transactions->count();
-    $jumlahTrxPaid    = $transactions->where('status', 'paid')->count();
-    $jumlahTrxKredit  = $transactions->where('status', 'kredit')->count();
+    $marginPersen    = $totalPenjualan > 0 ? round(($labaKotor / $totalPenjualan) * 100, 1) : 0;
+    $jumlahTrx       = $transactions->count();
+    $jumlahTrxPaid   = $transactions->where('status', 'paid')->count();
+    $jumlahTrxKredit = $transactions->where('status', 'kredit')->count();
 
-    // Hitung Piutang (Status Kredit yang belum lunas)
-    $totalPiutang = Transaction::where('status', 'kredit')
-        ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-        ->with('payments')
-        ->get()
-        ->sum(fn($t) => max($t->total - $t->payments->sum('amount'), 0));
+    // ✅ FIX: Coba relasi payments, fallback ke accepted jika tidak ada
+    try {
+        $totalPiutang = Transaction::where('status', 'kredit')
+            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+            ->with('payments')
+            ->get()
+            ->sum(fn($t) => max($t->total - $t->payments->sum('amount'), 0));
+    } catch (\Exception $e) {
+        $totalPiutang = Transaction::where('status', 'kredit')
+            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+            ->get()
+            ->sum(fn($t) => max($t->total - ($t->accepted ?? 0), 0));
+    }
 
-    // 7. Return ke View
     return view('reports.laba_rugi', compact(
-        'from', 'to', 'search', // Pastikan $search dikirim balik
+        'from', 'to', 'search',
         'totalPenjualan', 'totalModal', 'labaKotor',
         'totalBiayaOperasional', 'labaBersih', 'marginPersen',
         'penjualanProduk', 'bulanData', 'jumlahTrx',
         'jumlahTrxPaid', 'jumlahTrxKredit', 'totalPiutang'
     ));
 }
-
 
     /* ===============================
        LAPORAN NERACA

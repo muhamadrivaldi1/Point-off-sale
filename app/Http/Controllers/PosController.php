@@ -1022,7 +1022,7 @@ class PosController extends Controller
             ]);
         });
 
-        return response()->json(['success' => true]);
+       return redirect()->back()->with('success', 'Pelunasan berhasil!');
     }
 
     // ================= KREDIT: BAYAR SEBAGIAN =================
