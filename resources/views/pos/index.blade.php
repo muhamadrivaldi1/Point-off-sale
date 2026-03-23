@@ -4,51 +4,51 @@
 @php $isReadOnly = $isReadOnly ?? false; @endphp
 <style>
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: Arial, sans-serif; font-size: 13px; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: Arial, sans-serif; font-size: 17px; }
 .pos-wrapper { padding: 7px 10px; height: calc(100vh - 56px); display: flex; flex-direction: column; overflow: hidden; }
-.trx-header { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 4px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; height: 34px; flex-shrink: 0; }
+.trx-header { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 4px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; height: 38px; flex-shrink: 0; }
 .trx-header .trx-left   { display: flex; align-items: center; gap: 10px; }
 .trx-header .trx-right  { display: flex; align-items: center; gap: 6px; }
-.trx-header .trx-number { font-size: 13px; font-weight: 700; color: #0d6efd; }
-.trx-header .trx-time   { font-size: 11px; color: #6c757d; }
+.trx-header .trx-number { font-size: 15px; font-weight: 700; color: #0d6efd; }
+.trx-header .trx-time   { font-size: 13px; color: #6c757d; }
 .trx-header.readonly-header { background: linear-gradient(135deg, #fff3e0, #ffe0b2); border-color: #ffb347; }
 .trx-header.readonly-header .trx-number { color: #e67e00; }
-.readonly-badge { display: inline-flex; align-items: center; gap: 4px; background: #e67e00; color: #fff; font-size: 11px; font-weight: 700; border-radius: 20px; padding: 2px 10px; white-space: nowrap; }
+.readonly-badge { display: inline-flex; align-items: center; gap: 4px; background: #e67e00; color: #fff; font-size: 15px; font-weight: 700; border-radius: 20px; padding: 2px 10px; white-space: nowrap; }
 .readonly-banner { background: linear-gradient(135deg, #fff8e1, #fff3cd); border: 2px solid #ffc107; border-radius: 6px; padding: 6px 12px; margin-bottom: 7px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .readonly-banner-left { display: flex; align-items: center; gap: 8px; }
-.readonly-banner-icon { font-size: 18px; }
-.readonly-banner-text { font-size: 12px; color: #7a5400; }
+.readonly-banner-icon { font-size: 20px; }
+.readonly-banner-text { font-size: 15px; color: #7a5400; }
 .readonly-banner-text strong { color: #c45c00; }
-.readonly-banner-btn { display: inline-flex; align-items: center; gap: 5px; background: #e67e00; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-weight: 700; font-size: 12px; text-decoration: none; white-space: nowrap; transition: background .15s; }
+.readonly-banner-btn { display: inline-flex; align-items: center; gap: 5px; background: #e67e00; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-weight: 700; font-size: 15px; text-decoration: none; white-space: nowrap; transition: background .15s; }
 .readonly-banner-btn:hover { background: #c45c00; color: #fff; }
-.new-transaction-btn { display: flex; align-items: center; gap: 4px; background: #28a745; color: white; border: none; border-radius: 5px; padding: 4px 10px; cursor: pointer; font-weight: 600; font-size: 12px; transition: all .2s; white-space: nowrap; }
+.new-transaction-btn { display: flex; align-items: center; gap: 4px; background: #28a745; color: white; border: none; border-radius: 5px; padding: 5px 12px; cursor: pointer; font-weight: 600; font-size: 15px; transition: all .2s; white-space: nowrap; }
 .new-transaction-btn:hover { background: #218838; }
-.jurnal-btn { display: flex; align-items: center; gap: 4px; background: #6d28d9; color: white; border: none; border-radius: 5px; padding: 4px 10px; cursor: pointer; font-weight: 600; font-size: 12px; transition: all .2s; white-space: nowrap; }
+.jurnal-btn { display: flex; align-items: center; gap: 4px; background: #6d28d9; color: white; border: none; border-radius: 5px; padding: 5px 12px; cursor: pointer; font-weight: 600; font-size: 15px; transition: all .2s; white-space: nowrap; }
 .jurnal-btn:hover { background: #5b21b6; }
 .pos-container { display: flex; gap: 10px; flex: 1; overflow: hidden; min-height: 0; }
-.pos-left { flex: 0 0 285px; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; overflow: hidden; gap: 5px; }
+.pos-left { flex: 0 0 310px; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; overflow: hidden; gap: 5px; }
 .pos-right { flex: 1; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; overflow: hidden; gap: 5px; min-height: 0; }
 .pos-right.readonly-panel { background: #fffdf7; border-color: #ffe0b2; }
 .pos-box { border: 1px solid #ddd; border-radius: 5px; overflow: auto; }
-.pos-table { margin: 0; font-size: 11px; }
-.pos-table th { background: #f5f5f5; position: sticky; top: 0; z-index: 1; font-size: 10px; padding: 3px 3px; white-space: nowrap; }
-.pos-table td { vertical-align: middle; padding: 2px 3px; font-size: 10px; }
-.qty-input   { width: 48px; text-align: center; font-size: 12px; padding: 1px 3px; }
-.unit-select { width: 74px; font-size: 12px; padding: 1px 3px; }
-.big-total   { font-size: 17px; font-weight: bold; }
+.pos-table { margin: 0; font-size: 13px; }
+.pos-table th { background: #f5f5f5; position: sticky; top: 0; z-index: 1; font-size: 14px; padding: 4px 4px; white-space: nowrap; }
+.pos-table td { vertical-align: middle; padding: 3px 4px; font-size: 14px; }
+.qty-input   { width: 54px; text-align: center; font-size: 15px; padding: 2px 4px; }
+.unit-select { width: 82px; font-size: 13px; padding: 2px 4px; }
+.big-total   { font-size: 19px; font-weight: bold; }
 .locked      { background: #eee; cursor: not-allowed; }
-.member-info { font-size: 11px; color: #555; word-break: break-word; }
-.section-label { font-size: 12px; font-weight: 700; color: #333; margin: 0; flex-shrink: 0; }
+.member-info { font-size: 13px; color: #555; word-break: break-word; }
+.section-label { font-size: 13px; font-weight: 700; color: #333; margin: 0; flex-shrink: 0; }
 .input-active { border-color: #0d6efd !important; box-shadow: 0 0 0 2px rgba(13,110,253,.2) !important; background-color: #f0f6ff !important; }
-#searchBox { border: 1px solid #ddd; border-radius: 5px 5px 0 0; overflow-x: auto; overflow-y: auto; max-height: calc(29px * 4 + 28px); flex-shrink: 0; }
-#searchBox table { margin: 0; font-size: 12px; white-space: nowrap; }
-#searchBox thead th { background: #f5f5f5; position: sticky; top: 0; z-index: 2; font-size: 12px; padding: 4px 8px; border-bottom: 2px solid #ddd; white-space: nowrap; }
-#searchBox tbody td { vertical-align: middle; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
+#searchBox { border: 1px solid #ddd; border-radius: 5px 5px 0 0; overflow-x: auto; overflow-y: auto; max-height: calc(32px * 4 + 32px); flex-shrink: 0; }
+#searchBox table { margin: 0; font-size: 13px; white-space: nowrap; }
+#searchBox thead th { background: #f5f5f5; position: sticky; top: 0; z-index: 2; font-size: 15px; padding: 5px 9px; border-bottom: 2px solid #ddd; white-space: nowrap; }
+#searchBox tbody td { vertical-align: middle; padding: 4px 9px; font-size: 15px; white-space: nowrap; }
 #searchResult tr.search-row-active td { background-color: #0d6efd !important; color: #fff !important; }
 #searchResult tr.search-row-active td span { background: rgba(255,255,255,0.25) !important; color: #fff !important; }
 #searchResult tr:hover td { background-color: #e8f0fe; }
 #searchResult tr.search-row-active:hover td { background-color: #0b5ed7 !important; }
-.search-nav-hint { display: none; font-size: 10px; color: #6c757d; padding: 2px 6px; background: #f8f9fa; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; text-align: center; flex-shrink: 0; }
+.search-nav-hint { display: none; font-size: 11px; color: #6c757d; padding: 2px 6px; background: #f8f9fa; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; text-align: center; flex-shrink: 0; }
 .search-nav-hint.show { display: block; }
 #searchBox::-webkit-scrollbar        { width: 5px; height: 5px; }
 #searchBox::-webkit-scrollbar-track  { background: #f1f1f1; }
@@ -57,87 +57,87 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .cart-section.readonly-cart { border-color: #ffcc80; }
 .cart-table-header { background: #f5f5f5; border-bottom: 2px solid #ddd; flex-shrink: 0; }
 .readonly-cart .cart-table-header { background: #fff8e1; border-bottom-color: #ffcc80; }
-.cart-table-header table { margin: 0; width: 100%; table-layout: fixed; font-size: 12px; }
-.cart-table-header th    { font-weight: 600; padding: 5px 7px; }
-.cart-table-body { overflow-y: auto; max-height: calc(32px * 4); flex-shrink: 0; }
-.cart-table-body table { margin: 0; width: 100%; table-layout: fixed; font-size: 12px; }
-.cart-table-body td    { padding: 3px 6px; vertical-align: middle; }
+.cart-table-header table { margin: 0; width: 100%; table-layout: fixed; font-size: 15px; }
+.cart-table-header th    { font-weight: 600; padding: 6px 8px; }
+.cart-table-body { overflow-y: auto; max-height: calc(36px * 4); flex-shrink: 0; }
+.cart-table-body table { margin: 0; width: 100%; table-layout: fixed; font-size: 15px; }
+.cart-table-body td    { padding: 4px 7px; vertical-align: middle; }
 .cart-footer { border-top: 1px solid #ddd; padding-top: 6px; flex: 1; overflow-y: auto; min-height: 0; padding-right: 4px; }
 .cart-footer::-webkit-scrollbar        { width: 5px; }
 .cart-footer::-webkit-scrollbar-track  { background: #f1f1f1; }
 .cart-footer::-webkit-scrollbar-thumb  { background: #ccc; border-radius: 3px; }
 .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
 .trx-today-header { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
-.pending-badge { display: inline-flex; align-items: center; justify-content: center; background: #dc3545; color: #fff; font-size: 10px; font-weight: 700; border-radius: 20px; padding: 2px 7px; min-width: 20px; height: 18px; line-height: 1; animation: pulse-badge 1.5s infinite; }
+.pending-badge { display: inline-flex; align-items: center; justify-content: center; background: #dc3545; color: #fff; font-size: 13px; font-weight: 700; border-radius: 20px; padding: 2px 8px; min-width: 20px; height: 20px; line-height: 1; animation: pulse-badge 1.5s infinite; }
 .pending-badge.hidden { display: none; }
 @keyframes pulse-badge { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .8; transform: scale(1.08); } }
-.method-select { width: 100%; font-size: 12px; padding: 5px 8px; border: 1.5px solid #dee2e6; border-radius: 6px; background: #fff; cursor: pointer; transition: border-color .2s; }
+.method-select { width: 100%; font-size: 15px; padding: 6px 9px; border: 1.5px solid #dee2e6; border-radius: 6px; background: #fff; cursor: pointer; transition: border-color .2s; }
 .method-select:focus { border-color: #0d6efd; outline: none; box-shadow: 0 0 0 2px rgba(13,110,253,.15); }
-.panel-notice { background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px; padding: 6px 10px; font-size: 11px; color: #7a5400; margin-bottom: 5px; }
+.panel-notice { background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px; padding: 7px 11px; font-size: 15px; color: #7a5400; margin-bottom: 5px; }
 .kredit-readonly-summary { background: linear-gradient(135deg, #fff8f0, #fff3e0); border: 2px solid #ffcc80; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
 .krs-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed #ffcc80; }
-.krs-header-icon  { font-size: 20px; }
-.krs-header-title { font-size: 13px; font-weight: 800; color: #c45c00; }
-.krs-header-sub   { font-size: 10px; color: #a06000; margin-top: 1px; }
-.krs-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 5px; }
+.krs-header-icon  { font-size: 22px; }
+.krs-header-title { font-size: 14px; font-weight: 800; color: #c45c00; }
+.krs-header-sub   { font-size: 11px; color: #a06000; margin-top: 1px; }
+.krs-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 5px; }
 .krs-row:last-child { margin-bottom: 0; }
 .krs-label  { color: #7a3b00; font-weight: 600; }
 .krs-value  { font-weight: 700; color: #333; }
 .krs-divider { border: none; border-top: 1px dashed #ffcc80; margin: 6px 0; }
 .krs-total-row { display: flex; justify-content: space-between; align-items: center; padding-top: 6px; }
-.krs-total-label { font-size: 14px; font-weight: 800; color: #c45c00; }
-.krs-total-value { font-size: 19px; font-weight: 900; color: #e67e00; }
-.krs-sisa-row { display: flex; justify-content: space-between; align-items: center; background: #fff5f5; border: 1.5px solid #fca5a5; border-radius: 7px; padding: 6px 10px; margin-top: 6px; }
-.krs-sisa-label { font-size: 12px; font-weight: 700; color: #991b1b; }
-.krs-sisa-value { font-size: 15px; font-weight: 900; color: #dc2626; }
-.btn-detail-kredit { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; font-size: 14px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #e67e00, #c45c00); border: none; border-radius: 8px; cursor: pointer; transition: all .15s; text-decoration: none; margin-top: 4px; }
+.krs-total-label { font-size: 15px; font-weight: 800; color: #c45c00; }
+.krs-total-value { font-size: 21px; font-weight: 900; color: #e67e00; }
+.krs-sisa-row { display: flex; justify-content: space-between; align-items: center; background: #fff5f5; border: 1.5px solid #fca5a5; border-radius: 7px; padding: 7px 11px; margin-top: 6px; }
+.krs-sisa-label { font-size: 15px; font-weight: 700; color: #991b1b; }
+.krs-sisa-value { font-size: 16px; font-weight: 900; color: #dc2626; }
+.btn-detail-kredit { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 11px; font-size: 15px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #e67e00, #c45c00); border: none; border-radius: 8px; cursor: pointer; transition: all .15s; text-decoration: none; margin-top: 4px; }
 .btn-detail-kredit:hover { box-shadow: 0 4px 14px rgba(230,126,0,.35); transform: translateY(-1px); color: #fff; }
-.kredit-panel-full { background: linear-gradient(135deg, #fff8f0, #fff3e0); border: 2px solid #ffcc80; border-radius: 8px; padding: 8px 10px; margin-bottom: 5px; animation: slideDown .2s ease; }
+.kredit-panel-full { background: linear-gradient(135deg, #fff8f0, #fff3e0); border: 2px solid #ffcc80; border-radius: 8px; padding: 9px 11px; margin-bottom: 5px; animation: slideDown .2s ease; }
 @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 .kredit-header { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px dashed #ffcc80; }
-.kredit-header-icon  { font-size: 16px; }
-.kredit-header-title { font-size: 12px; font-weight: 800; color: #c45c00; }
-.kredit-header-sub   { font-size: 10px; color: #a06000; margin-top: 1px; }
-.kredit-total-banner { background: #fff; border: 1.5px solid #ffb347; border-radius: 6px; padding: 5px 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
-.kredit-total-banner .ktb-label  { font-size: 11px; color: #7a3b00; font-weight: 600; }
-.kredit-total-banner .ktb-amount { font-size: 15px; font-weight: 900; color: #e67e00; }
-.dp-box { background: #fff; border: 1.5px solid #a7f3d0; border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; }
-.dp-box-title { font-size: 10px; font-weight: 700; color: #065f46; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 5px; }
-.dp-sisa-info { display: none; margin-top: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 5px 10px; font-size: 11px; color: #166534; }
+.kredit-header-icon  { font-size: 17px; }
+.kredit-header-title { font-size: 13px; font-weight: 800; color: #c45c00; }
+.kredit-header-sub   { font-size: 11px; color: #a06000; margin-top: 1px; }
+.kredit-total-banner { background: #fff; border: 1.5px solid #ffb347; border-radius: 6px; padding: 6px 11px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+.kredit-total-banner .ktb-label  { font-size: 15px; color: #7a3b00; font-weight: 600; }
+.kredit-total-banner .ktb-amount { font-size: 16px; font-weight: 900; color: #e67e00; }
+.dp-box { background: #fff; border: 1.5px solid #a7f3d0; border-radius: 7px; padding: 9px 11px; margin-bottom: 7px; }
+.dp-box-title { font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 5px; }
+.dp-sisa-info { display: none; margin-top: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 5px 10px; font-size: 12px; color: #166534; }
 .kredit-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
 .kredit-form-grid .kfg-full { grid-column: 1 / -1; }
-.kredit-field label { font-size: 10px; font-weight: 700; color: #7a3b00; display: block; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .3px; }
-.kredit-field input, .kredit-field select, .kredit-field textarea { width: 100%; font-size: 12px; padding: 3px 7px; border: 1.5px solid #ffcc80; border-radius: 6px; background: #fffdf9; color: #333; transition: border-color .15s; outline: none; }
+.kredit-field label { font-size: 14px; font-weight: 700; color: #7a3b00; display: block; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .3px; }
+.kredit-field input, .kredit-field select, .kredit-field textarea { width: 100%; font-size: 13px; padding: 4px 8px; border: 1.5px solid #ffcc80; border-radius: 6px; background: #fffdf9; color: #333; transition: border-color .15s; outline: none; }
 .kredit-field input:focus, .kredit-field select:focus, .kredit-field textarea:focus { border-color: #e67e00; background: #fff; box-shadow: 0 0 0 2px rgba(230,126,0,.15); }
-.kredit-field textarea { resize: none; height: 38px; font-family: inherit; }
+.kredit-field textarea { resize: none; height: 40px; font-family: inherit; }
 .dp-field input, .dp-field select { border-color: #6ee7b7 !important; }
 .dp-field input:focus, .dp-field select:focus { border-color: #059669 !important; box-shadow: 0 0 0 2px rgba(5,150,105,.15) !important; }
 .jatuh-tempo-chips { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
-.jt-chip { background: #fff; border: 1.5px solid #ffcc80; border-radius: 20px; padding: 1px 7px; font-size: 10px; font-weight: 700; color: #8a4000; cursor: pointer; transition: all .12s; white-space: nowrap; }
+.jt-chip { background: #fff; border: 1.5px solid #ffcc80; border-radius: 20px; padding: 2px 9px; font-size: 11px; font-weight: 700; color: #8a4000; cursor: pointer; transition: all .12s; white-space: nowrap; }
 .jt-chip:hover  { background: #ffe0b2; border-color: #e67e00; }
 .jt-chip.active { background: #e67e00; border-color: #e67e00; color: #fff; }
-.jt-info { background: #fff8e6; border: 1px solid #ffe0b2; border-radius: 5px; padding: 3px 8px; font-size: 10px; color: #7a3b00; display: flex; justify-content: space-between; align-items: center; margin-top: 3px; }
+.jt-info { background: #fff8e6; border: 1px solid #ffe0b2; border-radius: 5px; padding: 4px 9px; font-size: 11px; color: #7a3b00; display: flex; justify-content: space-between; align-items: center; margin-top: 3px; }
 .jt-info .jt-date { font-weight: 700; color: #c45c00; }
-.angsuran-info { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 5px; padding: 3px 8px; font-size: 11px; color: #1b5e20; margin-top: 3px; display: none; }
+.angsuran-info { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 5px; padding: 3px 8px; font-size: 12px; color: #1b5e20; margin-top: 3px; display: none; }
 .kredit-success-box { background: linear-gradient(135deg, #fff8f0, #fff3e0); border: 2px solid #e67e00; border-radius: 10px; padding: 14px; text-align: center; }
-.kredit-success-box .ks-icon  { font-size: 28px; margin-bottom: 4px; }
-.kredit-success-box .ks-title { font-weight: 800; color: #e67e00; font-size: 14px; margin-bottom: 2px; }
-.kredit-success-box .ks-trx   { font-size: 11px; color: #aaa; margin-bottom: 4px; }
-.kredit-success-box .ks-total { font-size: 12px; color: #7a3b00; margin-bottom: 6px; }
-.kredit-success-box .ks-due   { font-size: 11px; background:#fff8e6; border:1px solid #ffe0b2; border-radius:5px; padding:4px 8px; color:#c45c00; margin-bottom:8px; display:inline-block; }
+.kredit-success-box .ks-icon  { font-size: 30px; margin-bottom: 4px; }
+.kredit-success-box .ks-title { font-weight: 800; color: #e67e00; font-size: 15px; margin-bottom: 2px; }
+.kredit-success-box .ks-trx   { font-size: 13%; color: #aaa; margin-bottom: 4px; }
+.kredit-success-box .ks-total { font-size: 13px; color: #7a3b00; margin-bottom: 6px; }
+.kredit-success-box .ks-due   { font-size: 13px; background:#fff8e6; border:1px solid #ffe0b2; border-radius:5px; padding:4px 8px; color:#c45c00; margin-bottom:8px; display:inline-block; }
 .kredit-success-box .ks-btns  { display: flex; gap: 6px; }
-.kredit-success-box .ks-btns a, .kredit-success-box .ks-btns button { flex: 1; font-size: 11px; padding: 7px 4px; border-radius: 7px; border: none; cursor: pointer; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; }
-.form-control-xs { font-size: 12px; padding: 3px 7px; height: 28px; }
+.kredit-success-box .ks-btns a, .kredit-success-box .ks-btns button { flex: 1; font-size: 14px; padding: 8px 4px; border-radius: 7px; border: none; cursor: pointer; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+.form-control-xs { font-size: 13px; padding: 5px 9px; height: 32px; }
 .form-control-xs:focus { outline: none; border-color: #86b7fe; box-shadow: 0 0 0 2px rgba(13,110,253,.15); }
-.alert-xs { font-size: 12px; padding: 4px 9px; margin-bottom: 0; border-radius: 4px; }
-.btn-qty  { padding: 1px 6px; font-size: 12px; line-height: 1.5; }
+.alert-xs { font-size: 13px; padding: 5px 10px; margin-bottom: 0; border-radius: 4px; }
+.btn-qty  { padding: 2px 8px; font-size: 15px; line-height: 1.5; }
 #barcode.adding, #search.adding { background-color: #fff8e1 !important; border-color: #ffc107 !important; }
 .input-readonly-mode { background: #f5f5f5 !important; cursor: not-allowed !important; color: #888 !important; pointer-events: none; }
 
 /* ── Tabel Transaksi Hari Ini ── */
 .trx-today-table { width: 100%; border-collapse: collapse; }
-.trx-today-table th { background: #f5f5f5; position: sticky; top: 0; z-index: 1; font-size: 10px; font-weight: 700; padding: 4px 3px; white-space: nowrap; color: #495057; border-bottom: 2px solid #dee2e6; }
-.trx-today-table td { font-size: 10px; padding: 3px 3px; border-bottom: 1px solid #f1f3f5; vertical-align: middle; }
+.trx-today-table th { background: #f5f5f5; position: sticky; top: 0; z-index: 1; font-size: 13px; font-weight: 700; padding: 5px 4px; white-space: nowrap; color: #495057; border-bottom: 2px solid #dee2e6; }
+.trx-today-table td { font-size: 12px; padding: 4px 4px; border-bottom: 1px solid #f1f3f5; vertical-align: middle; }
 .trx-today-table tbody tr:hover { background: #e8f4fd; cursor: pointer; }
 .trx-today-table tbody tr.active-row { background: #dbeafe; }
 .num-col { text-align: right; font-variant-numeric: tabular-nums; }
@@ -148,11 +148,11 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #jurnalPanel { width: 82vw; max-width: 1100px; background: #fff; box-shadow: -6px 0 32px rgba(0,0,0,.22); display: flex; flex-direction: column; overflow: hidden; animation: slideInRight .22s ease; }
 @keyframes slideInRight { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .jr-header { background: linear-gradient(135deg, #6d28d9, #5b21b6); color: #fff; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-.jr-header-title { font-size: 15px; font-weight: 800; }
-.jr-header-sub   { font-size: 11px; opacity: .82; margin-top: 2px; }
-.jr-close-btn { background: rgba(255,255,255,.22); border: none; color: #fff; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 16px; line-height: 1; transition: background .15s; white-space: nowrap; }
+.jr-header-title { font-size: 16px; font-weight: 800; }
+.jr-header-sub   { font-size: 14px; opacity: .82; margin-top: 2px; }
+.jr-close-btn { background: rgba(255,255,255,.22); border: none; color: #fff; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 17px; line-height: 1; transition: background .15s; white-space: nowrap; }
 .jr-close-btn:hover { background: rgba(255,255,255,.38); }
-.jr-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px; color: #6c757d; font-size: 13px; position: absolute; inset: 60px 0 0 0; background: #fff; z-index: 1; }
+.jr-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px; color: #6c757d; font-size: 14px; position: absolute; inset: 60px 0 0 0; background: #fff; z-index: 1; }
 .jr-spinner { width: 24px; height: 24px; border: 3px solid #ddd6fe; border-top-color: #6d28d9; border-radius: 50%; animation: spin .7s linear infinite; }
 #jurnalFrame { flex: 1; border: none; width: 100%; min-height: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -166,32 +166,32 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #pwdModalOverlay.show { display: flex; }
 #pwdModalBox {
     background: #fff; border-radius: 12px; padding: 24px 28px;
-    width: 340px; box-shadow: 0 8px 40px rgba(0,0,0,.25);
+    width: 360px; box-shadow: 0 8px 40px rgba(0,0,0,.25);
     animation: popIn .18s ease;
 }
 @keyframes popIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.pwd-modal-icon  { font-size: 28px; text-align: center; margin-bottom: 6px; }
-.pwd-modal-title { font-size: 14px; font-weight: 800; color: #1f2937; text-align: center; margin-bottom: 4px; }
-.pwd-modal-sub   { font-size: 11px; color: #6b7280; text-align: center; margin-bottom: 14px; line-height: 1.5; }
-.pwd-modal-label { font-size: 11px; font-weight: 700; color: #374151; margin-bottom: 4px; display: block; }
+.pwd-modal-icon  { font-size: 30px; text-align: center; margin-bottom: 6px; }
+.pwd-modal-title { font-size: 15px; font-weight: 800; color: #1f2937; text-align: center; margin-bottom: 4px; }
+.pwd-modal-sub   { font-size: 14px; color: #6b7280; text-align: center; margin-bottom: 14px; line-height: 1.5; }
+.pwd-modal-label { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 4px; display: block; }
 .pwd-modal-wrap  { position: relative; margin-bottom: 6px; }
 .pwd-modal-input {
-    width: 100%; font-size: 14px; padding: 8px 40px 8px 12px;
+    width: 100%; font-size: 15px; padding: 9px 42px 9px 13px;
     border: 2px solid #d1d5db; border-radius: 8px;
     outline: none; transition: border-color .15s; letter-spacing: 2px;
 }
 .pwd-modal-input:focus { border-color: #6d28d9; box-shadow: 0 0 0 3px rgba(109,40,217,.15); }
 .pwd-modal-eye {
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer; font-size: 16px; color: #9ca3af;
+    background: none; border: none; cursor: pointer; font-size: 17px; color: #9ca3af;
     padding: 0; line-height: 1;
 }
 .pwd-modal-eye:hover { color: #374151; }
-.pwd-modal-error { font-size: 11px; color: #dc2626; min-height: 16px; margin-bottom: 10px; text-align: center; }
+.pwd-modal-error { font-size: 12px; color: #dc2626; min-height: 16px; margin-bottom: 10px; text-align: center; }
 .pwd-modal-btns { display: flex; gap: 8px; }
 .pwd-modal-btns button {
-    flex: 1; padding: 9px; border-radius: 8px; border: none; cursor: pointer;
-    font-size: 13px; font-weight: 700; transition: all .15s;
+    flex: 1; padding: 10px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 14px; font-weight: 700; transition: all .15s;
 }
 .pwd-btn-ok     { background: #6d28d9; color: #fff; }
 .pwd-btn-ok:hover { background: #5b21b6; }
@@ -271,13 +271,13 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                             <th style="min-width:140px;">Nama</th>
                             <th style="min-width:50px;">Sat.</th>
                             @foreach($warehouses as $idx => $wh)
-                                <th style="min-width:58px; text-align:center;" title="{{ $wh->name }}">Stok {{ chr(65 + $idx) }}</th>
+                                <th style="min-width:62px; text-align:center;" title="{{ $wh->name }}">Stok {{ chr(65 + $idx) }}</th>
                             @endforeach
                         </tr>
                     </thead>
                     <tbody id="searchResult">
                         <tr>
-                            <td colspan="{{ 4 + count($warehouses) }}" class="text-center text-muted" style="font-size:11px; padding:6px;">
+                            <td colspan="{{ 4 + count($warehouses) }}" class="text-center text-muted" style="font-size:12px; padding:7px;">
                                 @if($isReadOnly)🔒 Transaksi kredit — pencarian produk dinonaktifkan
                                 @else Ketik minimal 2 karakter untuk mencari produk @endif
                             </td>
@@ -290,7 +290,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
             {{-- NAMA PEMBELI + MEMBER --}}
             <div style="flex-shrink:0;">
 
-                {{-- ③ Nama Pembeli Biasa (bebas input, tanpa password) --}}
+                {{-- ③ Nama Pembeli Biasa --}}
                 <span class="section-label">③ Nama Pembeli</span>
                 @if($isReadOnly)
                     <input type="text" class="form-control form-control-xs input-readonly-mode mt-1"
@@ -301,10 +301,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                            value="{{ old('buyer_name', $trx->buyer_name ?? '') }}">
                 @endif
 
-                {{-- ④ Member Terdaftar (kunci, butuh password) --}}
+                {{-- ④ Member Terdaftar --}}
                 <div class="mt-1" style="display:flex; align-items:center; gap:5px;">
                     <span class="section-label" style="white-space:nowrap;">④ Member</span>
-                    <span style="font-size:10px; color:#6c757d;">(klik untuk pilih member terdaftar)</span>
+                    <span style="font-size:11px; color:#6c757d;">(klik untuk pilih member terdaftar)</span>
                 </div>
                 @if($isReadOnly)
                     <input type="text" class="form-control form-control-xs input-readonly-mode mt-1"
@@ -313,7 +313,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                     <input type="text" id="member" class="form-control form-control-xs locked mt-1"
                            placeholder="🔐 Klik untuk pilih member (butuh password)" readonly onclick="unlockMember()">
                 @endif
-                <div id="memberResult" class="border mt-1" style="max-height:65px; overflow:auto;"></div>
+                <div id="memberResult" class="border mt-1" style="max-height:70px; overflow:auto;"></div>
                 <div id="memberInfo" class="mt-1 member-info">
                     @if($isReadOnly && $trx->member)
                         <strong>Nama:</strong> {{ $trx->member->name }} | <strong>Level:</strong> {{ $trx->member->level }} | <strong>Disc:</strong> {{ $trx->member->discount }}%
@@ -334,14 +334,14 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     <table class="trx-today-table">
         <thead>
             <tr>
-                <th style="width:16px;">No</th>
-                <th style="min-width:70px;">Transaksi</th>
-                <th style="min-width:80px;">Pelanggan</th> {{-- Kolom Nama --}}
-                <th style="width:30px; text-align:center;">Jam</th>
-                <th style="width:46px; text-align:right;">Total</th>
-                <th style="width:44px; text-align:right;">Dibayar</th>
-                <th style="width:44px; text-align:right;">Sisa</th>
-                <th style="width:44px; text-align:center;">Status</th>
+                <th style="width:18px;">No</th>
+                <th style="min-width:72px;">Transaksi</th>
+                <th style="min-width:82px;">Pelanggan</th>
+                <th style="width:34px; text-align:center;">Jam</th>
+                <th style="width:50px; text-align:right;">Total</th>
+                <th style="width:48px; text-align:right;">Dibayar</th>
+                <th style="width:48px; text-align:right;">Sisa</th>
+                <th style="width:48px; text-align:center;">Status</th>
             </tr>
         </thead>
         <tbody>
@@ -351,8 +351,6 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                 $tPaid   = (float)($t->paid_amount ?? $t->paid ?? 0);
                 $tSisa   = (float)($t->sisa ?? max($tTotal - $tPaid, 0));
                 $hasPart = $t->status === 'pending' && $tPaid > 0;
-                
-                // Logika Nama Pelanggan
                 $customerName = $t->member ? $t->member->name : ($t->buyer_name ?? 'Umum');
             @endphp
             <tr class="{{ $t->id == $trx->id ? 'active-row' : '' }}"
@@ -365,29 +363,21 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                 @endif
             >
                 <td>{{ $loop->iteration }}</td>
-                
-                {{-- Nomor Transaksi --}}
-                <td style="max-width:70px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; color:#333;">
+                <td style="max-width:72px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:11px; color:#333;">
                     {{ $t->trx_number }}
                 </td>
-
-                {{-- Nama Pelanggan --}}
-                <td style="max-width:80px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; font-weight:500;">
+                <td style="max-width:82px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:11px; font-weight:500;">
                     @if($t->member)
-                        <i class="fa fa-user-check text-info" style="font-size:8px;"></i> 
+                        <i class="fa fa-user-check text-info" style="font-size:9px;"></i> 
                     @endif
                     {{ $customerName }}
                 </td>
-
-                <td style="text-align:center; color:#6c757d; font-size:9px;">{{ $t->created_at->format('H:i') }}</td>
-                
+                <td style="text-align:center; color:#6c757d; font-size:11px;">{{ $t->created_at->format('H:i') }}</td>
                 <td class="num-col" style="color:#333; font-weight:600;">{{ number_format($tTotal / 1000, 0) }}K</td>
-                
                 <td class="num-col" style="color:#059669; font-weight:600;">
                     @if($tPaid > 0){{ number_format($tPaid / 1000, 0) }}K
                     @else<span style="color:#ccc;">—</span>@endif
                 </td>
-
                 <td class="num-col">
                     @if($t->status === 'paid' || $tSisa <= 0)
                         <span style="color:#059669; font-weight:700;">✓</span>
@@ -395,23 +385,22 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                         <span style="color:{{ $hasPart ? '#dc2626' : '#e67e00' }}; font-weight:700;">{{ number_format($tSisa / 1000, 0) }}K</span>
                     @endif
                 </td>
-
                 <td style="text-align:center;">
                     @if($t->status === 'paid')
-                        <span class="badge bg-success" style="font-size:8px; padding:2px 4px;">Paid</span>
+                        <span class="badge bg-success" style="font-size:9px; padding:3px 5px;">Paid</span>
                     @elseif($t->status === 'kredit')
-                        <span class="badge bg-warning text-dark" style="font-size:8px; padding:2px 4px;">Kredit</span>
+                        <span class="badge bg-warning text-dark" style="font-size:9px; padding:3px 5px;">Kredit</span>
                     @elseif($t->status === 'bayar_tagihan')
-                        <span class="badge bg-info text-dark" style="font-size:8px; padding:2px 4px;">Tagihan</span>
+                        <span class="badge bg-info text-dark" style="font-size:9px; padding:3px 5px;">Tagihan</span>
                     @elseif($hasPart)
-                        <span class="badge bg-danger" style="font-size:8px; padding:2px 4px;">Cicil</span>
+                        <span class="badge bg-danger" style="font-size:9px; padding:3px 5px;">Cicil</span>
                     @else
-                        <span class="badge bg-secondary" style="font-size:8px; padding:2px 4px;">Pending</span>
+                        <span class="badge bg-secondary" style="font-size:9px; padding:3px 5px;">Pending</span>
                     @endif
                 </td>
             </tr>
             @empty
-            <tr><td colspan="8" class="text-center text-muted py-2" style="font-size:11px;">Belum ada transaksi</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-2" style="font-size:13px;">Belum ada transaksi</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -426,10 +415,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                 <div class="cart-table-header">
                     <table class="table table-sm mb-0">
                         <colgroup>
-                            <col style="width:28px"><col>
-                            <col style="width:78px">
-                            @if(!$isReadOnly)<col style="width:125px">@endif
-                            <col style="width:95px">
+                            <col style="width:30px"><col>
+                            <col style="width:85px">
+                            @if(!$isReadOnly)<col style="width:135px">@endif
+                            <col style="width:105px">
                         </colgroup>
                         <thead>
                             <tr>
@@ -446,10 +435,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                 <div class="cart-table-body">
                     <table class="table table-bordered table-sm mb-0">
                         <colgroup>
-                            <col style="width:28px"><col>
-                            <col style="width:78px">
-                            @if(!$isReadOnly)<col style="width:125px">@endif
-                            <col style="width:95px">
+                            <col style="width:30px"><col>
+                            <col style="width:85px">
+                            @if(!$isReadOnly)<col style="width:135px">@endif
+                            <col style="width:105px">
                         </colgroup>
                         <tbody id="cartBody">
                             @php $total = 0; @endphp
@@ -457,12 +446,12 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                             @php $sub = ($i->price - ($i->discount ?? 0)) * $i->qty; $total += $sub; @endphp
                             <tr>
                                 <td>{{ $loop->iteration }}</td>
-                                <td>{{ $i->unit->product->name }}<br><small class="text-muted" style="font-size:10px;">{{ $i->unit->barcode ?? '-' }}</small></td>
+                                <td>{{ $i->unit->product->name }}<br><small class="text-muted" style="font-size:11px;">{{ $i->unit->barcode ?? '-' }}</small></td>
                                 <td>
                                     @if($isReadOnly)
-                                        <span style="font-size:11px; color:#555; font-weight:600;">{{ $i->unit->unit_name }}</span>
+                                        <span style="font-size:12px; color:#555; font-weight:600;">{{ $i->unit->unit_name }}</span>
                                     @else
-                                        <select class="form-select form-select-sm unit-select" style="font-size:11px; padding:1px 3px;" onchange="updateUnit({{ $i->id }},this.value)">
+                                        <select class="form-select form-select-sm unit-select" style="font-size:12px; padding:2px 4px;" onchange="updateUnit({{ $i->id }},this.value)">
                                             @foreach($i->unit->product->units as $u)
                                             <option value="{{ $u->id }}" {{ $u->id==$i->product_unit_id ? 'selected':'' }}>{{ $u->unit_name }}</option>
                                             @endforeach
@@ -471,7 +460,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                                 </td>
                                 <td>
                                     @if($isReadOnly)
-                                        <span style="font-size:12px; font-weight:700; color:#333; display:block; text-align:center;">{{ $i->qty }}</span>
+                                        <span style="font-size:13px; font-weight:700; color:#333; display:block; text-align:center;">{{ $i->qty }}</span>
                                     @else
                                         <div class="d-flex align-items-center gap-1">
                                             <button class="btn btn-sm btn-outline-secondary btn-qty" onclick="minusQty({{ $i->id }})">−</button>
@@ -481,7 +470,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                                         </div>
                                     @endif
                                 </td>
-                                <td class="text-end fw-semibold" style="font-size:12px;">Rp {{ number_format($sub) }}</td>
+                                <td class="text-end fw-semibold" style="font-size:13px;">Rp {{ number_format($sub) }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -518,31 +507,31 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                     @endif
                 </div>
                 <a href="{{ route('pos.kredit.show', $trx->id) }}" class="btn-detail-kredit">📋 Buka Halaman Detail &amp; Pembayaran Kredit →</a>
-                <div style="margin-top:8px; text-align:center;"><button class="btn btn-outline-secondary btn-sm w-100" style="font-size:12px;" onclick="createNewTransaction()">+ Transaksi Baru</button></div>
+                <div style="margin-top:8px; text-align:center;"><button class="btn btn-outline-secondary btn-sm w-100" style="font-size:13px;" onclick="createNewTransaction()">+ Transaksi Baru</button></div>
 
                 @else
                 @php $alreadyPaid = (float)($trx->paid ?? 0); @endphp
                 @if($alreadyPaid > 0)
-                <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:5px 10px; margin-bottom:5px; font-size:12px; color:#856404;">
+                <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:6px 11px; margin-bottom:5px; font-size:13px; color:#856404;">
                     💵 Sudah dibayar: <strong>Rp {{ number_format($alreadyPaid) }}</strong>
                     &nbsp;|&nbsp; Sisa: <strong style="color:#dc2626;">Rp {{ number_format(max($total - $alreadyPaid, 0)) }}</strong>
                 </div>
                 @endif
 
                 <div class="total-row">
-                    <span style="font-size:14px; color:#6c757d; font-weight:600;">Total</span>
+                    <span style="font-size:15px; color:#6c757d; font-weight:600;">Total</span>
                     <span class="big-total" id="totalText" data-total="{{ $total }}" data-original="{{ $total }}">Rp {{ number_format($total) }}</span>
                 </div>
                 <div class="total-row">
-                    <span style="font-size:12px;">④ Diskon (Rp):</span>
-                    <input type="number" id="discount_rp" class="form-control locked" style="width:95px; font-size:12px; padding:2px 7px; height:28px;" placeholder="Diskon (Rp)" readonly onclick="unlockDiscountRp()">
+                    <span style="font-size:13px;">④ Diskon (Rp):</span>
+                    <input type="number" id="discount_rp" class="form-control locked" style="width:105px; font-size:13px; padding:3px 8px; height:30px;" placeholder="Diskon (Rp)" readonly onclick="unlockDiscountRp()">
                 </div>
                 <div class="total-row">
-                    <span style="font-size:12px;">⑤ Diskon (%):</span>
-                    <input type="number" id="discount_percent" class="form-control locked" style="width:95px; font-size:12px; padding:2px 7px; height:28px;" placeholder="Diskon (%)" readonly onclick="unlockDiscountPercent()">
+                    <span style="font-size:13px;">⑤ Diskon (%):</span>
+                    <input type="number" id="discount_percent" class="form-control locked" style="width:105px; font-size:13px; padding:3px 8px; height:30px;" placeholder="Diskon (%)" readonly onclick="unlockDiscountPercent()">
                 </div>
                 <div style="margin-bottom:6px;">
-                    <label style="font-size:11px; font-weight:700; color:#555; display:block; margin-bottom:3px;">⑥ Metode Pembayaran</label>
+                    <label style="font-size:12px; font-weight:700; color:#555; display:block; margin-bottom:3px;">⑥ Metode Pembayaran</label>
                     <select id="paymentMethod" class="method-select" onchange="onMethodChange(this.value)">
                         <option value="cash">💵 Cash / Tunai</option>
                         <option value="transfer">🏦 Transfer Bank</option>
@@ -554,8 +543,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                 <div id="panelCash">
                     <input type="number" id="paid" class="form-control form-control-xs" placeholder="⑦ Jumlah bayar → Enter untuk bayar">
                     <div class="total-row mt-1">
-                        <span style="font-size:13px;">Kembalian:</span>
-                        <span id="changeText" class="big-total" style="color:#28a745; font-size:15px;">Rp 0</span>
+                        <span style="font-size:14px;">Kembalian:</span>
+                        <span id="changeText" class="big-total" style="color:#28a745; font-size:17px;">Rp 0</span>
                     </div>
                 </div>
                 <div id="panelKredit" style="display:none;">
@@ -592,8 +581,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
                         <div class="kredit-field" style="margin-bottom:0; margin-top:0;"><label>📝 Catatan / Keterangan</label><textarea id="kreditCatatan" placeholder="Misal: pembayaran saat gajian, transfer ke BCA 123xxx..."></textarea></div>
                     </div>
                 </div>
-                <button id="btnPay"    class="btn btn-primary btn-sm w-100 mt-1" style="font-size:13px;" onclick="processPay()">💳 Simpan / Bayar</button>
-                <button id="btnKredit" class="btn btn-sm w-100 mt-1" style="font-size:13px; display:none; color:#fff; background:#e67e00; border:none; border-radius:6px; font-weight:700; padding:8px;" onclick="processPay()">📋 Simpan sebagai Kredit / Hutang</button>
+                <button id="btnPay"    class="btn btn-primary btn-sm w-100 mt-1" style="font-size:14px;" onclick="processPay()">💳 Simpan / Bayar</button>
+                <button id="btnKredit" class="btn btn-sm w-100 mt-1" style="font-size:14px; display:none; color:#fff; background:#e67e00; border:none; border-radius:6px; font-weight:700; padding:9px;" onclick="processPay()">📋 Simpan sebagai Kredit / Hutang</button>
                 @endif
             </div>
 
@@ -607,7 +596,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
             <div><div class="jr-header-title">📒 Jurnal Umum Detail</div><div class="jr-header-sub">Data transaksi dalam format jurnal akuntansi · Halaman kasir tetap aktif</div></div>
             <div style="display:flex; gap:8px; align-items:center;">
                 <a id="jurnalNewTabBtn" href="{{ route('reports.journal') }}" target="_blank"
-                   style="background:rgba(255,255,255,.22); color:#fff; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">↗ Tab Baru</a>
+                   style="background:rgba(255,255,255,.22); color:#fff; border-radius:6px; padding:5px 12px; font-size:13px; font-weight:700; text-decoration:none; white-space:nowrap;">↗ Tab Baru</a>
                 <button class="jr-close-btn" onclick="closeJurnal()">✕ Tutup</button>
             </div>
         </div>
@@ -746,7 +735,7 @@ if (!IS_READ_ONLY) {
         if (e.key==='ArrowLeft')  { e.preventDefault(); box.scrollLeft-=80; return; }
         if (e.key==='Escape') {
             e.preventDefault();
-            document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+            document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:13px;padding:7px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
             this.value=''; resetSearchSelection(); return;
         }
         if (e.key==='Enter') {
@@ -760,17 +749,17 @@ if (!IS_READ_ONLY) {
         if (['Enter','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Escape'].includes(e.key)) return;
         const q = this.value.trim();
         if (q.length<2) {
-            document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+            document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:13px;padding:7px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
             resetSearchSelection(); document.getElementById('searchBox').scrollLeft=0; return;
         }
         fetch(`/pos/search?q=${encodeURIComponent(q)}&warehouse_id=${getWarehouseId()}`).then(r=>r.json()).then(items=>{
             selectedSearchIdx=-1; let html='';
             items.forEach((p,i)=>{
-                let sc=''; (p.stocks||[]).forEach(s=>{const col=s>0?'#155724':'#666',bg=s>0?'#d4edda':'#e9ecef'; sc+=`<td style="text-align:center;min-width:58px;"><span style="background:${bg};color:${col};padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;">${s}</span></td>`;});
+                let sc=''; (p.stocks||[]).forEach(s=>{const col=s>0?'#155724':'#666',bg=s>0?'#d4edda':'#e9ecef'; sc+=`<td style="text-align:center;min-width:62px;"><span style="background:${bg};color:${col};padding:2px 7px;border-radius:4px;font-size:12px;font-weight:600;">${s}</span></td>`;});
                 html+=`<tr style="cursor:pointer;" data-unit-id="${p.id}" onclick="if(!isFromKeyboard) addFromSearch(${p.id})"><td style="width:28px;">${i+1}</td><td style="min-width:110px;">${p.barcode??'-'}</td><td style="min-width:140px;">${p.name}</td><td style="min-width:50px;">${p.unit}</td>${sc}</tr>`;
             });
             const cc=4+warehouseList.length;
-            document.getElementById('searchResult').innerHTML=html||`<tr><td colspan="${cc}" class="text-center text-muted" style="font-size:11px;padding:6px;">Tidak ada hasil untuk "<strong>${q}</strong>"</td></tr>`;
+            document.getElementById('searchResult').innerHTML=html||`<tr><td colspan="${cc}" class="text-center text-muted" style="font-size:13px;padding:7px;">Tidak ada hasil untuk "<strong>${q}</strong>"</td></tr>`;
             document.getElementById('searchBox').scrollLeft=0; showSearchHint(items.length>0);
         });
     });
@@ -907,11 +896,11 @@ function addFromSearch(id) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;} if(isScanPending||isAdding) return;
     add(id);
     document.getElementById('search').value='';
-    document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:11px;padding:6px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
+    document.getElementById('searchResult').innerHTML=`<tr><td colspan="${4+warehouseList.length}" class="text-center text-muted" style="font-size:13px;padding:7px;">Ketik minimal 2 karakter untuk mencari produk</td></tr>`;
     resetSearchSelection(); document.getElementById('searchBox').scrollLeft=0; document.getElementById('barcode').focus(); highlightActive('barcode');
 }
 
-// ✅ FIX: ADD ITEM — simpan override password ke variabel global saat berhasil dipakai
+// ✅ FIX: ADD ITEM
 async function add(id, ow=null) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;} if(isAdding) return; isAdding=true;
     document.getElementById('barcode').classList.add('adding'); document.getElementById('search').classList.add('adding');
@@ -922,12 +911,11 @@ async function add(id, ow=null) {
         if(r.need_override){
             const p = await askPassword('Override Stok', `Stok tidak cukup!\nMasukkan password owner untuk melanjutkan.`, '⚠️');
             if(!p) return;
-            overridePasswordUsed = p; // ✅ simpan password override ke global
+            overridePasswordUsed = p;
             add(id, p);
             return;
         }
         if(!r.success){alert(r.message);return;}
-        // ✅ Jika berhasil dengan override, pastikan tersimpan
         if(ow) overridePasswordUsed = ow;
         loadCart();
     }).catch(err=>{
@@ -963,7 +951,7 @@ function plusQty(id){if(IS_READ_ONLY)return;updateQtyManual(id,getQty(id)+1);}
 function minusQty(id){if(IS_READ_ONLY)return;updateQtyManual(id,Math.max(getQty(id)-1,1));}
 function getQty(id){return Number(document.querySelector(`input[onchange="updateQtyManual(${id},this.value)"]`).value);}
 
-// ✅ FIX: UPDATE QTY — simpan override password ke variabel global saat berhasil dipakai
+// ✅ FIX: UPDATE QTY
 async function updateQtyManual(iId,qty,ow=null) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;}
     fetch('/pos/update-qty-manual',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,item_id:iId,qty,warehouse_id:getWarehouseId(),override_password:ow})})
@@ -972,11 +960,10 @@ async function updateQtyManual(iId,qty,ow=null) {
         if(r.need_override){
             const p = await askPassword('Override Stok', `Stok tidak cukup!\nMasukkan password owner.`, '⚠️');
             if(!p) return;
-            overridePasswordUsed = p; // ✅ simpan password override ke global
+            overridePasswordUsed = p;
             updateQtyManual(iId, qty, p);
             return;
         }
-        // ✅ Jika berhasil dengan override, pastikan tersimpan
         if(ow) overridePasswordUsed = ow;
         loadCart();
     });
@@ -1011,14 +998,12 @@ function updateKembalian() {
     cEl.innerText='Rp '+Math.max(bayar-total,0).toLocaleString('id-ID');
 }
 
-// ✅ FIX FINAL: processPay — handle need_override dari server + kirim override_password
-// forceOverride diisi saat retry setelah server minta password
+// ✅ FIX FINAL: processPay
 async function processPay(forceOverride = null) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diproses ulang dari sini. Gunakan halaman detail kredit.');return;}
     const tEl=document.getElementById('totalText'),total=Number(tEl.dataset.total),pm=selectedPaymentMethod;
     const bayar=pm==='kredit'?0:Number(document.getElementById('paid').value||0);
     const memberId=document.getElementById('member')?.dataset.memberId||null;
-    // ✅ TAMBAHAN: ambil nama pembeli biasa
     const buyerName=(document.getElementById('buyerName')?.value||'').trim()||null;
     if(pm!=='kredit'&&bayar<=0){alert('Masukkan jumlah bayar terlebih dahulu!');document.getElementById('paid').focus();return;}
     if(pm==='kredit'){
@@ -1038,7 +1023,6 @@ async function processPay(forceOverride = null) {
         dp_method     : document.getElementById('kreditDPMethod').value,
     }:null;
 
-    // ✅ Gunakan forceOverride (retry) atau overridePasswordUsed (dari addItem sebelumnya)
     const overrideToSend = forceOverride || overridePasswordUsed || null;
 
     const sw=pm!=='kredit'?window.open('','_blank'):null;
@@ -1050,7 +1034,7 @@ async function processPay(forceOverride = null) {
                 trx_id            : TRX,
                 paid              : bayar,
                 member_id         : memberId,
-                buyer_name        : buyerName, // ✅ TAMBAHAN: nama pembeli biasa
+                buyer_name        : buyerName,
                 payment_method    : pm,
                 frontend_total    : total,
                 kredit_data       : kd,
@@ -1071,17 +1055,16 @@ async function processPay(forceOverride = null) {
                 if(sw)sw.close(); window.location.reload();
             }
         } else {
-            // ✅ FIX UTAMA: server minta override karena stok kurang → tampilkan modal password
             if(r.need_override) {
-                if(sw) sw.close(); // tutup tab kosong dulu
+                if(sw) sw.close();
                 const p = await askPassword(
                     '⚠️ Stok Tidak Cukup — Perlu Izin Owner',
                     r.message + '\n\nMasukkan password owner untuk tetap memproses.',
                     '⚠️'
                 );
-                if(!p) return; // owner batal → tidak jadi bayar
+                if(!p) return;
                 overridePasswordUsed = p;
-                processPay(p); // ✅ retry dengan override password
+                processPay(p);
                 return;
             }
             alert(r.message||'Gagal menyimpan transaksi');
@@ -1094,9 +1077,9 @@ function showKreditSuccess(trxId,total,kd){
     const pk=document.getElementById('panelKredit');
     let dueStr='—'; if(kd&&kd.jatuh_tempo){const d=new Date(kd.jatuh_tempo);dueStr=d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
     const cbl={cash:'💵 Cash',transfer:'🏦 Transfer',qris:'📱 QRIS',cicilan:'📆 Cicilan'},dp=kd?.dp||0,sisa=Math.max(total-dp,0);
-    let dpInfo=''; if(dp>0){const md={cash:'💵 Cash',transfer:'🏦 Transfer',qris:'📱 QRIS'};dpInfo=`<div style="background:#d1fae5;border:1px solid #a7f3d0;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:11px;color:#065f46;">💰 DP dibayar: <strong>Rp ${dp.toLocaleString('id-ID')}</strong> (${md[kd.dp_method]||kd.dp_method})<br>📌 Sisa hutang: <strong style="color:#dc2626;">Rp ${sisa.toLocaleString('id-ID')}</strong></div>`;}
-    let ei=''; if(kd&&kd.cara_bayar==='cicilan'&&kd.cicilan){const pc=Math.ceil(sisa/kd.cicilan);ei=`<div style="font-size:11px;color:#7a3b00;margin-bottom:4px;">📆 ${kd.cicilan}x cicilan = <strong>Rp ${pc.toLocaleString('id-ID')}</strong>/cicilan</div>`;}
-    pk.innerHTML=`<div class="kredit-success-box"><div class="ks-icon">✅</div><div class="ks-title">Kredit Berhasil Disimpan!</div><div class="ks-trx">Transaksi #${trxId}</div><div class="ks-total">Total Belanja: <strong>Rp ${total.toLocaleString('id-ID')}</strong></div>${dpInfo}${ei}<div class="ks-due">📅 Jatuh Tempo: ${dueStr}</div>${kd?.cara_bayar?`<div style="font-size:11px;color:#888;margin-bottom:6px;">Rencana bayar: ${cbl[kd.cara_bayar]||kd.cara_bayar}</div>`:''}<div class="ks-btns"><a href="/pos/kredit/${trxId}" style="background:#e67e00;color:#fff;">📋 Detail Kredit</a><button onclick="window.location.href='/pos?new_transaction=1'" style="background:#28a745;color:#fff;">✚ Transaksi Baru</button></div></div>`;
+    let dpInfo=''; if(dp>0){const md={cash:'💵 Cash',transfer:'🏦 Transfer',qris:'📱 QRIS'};dpInfo=`<div style="background:#d1fae5;border:1px solid #a7f3d0;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:12px;color:#065f46;">💰 DP dibayar: <strong>Rp ${dp.toLocaleString('id-ID')}</strong> (${md[kd.dp_method]||kd.dp_method})<br>📌 Sisa hutang: <strong style="color:#dc2626;">Rp ${sisa.toLocaleString('id-ID')}</strong></div>`;}
+    let ei=''; if(kd&&kd.cara_bayar==='cicilan'&&kd.cicilan){const pc=Math.ceil(sisa/kd.cicilan);ei=`<div style="font-size:12px;color:#7a3b00;margin-bottom:4px;">📆 ${kd.cicilan}x cicilan = <strong>Rp ${pc.toLocaleString('id-ID')}</strong>/cicilan</div>`;}
+    pk.innerHTML=`<div class="kredit-success-box"><div class="ks-icon">✅</div><div class="ks-title">Kredit Berhasil Disimpan!</div><div class="ks-trx">Transaksi #${trxId}</div><div class="ks-total">Total Belanja: <strong>Rp ${total.toLocaleString('id-ID')}</strong></div>${dpInfo}${ei}<div class="ks-due">📅 Jatuh Tempo: ${dueStr}</div>${kd?.cara_bayar?`<div style="font-size:12px;color:#888;margin-bottom:6px;">Rencana bayar: ${cbl[kd.cara_bayar]||kd.cara_bayar}</div>`:''}<div class="ks-btns"><a href="/pos/kredit/${trxId}" style="background:#e67e00;color:#fff;">📋 Detail Kredit</a><button onclick="window.location.href='/pos?new_transaction=1'" style="background:#28a745;color:#fff;">✚ Transaksi Baru</button></div></div>`;
     document.getElementById('btnKredit').style.display='none';
 }
 
@@ -1107,7 +1090,7 @@ if(!IS_READ_ONLY){
         const q=this.value; if(q.length<2){mBox.innerHTML='';return;}
         fetch(`/pos/search-member?q=${q}`).then(r=>r.json()).then(items=>{
             mBox.innerHTML='';
-            items.forEach(m=>{mBox.innerHTML+=`<div class="p-1 border-bottom" style="cursor:pointer;font-size:12px;" onclick="selectMember(${m.id})"><strong>${m.name}</strong> — <small class="text-muted">${m.phone}</small></div>`;});
+            items.forEach(m=>{mBox.innerHTML+=`<div class="p-1 border-bottom" style="cursor:pointer;font-size:13px;" onclick="selectMember(${m.id})"><strong>${m.name}</strong> — <small class="text-muted">${m.phone}</small></div>`;});
         });
     });}
 }
@@ -1119,7 +1102,6 @@ function selectMember(id) {
         memberDiscount=Number(m.discount||0); document.getElementById('discount_rp').value=''; document.getElementById('discount_percent').value=memberDiscount>0?memberDiscount:'';
         const dp=document.getElementById('discount_percent'); dp.readOnly=false; dp.classList.remove('locked');
         document.getElementById('memberInfo').innerHTML=`<strong>Nama:</strong> ${m.name} | <strong>Level:</strong> ${m.level} | <strong>Disc:</strong> ${m.discount}% | <strong>Poin:</strong> ${m.points}`;
-        // ✅ TAMBAHAN: auto-isi nama pembeli dari member yang dipilih (bisa diubah manual)
         const bnEl=document.getElementById('buyerName'); if(bnEl&&!bnEl.value) bnEl.value=m.name;
         const kN=document.getElementById('kreditNama'); if(kN&&!kN.value) kN.value=m.name;
         applyDiscountLive();
