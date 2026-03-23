@@ -107,8 +107,11 @@ td { vertical-align: top; }
         Tgl : {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}<br>
         Kasir: {{ $trx->user->name ?? auth()->user()->name }}<br>
 
+        {{-- ✅ FIX: Tampilkan member ATAU nama pembeli biasa --}}
         @if($trx->member)
-            Member: {{ $trx->member->name }}<br>
+            Member : {{ $trx->member->name }}<br>
+        @elseif(!empty($trx->buyer_name))
+            Pembeli: {{ $trx->buyer_name }}<br>
         @endif
 
         Bayar : <strong>{{ strtoupper($metodeLable) }}</strong><br>

@@ -21,6 +21,7 @@ class Transaction extends Model
         'notes',
         'status',
         'account_id',
+        'buyer_name',
     ];
 
     protected $casts = [

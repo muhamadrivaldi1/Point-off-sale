@@ -8,13 +8,13 @@
 {{-- ================= FILTER ================= --}}
 <form method="GET" class="row g-2 mb-3">
     <div class="col-md-4">
-        <input type="text" name="q" class="form-control"
-               placeholder="Cari Invoice..."
+        <input type="text" name="q" class="form-control" 
+               placeholder="Cari Invoice..." 
                value="{{ request('q') }}">
     </div>
 
     <div class="col-md-3">
-        <input type="date" name="date" class="form-control"
+        <input type="date" name="date" class="form-control" 
                value="{{ request('date') }}">
     </div>
 
@@ -23,142 +23,145 @@
     </div>
 
     <div class="col-md-3 text-end">
-        <a href="{{ route('transactions.index') }}"
+        <a href="{{ route('transactions.index') }}" 
            class="btn btn-secondary">Reset</a>
     </div>
 </form>
 
 {{-- ================= TABLE ================= --}}
 <div class="table-responsive">
-<table class="table table-bordered table-hover align-middle">
-<thead class="table-light text-center">
-<tr>
-    <th width="50">No</th>
-    <th class="text-start">Tanggal</th>
-    <th class="text-start">Invoice</th>
-    <th class="text-start">Total</th>
-    <th>Status Bayar</th>
-    <th width="320">Aksi</th>
-</tr>
-</thead>
+    <table class="table table-bordered table-hover align-middle">
+        <thead class="table-light text-center">
+            <tr>
+                <th width="50">No</th>
+                <th class="text-start">Tanggal</th>
+                <th class="text-start">Invoice</th>
+                <th class="text-start">Pelanggan</th> {{-- Kolom Baru --}}
+                <th class="text-start">Total</th>
+                <th>Status Bayar</th>
+                <th width="320">Aksi</th>
+            </tr>
+        </thead>
 
-<tbody>
-@forelse($data as $trx)
-@php
-    $pendingRequest  = $trx->requests->where('status','pending')->first();
-    $approvedRequest = $trx->requests->where('status','approved')->first();
-@endphp
-<tr>
-    <td class="text-center">{{ $loop->iteration }}</td>
+        <tbody>
+            @forelse($data as $trx)
+            @php
+                $pendingRequest  = $trx->requests->where('status','pending')->first();
+                $approvedRequest = $trx->requests->where('status','approved')->first();
+            @endphp
+            <tr>
+                <td class="text-center">{{ $loop->iteration }}</td>
 
-    <td class="text-start">
-        {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}
-    </td>
+                <td class="text-start">
+                    {{ $trx->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}
+                </td>
 
-    <td class="text-start">
-        {{ $trx->trx_number }}
+                <td class="text-start">
+                    <span class="fw-bold">{{ $trx->trx_number }}</span>
 
-        @if($pendingRequest)
-            <span class="badge bg-warning text-dark ms-1">
-                Request Edit
-            </span>
-        @elseif($approvedRequest)
-            <span class="badge bg-success text-white ms-1">
-                Sudah diperbaiki
-            </span>
-        @endif
-    </td>
+                    @if($pendingRequest)
+                        <span class="badge bg-warning text-dark ms-1">
+                            Request Edit
+                        </span>
+                    @elseif($approvedRequest)
+                        <span class="badge bg-success text-white ms-1">
+                            Sudah diperbaiki
+                        </span>
+                    @endif
+                </td>
 
-    <td class="text-start fw-bold">
-        Rp {{ number_format($trx->total, 0, ',', '.') }}
-    </td>
+                {{-- KOLOM PELANGGAN/MEMBER --}}
+                <td class="text-start">
+                    @if($trx->member)
+                        <span class="badge bg-info text-dark">MEMBER</span><br>
+                        {{ $trx->member->name }}
+                    @else
+                        {{ $trx->buyer_name ?? 'Umum' }}
+                    @endif
+                </td>
 
-    {{-- STATUS BAYAR --}}
-    <td class="text-center">
-        @if($trx->status === 'paid')
-            <span class="badge bg-success">PAID</span>
-        @else
-            <span class="badge bg-warning text-dark">PENDING</span>
-        @endif
-    </td>
+                <td class="text-start fw-bold text-primary">
+                    Rp {{ number_format($trx->total, 0, ',', '.') }}
+                </td>
 
-    {{-- ================= AKSI ================= --}}
-    <td class="text-center">
+                {{-- STATUS BAYAR --}}
+                <td class="text-center">
+                    @if($trx->status === 'paid')
+                        <span class="badge bg-success">PAID</span>
+                    @else
+                        <span class="badge bg-warning text-dark">PENDING</span>
+                    @endif
+                </td>
 
-        {{-- ================= TRANSAKSI PENDING ================= --}}
-        @if($trx->status === 'pending')
-
-            {{-- 🔥 LANJUTKAN POS (ITEM TETAP ADA) --}}
-            <a href="{{ route('pos', ['trx_id' => $trx->id]) }}"
-            class="btn btn-primary btn-sm mb-1">
-                Bayar / Lanjutkan
-            </a>
-            {{-- HAPUS --}}
-            <button class="btn btn-danger btn-sm mb-1"
-                    onclick="deleteTransaction({{ $trx->id }})">
-                Hapus
-            </button>
-
-        {{-- ================= TRANSAKSI PAID ================= --}}
-        @else
-
-            {{-- 🔥 CETAK STRUK --}}
-            <a href="{{ route('transactions.struk', $trx->id) }}"
-               target="_blank"
-               class="btn btn-outline-dark btn-sm mb-1">
-                Cetak Struk
-            </a>
-
-            {{-- OWNER --}}
-            @if(auth()->user()->role === 'owner')
-
-                @if($pendingRequest)
-                    <a href="{{ route('transactions.edit', $trx->id) }}"
-                       class="btn btn-warning btn-sm mb-1">
-                        Review Edit
-                    </a>
-
-                @elseif($approvedRequest)
-                    <form action="{{ route('transactions.approve', $trx->id) }}"
-                          method="POST" class="d-inline">
-                        @csrf
-                        @method('PUT')
-                        <button type="submit"
-                                class="btn btn-success btn-sm mb-1">
-                            Approve
+                {{-- ================= AKSI ================= --}}
+                <td class="text-center">
+                    
+                    {{-- ================= TRANSAKSI PENDING ================= --}}
+                    @if($trx->status === 'pending')
+                        {{-- LANJUTKAN POS --}}
+                        <a href="{{ route('pos', ['trx_id' => $trx->id]) }}" 
+                           class="btn btn-primary btn-sm mb-1">
+                            Bayar / Lanjutkan
+                        </a>
+                        {{-- HAPUS --}}
+                        <button class="btn btn-danger btn-sm mb-1" 
+                                onclick="deleteTransaction({{ $trx->id }})">
+                            Hapus
                         </button>
-                    </form>
-                @endif
 
-            {{-- KASIR --}}
-            @elseif(auth()->user()->role === 'kasir')
+                    {{-- ================= TRANSAKSI PAID ================= --}}
+                    @else
+                        {{-- CETAK STRUK --}}
+                        <a href="{{ route('transactions.struk', $trx->id) }}" 
+                           target="_blank" 
+                           class="btn btn-outline-dark btn-sm mb-1">
+                            Cetak Struk
+                        </a>
 
-                @if(!$pendingRequest && !$approvedRequest)
-                    <button class="btn btn-outline-danger btn-sm mb-1"
-                            onclick="requestEdit({{ $trx->id }})">
-                        Request Perbaikan
-                    </button>
-                @elseif($approvedRequest)
-                    <span class="badge bg-success">
-                        Sudah di-approve
-                    </span>
-                @endif
+                        {{-- OWNER --}}
+                        @if(auth()->user()->role === 'owner')
+                            @if($pendingRequest)
+                                <a href="{{ route('transactions.edit', $trx->id) }}" 
+                                   class="btn btn-warning btn-sm mb-1">
+                                    Review Edit
+                                </a>
+                            @elseif($approvedRequest)
+                                <form action="{{ route('transactions.approve', $trx->id) }}" 
+                                      method="POST" class="d-inline">
+                                    @csrf
+                                    @method('PUT')
+                                    <button type="submit" 
+                                            class="btn btn-success btn-sm mb-1">
+                                        Approve
+                                    </button>
+                                </form>
+                            @endif
 
-            @endif
-
-        @endif
-
-    </td>
-</tr>
-@empty
-<tr>
-    <td colspan="6" class="text-center text-muted">
-        Belum ada transaksi
-    </td>
-</tr>
-@endforelse
-</tbody>
-</table>
+                        {{-- KASIR --}}
+                        @elseif(auth()->user()->role === 'kasir')
+                            @if(!$pendingRequest && !$approvedRequest)
+                                <button class="btn btn-outline-danger btn-sm mb-1" 
+                                        onclick="requestEdit({{ $trx->id }})">
+                                    Request Perbaikan
+                                </button>
+                            @elseif($approvedRequest)
+                                <span class="badge bg-success">
+                                    Sudah di-approve
+                                </span>
+                            @endif
+                        @endif
+                    @endif
+                </td>
+            </tr>
+            @empty
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    Belum ada transaksi
+                </td>
+            </tr>
+            @endforelse
+        </tbody>
+    </table>
 </div>
 
 {{-- ================= PAGINATION ================= --}}

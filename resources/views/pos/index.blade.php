@@ -287,15 +287,31 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
             </div>
             <div class="search-nav-hint" id="searchNavHint">↑↓ Pilih baris &nbsp;|&nbsp; ←→ Geser kolom &nbsp;|&nbsp; Enter Ambil &nbsp;|&nbsp; Esc Tutup</div>
 
-            {{-- MEMBER --}}
+            {{-- NAMA PEMBELI + MEMBER --}}
             <div style="flex-shrink:0;">
-                <span class="section-label">③ Member</span>
+
+                {{-- ③ Nama Pembeli Biasa (bebas input, tanpa password) --}}
+                <span class="section-label">③ Nama Pembeli</span>
                 @if($isReadOnly)
                     <input type="text" class="form-control form-control-xs input-readonly-mode mt-1"
-                           value="{{ $trx->member ? $trx->member->name : 'Tidak ada member' }}" readonly disabled>
+                           value="{{ $trx->buyer_name ?? ($trx->member ? $trx->member->name : 'Tidak ada nama') }}" readonly disabled>
+                @else
+                    <input type="text" id="buyerName" class="form-control form-control-xs mt-1"
+                           placeholder="Nama pembeli (opsional, tampil di struk)"
+                           value="{{ old('buyer_name', $trx->buyer_name ?? '') }}">
+                @endif
+
+                {{-- ④ Member Terdaftar (kunci, butuh password) --}}
+                <div class="mt-1" style="display:flex; align-items:center; gap:5px;">
+                    <span class="section-label" style="white-space:nowrap;">④ Member</span>
+                    <span style="font-size:10px; color:#6c757d;">(klik untuk pilih member terdaftar)</span>
+                </div>
+                @if($isReadOnly)
+                    <input type="text" class="form-control form-control-xs input-readonly-mode mt-1"
+                           value="{{ $trx->member ? $trx->member->name . ' — ' . $trx->member->level : 'Tidak ada member' }}" readonly disabled>
                 @else
                     <input type="text" id="member" class="form-control form-control-xs locked mt-1"
-                           placeholder="Klik untuk input member" readonly onclick="unlockMember()">
+                           placeholder="🔐 Klik untuk pilih member (butuh password)" readonly onclick="unlockMember()">
                 @endif
                 <div id="memberResult" class="border mt-1" style="max-height:65px; overflow:auto;"></div>
                 <div id="memberInfo" class="mt-1 member-info">
@@ -307,78 +323,99 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 
             {{-- TRANSAKSI HARI INI --}}
             <div class="trx-today-header">
-                <span class="section-label">Transaksi Hari Ini</span>
-                @php $pendingCount = $todayTransactions->where('status','pending')->count(); @endphp
-                <span class="pending-badge {{ $pendingCount == 0 ? 'hidden' : '' }}" id="pendingBadge">
-                    {{ $pendingCount }} Pending
-                </span>
-            </div>
+    <span class="section-label">Transaksi Hari Ini</span>
+    @php $pendingCount = $todayTransactions->where('status','pending')->count(); @endphp
+    <span class="pending-badge {{ $pendingCount == 0 ? 'hidden' : '' }}" id="pendingBadge">
+        {{ $pendingCount }} Pending
+    </span>
+</div>
 
-            <div class="pos-box" style="flex:1; overflow:auto; min-height:0;">
-                <table class="trx-today-table">
-                    <thead>
-                        <tr>
-                            <th style="width:16px;">#</th>
-                            <th style="min-width:72px;">Transaksi</th>
-                            <th style="width:30px; text-align:center;">Jam</th>
-                            <th style="width:46px; text-align:right;">Total</th>
-                            <th style="width:44px; text-align:right;">Dibayar</th>
-                            <th style="width:44px; text-align:right;">Sisa</th>
-                            <th style="width:44px; text-align:center;">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($todayTransactions as $t)
-                        @php
-                            $tTotal  = (float)($t->subtotal_items ?? $t->total ?? 0);
-                            $tPaid   = (float)($t->paid_amount ?? $t->paid ?? 0);
-                            $tSisa   = (float)($t->sisa ?? max($tTotal - $tPaid, 0));
-                            $hasPart = $t->status === 'pending' && $tPaid > 0;
-                        @endphp
-                        <tr class="{{ $t->id == $trx->id ? 'active-row' : '' }}"
-                            @if($t->status === 'pending')
-                                onclick="openPending({{ $t->id }})" title="Lanjutkan transaksi"
-                            @elseif($t->status === 'kredit')
-                                onclick="openKreditReadOnly({{ $t->id }})" title="Lihat detail kredit"
-                            @else
-                                onclick="openPaidTransaction({{ $t->id }})" title="Buka kembali (butuh password)"
-                            @endif
-                        >
-                            <td>{{ $loop->iteration }}</td>
-                            <td style="max-width:72px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; color:#333;">{{ $t->trx_number }}</td>
-                            <td style="text-align:center; color:#6c757d;">{{ $t->created_at->format('H:i') }}</td>
-                            <td class="num-col" style="color:#333; font-weight:600;">{{ number_format($tTotal / 1000, 0) }}K</td>
-                            <td class="num-col" style="color:#059669; font-weight:600;">
-                                @if($tPaid > 0){{ number_format($tPaid / 1000, 0) }}K
-                                @else<span style="color:#ccc;">—</span>@endif
-                            </td>
-                            <td class="num-col">
-                                @if($t->status === 'paid' || $tSisa <= 0)
-                                    <span style="color:#059669; font-weight:700;">✓</span>
-                                @else
-                                    <span style="color:{{ $hasPart ? '#dc2626' : '#e67e00' }}; font-weight:700;">{{ number_format($tSisa / 1000, 0) }}K</span>
-                                @endif
-                            </td>
-                            <td style="text-align:center;">
-                                @if($t->status === 'paid')
-                                    <span class="badge bg-success" style="font-size:8px; padding:2px 4px;">Paid</span>
-                                @elseif($t->status === 'kredit')
-                                    <span class="badge bg-warning text-dark" style="font-size:8px; padding:2px 4px;">Kredit</span>
-                                @elseif($t->status === 'bayar_tagihan')
-                                    <span class="badge bg-info text-dark" style="font-size:8px; padding:2px 4px;">Tagihan</span>
-                                @elseif($hasPart)
-                                    <span class="badge bg-danger" style="font-size:8px; padding:2px 4px;">Cicil</span>
-                                @else
-                                    <span class="badge bg-secondary" style="font-size:8px; padding:2px 4px;">Pending</span>
-                                @endif
-                            </td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="7" class="text-center text-muted py-2" style="font-size:11px;">Belum ada transaksi</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+<div class="pos-box" style="flex:1; overflow:auto; min-height:0;">
+    <table class="trx-today-table">
+        <thead>
+            <tr>
+                <th style="width:16px;">No</th>
+                <th style="min-width:70px;">Transaksi</th>
+                <th style="min-width:80px;">Pelanggan</th> {{-- Kolom Nama --}}
+                <th style="width:30px; text-align:center;">Jam</th>
+                <th style="width:46px; text-align:right;">Total</th>
+                <th style="width:44px; text-align:right;">Dibayar</th>
+                <th style="width:44px; text-align:right;">Sisa</th>
+                <th style="width:44px; text-align:center;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($todayTransactions as $t)
+            @php
+                $tTotal  = (float)($t->subtotal_items ?? $t->total ?? 0);
+                $tPaid   = (float)($t->paid_amount ?? $t->paid ?? 0);
+                $tSisa   = (float)($t->sisa ?? max($tTotal - $tPaid, 0));
+                $hasPart = $t->status === 'pending' && $tPaid > 0;
+                
+                // Logika Nama Pelanggan
+                $customerName = $t->member ? $t->member->name : ($t->buyer_name ?? 'Umum');
+            @endphp
+            <tr class="{{ $t->id == $trx->id ? 'active-row' : '' }}"
+                @if($t->status === 'pending')
+                    onclick="openPending({{ $t->id }})" title="Lanjutkan transaksi"
+                @elseif($t->status === 'kredit')
+                    onclick="openKreditReadOnly({{ $t->id }})" title="Lihat detail kredit"
+                @else
+                    onclick="openPaidTransaction({{ $t->id }})" title="Buka kembali (butuh password)"
+                @endif
+            >
+                <td>{{ $loop->iteration }}</td>
+                
+                {{-- Nomor Transaksi --}}
+                <td style="max-width:70px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; color:#333;">
+                    {{ $t->trx_number }}
+                </td>
+
+                {{-- Nama Pelanggan --}}
+                <td style="max-width:80px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; font-weight:500;">
+                    @if($t->member)
+                        <i class="fa fa-user-check text-info" style="font-size:8px;"></i> 
+                    @endif
+                    {{ $customerName }}
+                </td>
+
+                <td style="text-align:center; color:#6c757d; font-size:9px;">{{ $t->created_at->format('H:i') }}</td>
+                
+                <td class="num-col" style="color:#333; font-weight:600;">{{ number_format($tTotal / 1000, 0) }}K</td>
+                
+                <td class="num-col" style="color:#059669; font-weight:600;">
+                    @if($tPaid > 0){{ number_format($tPaid / 1000, 0) }}K
+                    @else<span style="color:#ccc;">—</span>@endif
+                </td>
+
+                <td class="num-col">
+                    @if($t->status === 'paid' || $tSisa <= 0)
+                        <span style="color:#059669; font-weight:700;">✓</span>
+                    @else
+                        <span style="color:{{ $hasPart ? '#dc2626' : '#e67e00' }}; font-weight:700;">{{ number_format($tSisa / 1000, 0) }}K</span>
+                    @endif
+                </td>
+
+                <td style="text-align:center;">
+                    @if($t->status === 'paid')
+                        <span class="badge bg-success" style="font-size:8px; padding:2px 4px;">Paid</span>
+                    @elseif($t->status === 'kredit')
+                        <span class="badge bg-warning text-dark" style="font-size:8px; padding:2px 4px;">Kredit</span>
+                    @elseif($t->status === 'bayar_tagihan')
+                        <span class="badge bg-info text-dark" style="font-size:8px; padding:2px 4px;">Tagihan</span>
+                    @elseif($hasPart)
+                        <span class="badge bg-danger" style="font-size:8px; padding:2px 4px;">Cicil</span>
+                    @else
+                        <span class="badge bg-secondary" style="font-size:8px; padding:2px 4px;">Pending</span>
+                    @endif
+                </td>
+            </tr>
+            @empty
+            <tr><td colspan="8" class="text-center text-muted py-2" style="font-size:11px;">Belum ada transaksi</td></tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
 
         </div>{{-- end pos-left --}}
 
@@ -656,7 +693,7 @@ function updateSearchHighlight() {
 function showSearchHint(s) { document.getElementById('searchNavHint').classList.toggle('show', s); }
 function resetSearchSelection() { selectedSearchIdx = -1; updateSearchHighlight(); showSearchHint(false); }
 
-const NAV_ORDER = ['barcode','search','member','discount_rp','discount_percent','paid'];
+const NAV_ORDER = ['barcode','search','buyerName','member','discount_rp','discount_percent','paid'];
 function focusNext(id) {
     if (IS_READ_ONLY) return;
     const idx = NAV_ORDER.indexOf(id); if (idx === -1) return;
@@ -742,7 +779,7 @@ if (!IS_READ_ONLY) {
         if(document.querySelectorAll('#searchResult tr[data-unit-id]').length>0) showSearchHint(true);
     });
     document.getElementById('search').addEventListener('blur', ()=>setTimeout(()=>showSearchHint(false),200));
-    ['member','discount_rp','discount_percent','paid'].forEach(id=>{
+    ['buyerName','member','discount_rp','discount_percent','paid'].forEach(id=>{
         const el=document.getElementById(id); if(!el) return;
         el.addEventListener('keydown', e=>{ if(e.key!=='Enter') return; e.preventDefault(); if(id==='paid') processPay(); else focusNext(id); });
         el.addEventListener('focus', ()=>highlightActive(id));
@@ -974,12 +1011,15 @@ function updateKembalian() {
     cEl.innerText='Rp '+Math.max(bayar-total,0).toLocaleString('id-ID');
 }
 
-// ✅ FIX: processPay — kirim override_password ke server
-async function processPay() {
+// ✅ FIX FINAL: processPay — handle need_override dari server + kirim override_password
+// forceOverride diisi saat retry setelah server minta password
+async function processPay(forceOverride = null) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diproses ulang dari sini. Gunakan halaman detail kredit.');return;}
     const tEl=document.getElementById('totalText'),total=Number(tEl.dataset.total),pm=selectedPaymentMethod;
     const bayar=pm==='kredit'?0:Number(document.getElementById('paid').value||0);
     const memberId=document.getElementById('member')?.dataset.memberId||null;
+    // ✅ TAMBAHAN: ambil nama pembeli biasa
+    const buyerName=(document.getElementById('buyerName')?.value||'').trim()||null;
     if(pm!=='kredit'&&bayar<=0){alert('Masukkan jumlah bayar terlebih dahulu!');document.getElementById('paid').focus();return;}
     if(pm==='kredit'){
         const jv=document.getElementById('kreditJatuhTempo').value;
@@ -997,19 +1037,24 @@ async function processPay() {
         dp            : parseFloat(document.getElementById('kreditDP').value)||0,
         dp_method     : document.getElementById('kreditDPMethod').value,
     }:null;
+
+    // ✅ Gunakan forceOverride (retry) atau overridePasswordUsed (dari addItem sebelumnya)
+    const overrideToSend = forceOverride || overridePasswordUsed || null;
+
     const sw=pm!=='kredit'?window.open('','_blank'):null;
     try {
         const res=await fetch('/pos/pay',{
             method:'POST',
             headers:jsonHeaders,
             body:JSON.stringify({
-                trx_id         : TRX,
-                paid           : bayar,
-                member_id      : memberId,
-                payment_method : pm,
-                frontend_total : total,
-                kredit_data    : kd,
-                override_password: overridePasswordUsed, // ✅ FIX: kirim override password
+                trx_id            : TRX,
+                paid              : bayar,
+                member_id         : memberId,
+                buyer_name        : buyerName, // ✅ TAMBAHAN: nama pembeli biasa
+                payment_method    : pm,
+                frontend_total    : total,
+                kredit_data       : kd,
+                override_password : overrideToSend,
             })
         });
         const r=await res.json();
@@ -1025,7 +1070,23 @@ async function processPay() {
                 alert('💵 Pembayaran diterima!\nSudah dibayar: Rp '+r.paid_so_far.toLocaleString('id-ID')+'\nSisa         : Rp '+st);
                 if(sw)sw.close(); window.location.reload();
             }
-        } else { alert(r.message||'Gagal menyimpan transaksi'); if(sw)sw.close(); }
+        } else {
+            // ✅ FIX UTAMA: server minta override karena stok kurang → tampilkan modal password
+            if(r.need_override) {
+                if(sw) sw.close(); // tutup tab kosong dulu
+                const p = await askPassword(
+                    '⚠️ Stok Tidak Cukup — Perlu Izin Owner',
+                    r.message + '\n\nMasukkan password owner untuk tetap memproses.',
+                    '⚠️'
+                );
+                if(!p) return; // owner batal → tidak jadi bayar
+                overridePasswordUsed = p;
+                processPay(p); // ✅ retry dengan override password
+                return;
+            }
+            alert(r.message||'Gagal menyimpan transaksi');
+            if(sw)sw.close();
+        }
     } catch(err) { alert('Terjadi error: '+err.message); if(sw)sw.close(); }
 }
 
@@ -1058,6 +1119,8 @@ function selectMember(id) {
         memberDiscount=Number(m.discount||0); document.getElementById('discount_rp').value=''; document.getElementById('discount_percent').value=memberDiscount>0?memberDiscount:'';
         const dp=document.getElementById('discount_percent'); dp.readOnly=false; dp.classList.remove('locked');
         document.getElementById('memberInfo').innerHTML=`<strong>Nama:</strong> ${m.name} | <strong>Level:</strong> ${m.level} | <strong>Disc:</strong> ${m.discount}% | <strong>Poin:</strong> ${m.points}`;
+        // ✅ TAMBAHAN: auto-isi nama pembeli dari member yang dipilih (bisa diubah manual)
+        const bnEl=document.getElementById('buyerName'); if(bnEl&&!bnEl.value) bnEl.value=m.name;
         const kN=document.getElementById('kreditNama'); if(kN&&!kN.value) kN.value=m.name;
         applyDiscountLive();
         fetch('/pos/set-member',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,member_id:m.id})})

@@ -583,7 +583,8 @@ class PosController extends Controller
             'payment_method'    => 'nullable|in:cash,transfer,qris,kredit',
             'frontend_total'    => 'nullable|numeric|min:0',
             'kredit_data'       => 'nullable|array',
-            'override_password' => 'nullable|string', // ✅ TAMBAHAN: terima override password dari frontend
+            'override_password' => 'nullable|string',                 // ✅ override password dari frontend
+            'buyer_name'        => 'nullable|string|max:100',         // ✅ TAMBAHAN: nama pembeli biasa
         ]);
 
         DB::beginTransaction();
@@ -600,8 +601,11 @@ class PosController extends Controller
                 ], 400);
             }
 
-            // ✅ TAMBAHAN: Cek apakah override password valid (diinput saat addItem)
+            // ✅ Cek apakah override password valid
             $isOverrideValid = ($request->override_password ?? '') === env('POS_OVERRIDE_PASSWORD');
+
+            // ✅ TAMBAHAN: ambil nama pembeli biasa dari request
+            $buyerName = $request->filled('buyer_name') ? trim($request->buyer_name) : null;
 
             $activeWarehouseId = Warehouse::where('is_active', true)->value('id') ?? 1;
             $paymentMethod     = $request->payment_method ?? 'cash';
@@ -630,10 +634,12 @@ class PosController extends Controller
                             ->first();
 
                         if (!$altStock) {
+                            // ✅ Kembalikan need_override agar frontend bisa tampilkan modal password
                             DB::rollBack();
                             return response()->json([
-                                'success' => false,
-                                'message' => "Stok {$item->unit->product->name} hanya tersedia {$stock->qty}. Transaksi dibatalkan.",
+                                'success'       => false,
+                                'need_override' => true,
+                                'message'       => "Stok {$item->unit->product->name} hanya tersedia {$stock->qty}. Masukkan password owner untuk tetap memproses.",
                             ], 400);
                         }
 
@@ -713,6 +719,7 @@ class PosController extends Controller
                     'payment_plan'      => $kd['cara_bayar'] ?? null,
                     'installment_count' => ($kd['cara_bayar'] ?? null) === 'cicilan' ? ($kd['cicilan'] ?? null) : null,
                     'kredit_notes'      => isset($kd['catatan']) ? trim($kd['catatan']) : null,
+                    'buyer_name'        => $buyerName, // ✅ TAMBAHAN
                 ]);
 
                 if ($member) {
@@ -757,6 +764,7 @@ class PosController extends Controller
                     'status'         => 'pending',
                     'discount'       => $discountAmount,
                     'payment_method' => $paymentMethod,
+                    'buyer_name'     => $buyerName, // ✅ TAMBAHAN
                 ]);
 
                 DB::commit();
@@ -796,6 +804,7 @@ class PosController extends Controller
                 'status'         => 'paid',
                 'discount'       => $discountAmount,
                 'payment_method' => $paymentMethod,
+                'buyer_name'     => $buyerName, // ✅ TAMBAHAN
             ]);
 
             if ($member) {
