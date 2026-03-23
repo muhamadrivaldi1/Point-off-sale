@@ -18,6 +18,7 @@ class Product extends Model
         'name',
         'sku',
         'is_bkp',
+        'min_stock',
         'supplier_id', // TAMBAHKAN INI AGAR BISA DISIMPAN
     ];
 

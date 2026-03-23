@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductUnit;
-
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
@@ -14,11 +14,13 @@ class ProductController extends Controller
         $query = Product::with('units');
 
         if ($request->filled('q')) {
-            $query->where('name', 'like', "%{$request->q}%")
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', "%{$request->q}%")
                   ->orWhere('sku', 'like', "%{$request->q}%");
+            });
         }
 
-        $products = $query->paginate(10);
+        $products = $query->latest()->paginate(10);
 
         return view('products.index', compact('products'));
     }
@@ -32,19 +34,29 @@ class ProductController extends Controller
     {
         $this->validateProduct($request);
 
-        $product = Product::create([
-            'name'   => $request->name,
-            'sku'    => $request->sku,
-            'is_bkp' => $request->is_bkp ?? 0
-        ]);
+        DB::beginTransaction();
 
-        if (!empty($request->units)) {
+        try {
+            $product = Product::create([
+                'name'       => $request->name,
+                'sku'        => $request->sku,
+                'is_bkp'     => $request->is_bkp ?? 0,
+                'min_stock'  => $request->min_stock, // ✅ tambahan
+            ]);
+
             $this->saveUnits($product, $request->units);
-        }
 
-        return redirect()
-            ->route('products.index')
-            ->with('success', 'Produk berhasil disimpan');
+            DB::commit();
+
+            return redirect()
+                ->route('products.index')
+                ->with('success', 'Produk berhasil disimpan');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->withErrors('Gagal menyimpan produk: ' . $e->getMessage());
+        }
     }
 
     public function edit(Product $product)
@@ -57,31 +69,54 @@ class ProductController extends Controller
     {
         $this->validateProduct($request);
 
-        $product->update([
-            'name'   => $request->name,
-            'sku'    => $request->sku,
-            'is_bkp' => $request->is_bkp ?? 0
-        ]);
+        DB::beginTransaction();
 
-        $product->units()->delete();
+        try {
+            $product->update([
+                'name'       => $request->name,
+                'sku'        => $request->sku,
+                'is_bkp'     => $request->is_bkp ?? 0,
+                'min_stock'  => $request->min_stock, // ✅ tambahan
+            ]);
 
-        if (!empty($request->units)) {
+            // Hapus unit lama (simple & aman)
+            $product->units()->delete();
+
+            // Simpan ulang unit
             $this->saveUnits($product, $request->units);
-        }
 
-        return redirect()
-            ->route('products.index')
-            ->with('success', 'Produk berhasil diperbarui');
+            DB::commit();
+
+            return redirect()
+                ->route('products.index')
+                ->with('success', 'Produk berhasil diperbarui');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->withErrors('Gagal update produk: ' . $e->getMessage());
+        }
     }
 
     public function destroy(Product $product)
     {
-        $product->units()->delete();
-        $product->delete();
+        DB::beginTransaction();
 
-        return redirect()
-            ->route('products.index')
-            ->with('success', 'Produk berhasil dihapus');
+        try {
+            $product->units()->delete();
+            $product->delete();
+
+            DB::commit();
+
+            return redirect()
+                ->route('products.index')
+                ->with('success', 'Produk berhasil dihapus');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->withErrors('Gagal hapus produk');
+        }
     }
 
     private function validateProduct(Request $request)
@@ -89,7 +124,12 @@ class ProductController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'sku'  => 'nullable|string|max:100',
+
+            // ✅ tambahan stok minimal
+            'min_stock' => 'required|integer|min:0',
+
             'units' => 'required|array|min:1',
+
             'units.*.name'       => 'required|string|max:50',
             'units.*.conversion' => 'required|numeric|min:1',
             'units.*.price'      => 'required|numeric|min:0',

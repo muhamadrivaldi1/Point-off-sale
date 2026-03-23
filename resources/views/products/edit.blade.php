@@ -37,6 +37,18 @@
            class="form-control">
 </div>
 
+{{-- ✅ TAMBAHAN STOK MINIMAL --}}
+<div class="mb-3">
+    <label class="form-label">Stok Minimal</label>
+    <input type="number"
+           name="min_stock"
+           value="{{ old('min_stock',$product->min_stock ?? 0) }}"
+           class="form-control"
+           min="0"
+           required>
+    <small class="text-muted">Batas minimal stok sebelum dianggap menipis</small>
+</div>
+
 <div class="form-check mb-3">
     <input class="form-check-input"
            type="checkbox"
@@ -68,7 +80,9 @@
                required>
     </div>
     <div class="col">
-        <input name="units[{{ $i }}][conversion]"
+        <input type="number"
+               step="any"
+               name="units[{{ $i }}][conversion]"
                value="{{ old("units.$i.conversion",$u->conversion) }}"
                class="form-control"
                placeholder="Konversi"
@@ -81,7 +95,9 @@
                placeholder="Barcode">
     </div>
     <div class="col">
-        <input name="units[{{ $i }}][price]"
+        <input type="number"
+               step="any"
+               name="units[{{ $i }}][price]"
                value="{{ old("units.$i.price",$u->price) }}"
                class="form-control"
                placeholder="Harga"
@@ -102,6 +118,7 @@
 <a href="{{ route('products.index') }}" class="btn btn-secondary mt-3">
     Kembali
 </a>
+
 </form>
 
 <script>
@@ -117,7 +134,9 @@ function addUnit() {
                    required>
         </div>
         <div class="col">
-            <input name="units[${unitIndex}][conversion]"
+            <input type="number"
+                   step="any"
+                   name="units[${unitIndex}][conversion]"
                    class="form-control"
                    placeholder="Konversi"
                    required>
@@ -128,7 +147,9 @@ function addUnit() {
                    placeholder="Barcode">
         </div>
         <div class="col">
-            <input name="units[${unitIndex}][price]"
+            <input type="number"
+                   step="any"
+                   name="units[${unitIndex}][price]"
                    class="form-control"
                    placeholder="Harga"
                    required>
@@ -141,18 +162,25 @@ function addUnit() {
             </button>
         </div>
     </div>`;
+
     document.getElementById('units')
         .insertAdjacentHTML('beforeend', html);
+
     unitIndex++;
 }
 
 function removeUnit(btn) {
     const rows = document.querySelectorAll('.unit-row');
+
     if (rows.length <= 1) {
         alert('Minimal harus ada 1 unit');
         return;
     }
-    btn.closest('.unit-row').remove();
+
+    if (confirm('Yakin hapus unit ini?')) {
+        btn.closest('.unit-row').remove();
+    }
 }
 </script>
+
 @endsection
