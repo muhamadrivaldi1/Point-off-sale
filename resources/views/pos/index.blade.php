@@ -590,9 +590,11 @@ const jsonHeaders = { 'Content-Type':'application/json', 'X-CSRF-TOKEN':csrf, 'A
 let memberUnlocked = false, manualDiscountRp = 0, manualDiscountPercent = 0, memberDiscount = 0;
 let selectedPaymentMethod = 'cash', isAdding = false, isScanPending = false, selectedSearchIdx = -1;
 
+// ✅ FIX: Simpan override password yang sudah diverifikasi agar bisa dikirim saat pay
+let overridePasswordUsed = null;
+
 // ══════════════════════════════════════════════════════
 //  PASSWORD MODAL — menggantikan prompt() biasa
-//  Mengembalikan Promise<string|null>
 // ══════════════════════════════════════════════════════
 let _pwdResolve = null;
 
@@ -635,7 +637,6 @@ function togglePwdVisibility() {
     inp.focus();
 }
 
-// Enter di input modal = konfirmasi, Escape = batal
 document.getElementById('pwdModalInput').addEventListener('keydown', e => {
     if (e.key === 'Enter')  { e.preventDefault(); pwdModalConfirm(); }
     if (e.key === 'Escape') { e.preventDefault(); pwdModalCancel(); }
@@ -753,13 +754,13 @@ window.addEventListener('load', ()=>{ if(!IS_READ_ONLY){ document.getElementById
 function createNewTransaction() { window.location.href='/pos?new_transaction=1'; }
 function openKreditReadOnly(id) { window.location.href=`/pos?trx_id=${id}`; }
 
-// ── UNLOCK MEMBER (async, pakai modal) ──
+// ── UNLOCK MEMBER ──
 async function unlockMember() {
     if (IS_READ_ONLY || memberUnlocked) return;
     const pwd = await askPassword('Buka Input Member', 'Masukkan password owner untuk mengisi data member.');
     if (!pwd) return;
     fetch('/pos/override-owner',{method:'POST',headers:jsonHeaders,body:JSON.stringify({password:pwd})}).then(r=>r.json()).then(r=>{
-        if (!r.success) { document.getElementById('pwdModalError'); alert("❌ Password salah"); return; }
+        if (!r.success) { alert("❌ Password salah"); return; }
         memberUnlocked=true;
         const el=document.getElementById('member'); el.readOnly=false; el.classList.remove('locked'); el.focus(); highlightActive('member');
     });
@@ -873,7 +874,7 @@ function addFromSearch(id) {
     resetSearchSelection(); document.getElementById('searchBox').scrollLeft=0; document.getElementById('barcode').focus(); highlightActive('barcode');
 }
 
-// ── ADD ITEM (override pakai modal) ──
+// ✅ FIX: ADD ITEM — simpan override password ke variabel global saat berhasil dipakai
 async function add(id, ow=null) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;} if(isAdding) return; isAdding=true;
     document.getElementById('barcode').classList.add('adding'); document.getElementById('search').classList.add('adding');
@@ -883,9 +884,15 @@ async function add(id, ow=null) {
         if(r.readonly){alert('🔒 '+r.message);return;}
         if(r.need_override){
             const p = await askPassword('Override Stok', `Stok tidak cukup!\nMasukkan password owner untuk melanjutkan.`, '⚠️');
-            if(!p) return; add(id,p); return;
+            if(!p) return;
+            overridePasswordUsed = p; // ✅ simpan password override ke global
+            add(id, p);
+            return;
         }
-        if(!r.success){alert(r.message);return;} loadCart();
+        if(!r.success){alert(r.message);return;}
+        // ✅ Jika berhasil dengan override, pastikan tersimpan
+        if(ow) overridePasswordUsed = ow;
+        loadCart();
     }).catch(err=>{
         isAdding=false; document.getElementById('barcode').classList.remove('adding'); document.getElementById('search').classList.remove('adding');
         console.error(err); alert('Terjadi error saat menambah item. Coba lagi.');
@@ -919,7 +926,7 @@ function plusQty(id){if(IS_READ_ONLY)return;updateQtyManual(id,getQty(id)+1);}
 function minusQty(id){if(IS_READ_ONLY)return;updateQtyManual(id,Math.max(getQty(id)-1,1));}
 function getQty(id){return Number(document.querySelector(`input[onchange="updateQtyManual(${id},this.value)"]`).value);}
 
-// ── UPDATE QTY (override pakai modal) ──
+// ✅ FIX: UPDATE QTY — simpan override password ke variabel global saat berhasil dipakai
 async function updateQtyManual(iId,qty,ow=null) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;}
     fetch('/pos/update-qty-manual',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,item_id:iId,qty,warehouse_id:getWarehouseId(),override_password:ow})})
@@ -927,8 +934,13 @@ async function updateQtyManual(iId,qty,ow=null) {
         if(r.readonly){alert('🔒 '+r.message);return;}
         if(r.need_override){
             const p = await askPassword('Override Stok', `Stok tidak cukup!\nMasukkan password owner.`, '⚠️');
-            if(!p) return; updateQtyManual(iId,qty,p); return;
+            if(!p) return;
+            overridePasswordUsed = p; // ✅ simpan password override ke global
+            updateQtyManual(iId, qty, p);
+            return;
         }
+        // ✅ Jika berhasil dengan override, pastikan tersimpan
+        if(ow) overridePasswordUsed = ow;
         loadCart();
     });
 }
@@ -939,7 +951,7 @@ function updateUnit(iId,uId) {
     .then(r=>r.json()).then(r=>{ if(r.readonly){alert('🔒 '+r.message);return;} loadCart(); });
 }
 
-// ── HAPUS ITEM (pakai modal) ──
+// ── HAPUS ITEM ──
 async function removeItemWithAuth(iId, name) {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diedit.');return;}
     const p = await askPassword('Hapus Item', `Masukkan password owner untuk menghapus:\n"${name}"`, '🗑');
@@ -962,6 +974,7 @@ function updateKembalian() {
     cEl.innerText='Rp '+Math.max(bayar-total,0).toLocaleString('id-ID');
 }
 
+// ✅ FIX: processPay — kirim override_password ke server
 async function processPay() {
     if(IS_READ_ONLY){alert('🔒 Transaksi kredit tidak dapat diproses ulang dari sini. Gunakan halaman detail kredit.');return;}
     const tEl=document.getElementById('totalText'),total=Number(tEl.dataset.total),pm=selectedPaymentMethod;
@@ -986,7 +999,20 @@ async function processPay() {
     }:null;
     const sw=pm!=='kredit'?window.open('','_blank'):null;
     try {
-        const res=await fetch('/pos/pay',{method:'POST',headers:jsonHeaders,body:JSON.stringify({trx_id:TRX,paid:bayar,member_id:memberId,payment_method:pm,frontend_total:total,kredit_data:kd})}),r=await res.json();
+        const res=await fetch('/pos/pay',{
+            method:'POST',
+            headers:jsonHeaders,
+            body:JSON.stringify({
+                trx_id         : TRX,
+                paid           : bayar,
+                member_id      : memberId,
+                payment_method : pm,
+                frontend_total : total,
+                kredit_data    : kd,
+                override_password: overridePasswordUsed, // ✅ FIX: kirim override password
+            })
+        });
+        const r=await res.json();
         if(r.success){
             if(r.is_kredit){showKreditSuccess(r.trx_id,total,kd);return;}
             if(r.paid_off){
@@ -1051,7 +1077,7 @@ function getFinalDiscount(){
 
 function openPending(id){ if(!id)return; if(confirm("Lanjutkan transaksi ini?")) window.location.href=`/pos?trx_id=${id}`; }
 
-// ── BUKA TRANSAKSI PAID (pakai modal) ──
+// ── BUKA TRANSAKSI PAID ──
 async function openPaidTransaction(id) {
     if(!id) return;
     const p = await askPassword('Buka Kembali Transaksi', 'Masukkan password owner untuk membuka kembali transaksi yang sudah selesai.', '🔓');
@@ -1080,7 +1106,7 @@ function handleJurnalOverlayClick(e){ if(e.target===document.getElementById('jur
 
 document.addEventListener('keydown', e=>{
     if(e.key!=='Escape') return;
-    if(document.getElementById('pwdModalOverlay').classList.contains('show')) return; // modal handle sendiri
+    if(document.getElementById('pwdModalOverlay').classList.contains('show')) return;
     if(document.getElementById('jurnalOverlay').classList.contains('show')){ closeJurnal(); return; }
 });
 </script>

@@ -577,12 +577,13 @@ class PosController extends Controller
     public function pay(Request $request)
     {
         $request->validate([
-            'trx_id'         => 'required|exists:transactions,id',
-            'paid'           => 'nullable|numeric|min:0',
-            'member_id'      => 'nullable|exists:members,id',
-            'payment_method' => 'nullable|in:cash,transfer,qris,kredit',
-            'frontend_total' => 'nullable|numeric|min:0',
-            'kredit_data'    => 'nullable|array',
+            'trx_id'            => 'required|exists:transactions,id',
+            'paid'              => 'nullable|numeric|min:0',
+            'member_id'         => 'nullable|exists:members,id',
+            'payment_method'    => 'nullable|in:cash,transfer,qris,kredit',
+            'frontend_total'    => 'nullable|numeric|min:0',
+            'kredit_data'       => 'nullable|array',
+            'override_password' => 'nullable|string', // ✅ TAMBAHAN: terima override password dari frontend
         ]);
 
         DB::beginTransaction();
@@ -598,6 +599,9 @@ class PosController extends Controller
                     'message' => 'Transaksi sudah selesai atau bukan pending.',
                 ], 400);
             }
+
+            // ✅ TAMBAHAN: Cek apakah override password valid (diinput saat addItem)
+            $isOverrideValid = ($request->override_password ?? '') === env('POS_OVERRIDE_PASSWORD');
 
             $activeWarehouseId = Warehouse::where('is_active', true)->value('id') ?? 1;
             $paymentMethod     = $request->payment_method ?? 'cash';
@@ -616,23 +620,27 @@ class PosController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                // Cari stok alternatif jika stok di gudang ini kurang
+                // ✅ FIX: Jika override valid, lewati pengecekan stok dan langsung pakai stok yang ada
                 if ($stock && $stock->qty > 0 && $stock->qty < $item->qty) {
-                    $altStock = Stock::where('product_unit_id', $item->product_unit_id)
-                        ->where('qty', '>=', $item->qty)
-                        ->lockForUpdate()
-                        ->first();
+                    if (!$isOverrideValid) {
+                        // Tidak ada override → cari stok alternatif di gudang lain
+                        $altStock = Stock::where('product_unit_id', $item->product_unit_id)
+                            ->where('qty', '>=', $item->qty)
+                            ->lockForUpdate()
+                            ->first();
 
-                    if (!$altStock) {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Stok {$item->unit->product->name} hanya tersedia {$stock->qty}. Transaksi dibatalkan.",
-                        ], 400);
+                        if (!$altStock) {
+                            DB::rollBack();
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Stok {$item->unit->product->name} hanya tersedia {$stock->qty}. Transaksi dibatalkan.",
+                            ], 400);
+                        }
+
+                        $stock       = $altStock;
+                        $warehouseId = $altStock->warehouse_id;
                     }
-
-                    $stock       = $altStock;
-                    $warehouseId = $altStock->warehouse_id;
+                    // Jika $isOverrideValid === true → lanjut pakai $stock apa adanya (stok boleh minus)
                 }
 
                 $subtotal    += ($item->price - ($item->discount ?? 0)) * $item->qty;
@@ -676,7 +684,7 @@ class PosController extends Controller
                     $item = $row['item'];
                     $wId  = $row['warehouse_id'];
 
-                    if ($s && $s->qty > 0) {
+                    if ($s) {
                         $this->decrementStockWithMutation(
                             $item->product_unit_id,
                             $wId,
@@ -768,7 +776,7 @@ class PosController extends Controller
                 $item = $row['item'];
                 $wId  = $row['warehouse_id'];
 
-                if ($s && $s->qty > 0) {
+                if ($s) {
                     $this->decrementStockWithMutation(
                         $item->product_unit_id,
                         $wId,
