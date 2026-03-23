@@ -72,10 +72,14 @@ class PosController extends Controller
         if (!$stock) return;
 
         $before = (float) $stock->qty;
-        $after  = max($before - $qty, 0);
 
+        // ✅ Sekarang bisa bernilai negatif (misal: 100 - 150 = -50)
+        $after  = $before - $qty;
+
+        // Update tabel stocks
         $stock->update(['qty' => $after]);
 
+        // Catat mutasi dengan saldo akhir yang benar (negatif jika stok habis)
         StockMutation::create([
             'unit_id'      => $productUnitId,
             'user_id'      => Auth::id(),
@@ -83,12 +87,11 @@ class PosController extends Controller
             'status'       => 'penjualan',
             'qty'          => $qty,
             'stock_before' => $before,
-            'stock_after'  => $after,
+            'stock_after'  => $after, // Akan tersimpan -50 di database
             'reference'    => $trxNumber,
             'description'  => $description,
         ]);
     }
-
     // ================= GENERATE TRX NUMBER =================
     private function generateTrxNumber(): string
     {
@@ -233,8 +236,14 @@ class PosController extends Controller
         })->values()->toArray();
 
         return view('pos.index', compact(
-            'trx', 'members', 'pendingTransactions', 'todayTransactions',
-            'activeWarehouse', 'warehouses', 'warehousesJson', 'isReadOnly'
+            'trx',
+            'members',
+            'pendingTransactions',
+            'todayTransactions',
+            'activeWarehouse',
+            'warehouses',
+            'warehousesJson',
+            'isReadOnly'
         ));
     }
 
@@ -819,7 +828,6 @@ class PosController extends Controller
 
             DB::commit();
             return response()->json(['success' => true, 'paid_off' => true, 'trx_id' => $trx->id]);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -1144,7 +1152,6 @@ class PosController extends Controller
 
             $nominal = number_format($amountPaidFinal, 0, ',', '.');
             return back()->with('success', "Pembayaran sebesar Rp $nominal berhasil dicatat!");
-
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -1180,7 +1187,9 @@ class PosController extends Controller
                 'trx_number'     => 'TGH-' . date('Ymd') . '-' . str_pad(
                     Transaction::whereDate('created_at', today())
                         ->where('status', 'bayar_tagihan')->count() + 1,
-                    3, '0', STR_PAD_LEFT
+                    3,
+                    '0',
+                    STR_PAD_LEFT
                 ),
                 'user_id'        => auth()->id(),
                 'warehouse_id'   => auth()->user()->active_warehouse_id ?? 1,
